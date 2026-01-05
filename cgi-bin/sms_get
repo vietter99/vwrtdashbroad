@@ -1,0 +1,111 @@
+#!/usr/bin/lua
+print("Content-type: application/json\n")
+
+local status, json = pcall(require, "luci.jsonc")
+if not status then
+    print('{"status":"error", "message":"Missing luci.jsonc"}')
+    os.exit()
+end
+
+function exec(cmd)
+    local handle = io.popen(cmd)
+    if not handle then return "" end
+    local result = handle:read("*a")
+    handle:close()
+    return result or ""
+end
+
+function clean(str)
+    if not str then return "" end
+    return str:gsub("[\n\r]", " "):match("^%s*(.-)%s*$")
+end
+
+function format_time(date_str)
+    if not date_str or date_str == "" then return nil end
+    local y, m, d, H, M = date_str:match("(%d+)-(%d+)-(%d+)T(%d+):(%d+)")
+    if not y then
+        y, m, d, H, M = date_str:match("(%d+)-(%d+)-(%d+)%s+(%d+):(%d+)")
+    end
+    if H and M and d and m and y then
+        return string.format("%s:%s %d/%d/%s", H, M, tonumber(d), tonumber(m), y)
+    end
+    return nil
+end
+
+function get_modem_index()
+    local output = exec("mmcli -L 2>/dev/null")
+    local idx = output:match("/Modem/(%d+)")
+    return idx or "0"
+end
+
+function action_list()
+    local m_idx = get_modem_index()
+    
+    -- 1. Ép modem quét lại tin nhắn
+    exec("mmcli -m " .. m_idx .. " --messaging-status >/dev/null 2>&1")
+
+    -- 2. Lấy danh sách
+    local list_out = exec("mmcli -m " .. m_idx .. " --messaging-list-sms 2>/dev/null")
+    local messages = {}
+    local paths = {}
+    
+    for path in list_out:gmatch("/SMS/(%d+)") do
+        table.insert(paths, path)
+    end
+    table.sort(paths, function(a,b) return tonumber(a) > tonumber(b) end)
+
+    local count = 0
+    for _, idx in ipairs(paths) do
+        if count >= 100 then break end 
+        
+        local content = exec("mmcli -s " .. idx .. " 2>/dev/null")
+        if content and content ~= "" then
+            local number = content:match("number: ([^\n]+)")
+            local text = content:match("text: ([^\n]+)")
+            local state = content:match("state: ([^\n]+)")
+            local timestamp = content:match("timestamp: ([^\n]+)")
+            local delivery_date = content:match("delivery date: ([^\n]+)")
+            
+            if text then
+                local msg_type = "received"
+                if state and state:find("sent") then msg_type = "sent" end
+                
+                local raw_time = clean(timestamp) or clean(delivery_date)
+                local pretty_time = format_time(raw_time) or ""
+
+                table.insert(messages, {
+                    id = idx,
+                    number = clean(number) or "Unknown",
+                    text = clean(text) or "",
+                    time = pretty_time,
+                    type = msg_type
+                })
+                count = count + 1
+            end
+        end
+    end
+    return messages
+end
+
+-- --- XỬ LÝ ---
+local query = os.getenv("QUERY_STRING") or ""
+local action = query:match("action=([^&]+)")
+local id_param = query:match("id=([^&]+)")
+
+local response = { status = "success", data = {} }
+local m_idx = get_modem_index()
+
+if action == "delete" and id_param then
+    for id in string.gmatch(id_param, "([^,]+)") do
+        exec("mmcli -m " .. m_idx .. " --messaging-delete-sms=" .. id)
+    end
+elseif action == "delete_all" then
+    local list = exec("mmcli -m " .. m_idx .. " --messaging-list-sms 2>/dev/null")
+    for id in list:gmatch("/SMS/(%d+)") do
+        exec("mmcli -m " .. m_idx .. " --messaging-delete-sms=" .. id)
+    end
+else
+    response.data = action_list()
+end
+
+print(json.stringify(response))

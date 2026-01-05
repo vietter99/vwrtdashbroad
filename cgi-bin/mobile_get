@@ -1,0 +1,38 @@
+#!/usr/bin/lua
+
+local cjson = require "cjson"
+
+-- Đường dẫn file cache
+local cache_file = "/tmp/vwrt_mobile.json"
+
+-- Hàm đọc file
+function read_file(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local content = f:read("*all")
+    f:close()
+    return content
+end
+
+function get_data()
+    local content = read_file(cache_file)
+    local data = {}
+    
+    if content and content ~= "" then
+        local ok, parsed = pcall(cjson.decode, content)
+        if ok and parsed then
+            data = parsed
+        end
+    end
+
+    if not data.operator_name then
+        data.operator_name = "Loading..."
+        data.signal = "0"
+        data.mode = "Checking..."
+    end
+
+    return { status = "success", data = data }
+end
+
+print("Content-type: application/json\n\n")
+print(cjson.encode(get_data()))

@@ -1,0 +1,27 @@
+#!/usr/bin/lua
+
+function get_temp()
+    local paths = {"/sys/class/thermal/thermal_zone0/temp", "/sys/devices/virtual/thermal/thermal_zone0/temp"}
+    for _, path in ipairs(paths) do
+        local f = io.open(path, "r")
+        if f then
+            local c = f:read("*all"); f:close(); local t = tonumber(c)
+            if t and t > 1000 then t = t / 1000 end
+            if t then return math.floor(t) end
+        end
+    end
+    return 0
+end
+
+function get_rom()
+    local h = io.popen("df -k /overlay | tail -1")
+    local r = h:read("*a"); h:close()
+    local t, u, f, p = r:match("%S+%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%%")
+    if not t then return 0, 0, 0 end
+    return tonumber(t)*1024, tonumber(u)*1024, tonumber(p)
+end
+
+print("Content-type: application/json\n\n")
+local t = get_temp()
+local tot, use, per = get_rom()
+print(string.format('{"temperature": %d, "rom_total": %d, "rom_used": %d, "rom_percent": %d}', t, tot, use, per))

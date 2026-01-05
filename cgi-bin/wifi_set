@@ -1,0 +1,61 @@
+#!/usr/bin/lua
+
+local cjson = require "cjson"
+
+local len = tonumber(os.getenv("CONTENT_LENGTH") or 0)
+local content = io.read(len)
+local input = cjson.decode(content)
+
+print("Content-type: application/json\n\n")
+
+if not input.section or not input.device then
+    print('{"status": "error", "message": "Thiếu thông tin thiết bị"}')
+    os.exit()
+end
+
+-- Hàm escape an toàn cho lệnh shell
+function safe_arg(str) 
+    if not str then return "''" end
+    return "'" .. str:gsub("'", "'\\''") .. "'" 
+end
+
+local iface_sec = safe_arg(input.section)
+local dev_sec = safe_arg(input.device)
+local ssid = safe_arg(input.ssid)
+local key_val = input.key or ""
+local key = safe_arg(key_val)
+local channel = safe_arg(input.channel)
+local htmode = safe_arg(input.htmode)
+local disabled = input.enabled and "0" or "1"
+
+-- 1. Cấu hình DEVICE (Kênh, Độ rộng)
+-- Chỉ set channel/htmode nếu nó khác 'auto' hoặc có giá trị
+os.execute("uci set wireless." .. dev_sec .. ".channel=" .. channel)
+os.execute("uci set wireless." .. dev_sec .. ".htmode=" .. htmode)
+
+-- 2. Cấu hình INTERFACE (Tên, Bật/Tắt)
+os.execute("uci set wireless." .. iface_sec .. ".ssid=" .. ssid)
+os.execute("uci set wireless." .. iface_sec .. ".disabled=" .. disabled)
+
+-- 3. Cấu hình Mật khẩu & Bảo mật
+if #key_val >= 8 then
+    -- Đặt chế độ bảo mật WPA2-PSK (An toàn và tương thích tốt hơn mixed)
+    -- Nếu muốn hỗ trợ thiết bị quá cũ, bạn có thể đổi 'psk2' thành 'psk-mixed'
+    os.execute("uci set wireless." .. iface_sec .. ".encryption='psk-mixed'")
+    os.execute("uci set wireless." .. iface_sec .. ".key=" .. key)
+else
+    -- Không mật khẩu (Open)
+    os.execute("uci set wireless." .. iface_sec .. ".encryption='none'")
+    os.execute("uci set wireless." .. iface_sec .. ".key=''")
+end
+
+-- 4. Lưu cấu hình (Chưa apply vội)
+os.execute("uci commit wireless")
+
+-- [QUAN TRỌNG] Trả về kết quả cho trình duyệt TRƯỚC KHI mạng bị ngắt
+print('{"status": "success", "message": "Đã lưu! Wifi sẽ khởi động lại sau 1 giây."}')
+io.flush() -- Đẩy dữ liệu đi ngay lập tức
+
+-- 5. Thực hiện Reload Wifi ngầm (Background)
+-- Dùng dấu & để chạy nền, sleep 1s để đảm bảo response đã gửi xong
+os.execute("(sleep 1; wifi reload) >/dev/null 2>&1 &")

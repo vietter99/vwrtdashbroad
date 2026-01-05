@@ -1,0 +1,98 @@
+#!/usr/bin/lua
+
+local ubus = require "ubus"
+local cjson = require "cjson"
+
+-- Kết nối tới hệ thống UBUS
+local conn = ubus.connect()
+if not conn then
+    print("Content-type: application/json\n\n[]")
+    return
+end
+
+-- 1. Lấy thông tin các Logical Interface
+local dump = conn:call("network.interface", "dump", {})
+local interfaces_map = {}
+
+if dump and dump.interface then
+    for _, iface in ipairs(dump.interface) do
+        -- THAY ĐỔI Ở ĐÂY: Thêm điều kiện (iface.interface ~= "loopback")
+        -- Chỉ xử lý nếu interface đã UP VÀ không phải là loopback
+        if iface.up and iface.interface ~= "loopback" then
+            
+            local dev_name = iface.l3_device or iface.device
+            
+            -- Lấy địa chỉ IPv4
+            local v4_list = iface["ipv4-address"]
+            local v4_str = "--"
+            if v4_list and #v4_list > 0 then
+                v4_str = v4_list[1].address
+            end
+
+            -- Lấy địa chỉ IPv6 (Lọc bỏ fe80::)
+            local v6_list = iface["ipv6-address"]
+            local v6_str = "--"
+            if v6_list and #v6_list > 0 then
+                for _, v6_obj in ipairs(v6_list) do
+                    if not v6_obj.address:match("^fe80") then
+                        v6_str = v6_obj.address
+                        break
+                    end
+                end
+            end
+
+            -- Chỉ thêm vào danh sách nếu có thiết bị vật lý
+            if dev_name and (v4_str ~= "--" or v6_str ~= "--") then
+                interfaces_map[dev_name] = {
+                    name = dev_name,
+                    label = iface.interface:upper(),
+                    ipv4 = v4_str,
+                    ipv6 = v6_str,
+                    proto = iface.proto
+                }
+            end
+        end
+    end
+end
+
+-- 2. Lấy thống kê lưu lượng (Traffic Stats)
+local dev_stats = conn:call("network.device", "status", {}) or {}
+
+local final_list = {}
+
+-- 3. Tổng hợp dữ liệu
+for dev_name, info in pairs(interfaces_map) do
+    local stats = dev_stats[dev_name] or {}
+    local stat_data = stats.statistics or {}
+    
+    local rx = stat_data.rx_bytes or 0
+    local tx = stat_data.tx_bytes or 0
+    local mac = stats.macaddr or "00:00:00:00:00:00"
+
+    -- Xử lý màu sắc
+    local color = "tag-blue" 
+    
+    if info.label == "LAN" or dev_name:find("br%-") then
+        color = "tag-green"
+        if info.label == "LAN" then info.label = "LAN BRIDGE" end
+    elseif info.label:find("VPN") or dev_name:find("tun") or dev_name:find("wg") then
+        color = "tag-purple" -- Màu tím cho VPN/WireGuard
+    elseif info.label == "WAN" or info.label == "WAN6" then
+        info.label = "WAN PORT"
+    end
+
+    table.insert(final_list, {
+        name = dev_name,
+        label = info.label,
+        color = color,
+        mac = mac:upper(),
+        rx = rx,
+        tx = tx,
+        ipv4 = info.ipv4,
+        ipv6 = info.ipv6
+    })
+end
+
+-- Trả kết quả JSON
+print("Content-type: application/json\n\n")
+print(cjson.encode(final_list))

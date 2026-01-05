@@ -1,0 +1,202 @@
+#!/usr/bin/lua
+
+local cjson = require "cjson"
+local tmp_file_cpu = "/tmp/cpu_last_stat"
+local cache_file = "/tmp/sysinfo_output.json" 
+local cache_ttl = 2 
+
+-- ==========================================
+-- CƠ CHẾ CACHE THÔNG MINH
+-- ==========================================
+function check_cache()
+    local f = io.open(cache_file, "r")
+    if not f then return nil end
+    local content = f:read("*all")
+    f:close()
+    
+    local handle = io.popen("date -r " .. cache_file .. " +%s 2>/dev/null")
+    local file_time = tonumber(handle:read("*a")) or 0
+    handle:close()
+
+    local curr_time = os.time()
+    
+    if (curr_time - file_time) < cache_ttl and content and content ~= "" then
+        return content
+    end
+    return nil
+end
+
+local cached_content = check_cache()
+if cached_content then
+    print("Content-type: application/json\n\n")
+    print(cached_content)
+    os.exit(0)
+end
+
+function read_file(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local content = f:read("*all")
+    f:close()
+    return content
+end
+
+function write_file(path, content)
+    local f = io.open(path, "w")
+    if f then f:write(content) f:close() end
+end
+
+function get_mobile_temp()
+    local f = io.open("/tmp/vwrt_mobile.json", "r")
+    if not f then return 0 end
+    local content = f:read("*all")
+    f:close()
+    
+    if content and content ~= "" then
+        local ok, parsed = pcall(cjson.decode, content)
+        if ok and parsed and parsed.mtemp then
+             local s = tostring(parsed.mtemp)
+             local n = s:match("([%d%.]+)")
+             return tonumber(n) or 0
+        end
+    end
+    return 0
+end
+
+-- ==========================================
+-- TÊN THIẾT BỊ (MODEL)
+-- ==========================================
+function get_device_model()
+    local model = read_file("/tmp/sysinfo/model")
+    if model and model ~= "" then
+        return model:gsub("\n", "") 
+    end
+    
+    local f = io.open("/proc/cpuinfo", "r")
+    if f then
+        for line in f:lines() do
+            local m = line:match("Model%s+:%s+(.+)") or line:match("Machine%s+:%s+(.+)") or line:match("Hardware%s+:%s+(.+)")
+            if m then
+                f:close()
+                return m
+            end
+        end
+        f:close()
+    end
+    
+    return "Unknown Device"
+end
+
+-- 3. CPU
+function get_cpu_usage()
+    local content = read_file("/proc/stat")
+    if not content then return 0 end
+    local line = content:match("cpu%s+(.+)")
+    if not line then return 0 end
+    local u, n, s, i, io, irq, sirq = line:match("(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)")
+    if not u then return 0 end
+    local current_total = u + n + s + i + io + irq + sirq
+    local current_idle = i + io
+    local last_data = read_file(tmp_file_cpu)
+    local last_total, last_idle = 0, 0
+    if last_data then
+        last_total, last_idle = last_data:match("(%d+)%s+(%d+)")
+        last_total = tonumber(last_total) or 0
+        last_idle = tonumber(last_idle) or 0
+    end
+    write_file(tmp_file_cpu, string.format("%d %d", current_total, current_idle))
+    if last_total == 0 then return 0 end
+    local diff_total = current_total - last_total
+    local diff_idle = current_idle - last_idle
+    if diff_total <= 0 then return 0 end
+    return math.floor(((diff_total - diff_idle) / diff_total) * 100)
+end
+
+-- 4. RAM
+function get_memory()
+    local content = read_file("/proc/meminfo") or ""
+    local total = tonumber(content:match("MemTotal:%s*(%d+)")) or 1
+    local available = tonumber(content:match("MemAvailable:%s*(%d+)"))
+    if not available then
+        local free = tonumber(content:match("MemFree:%s*(%d+)")) or 0
+        local buffers = tonumber(content:match("Buffers:%s*(%d+)")) or 0
+        local cached = tonumber(content:match("Cached:%s*(%d+)")) or 0
+        available = free + buffers + cached
+    end
+    local used = total - available
+    return { total = total * 1024, used = used * 1024, percent = math.floor((used / total) * 100) }
+end
+
+-- 5. ROM
+function get_rom()
+    local handle = io.popen("df /overlay | tail -n 1")
+    local result = handle:read("*a")
+    handle:close()
+    local size, used, avail, pcent = result:match("%S+%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%%")
+    if not size then 
+         handle = io.popen("df / | tail -n 1")
+         result = handle:read("*a")
+         handle:close()
+         size, used, avail, pcent = result:match("%S+%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%%")
+    end
+    return { total = (tonumber(size) or 0) * 1024, used = (tonumber(used) or 0) * 1024, percent = tonumber(pcent) or 0 }
+end
+
+-- 6. UPTIME & TEMP
+function get_system_basic()
+    local up_content = read_file("/proc/uptime") or "0"
+    local uptime = tonumber(up_content:match("^(%d+)")) or 0
+    
+    local degree = 0
+    
+    local temp_content = read_file("/sys/class/thermal/thermal_zone0/temp")
+    if not temp_content then
+        temp_content = read_file("/sys/devices/virtual/thermal/thermal_zone0/temp")
+    end
+    
+    if temp_content then
+        degree = tonumber(temp_content) or 0
+        if degree > 1000 then degree = degree / 1000 end
+    end
+    
+    if degree == 0 then
+        local mob_temp = get_mobile_temp()
+        if mob_temp > 0 then
+            degree = mob_temp
+        end
+    end
+    
+    return { uptime = uptime, temp = degree }
+end
+
+-- ==========================================
+-- HÀM MỚI: LẤY TỔNG TRAFFIC CỦA BR-LAN
+-- ==========================================
+function get_lan_traffic()
+    local rx = read_file("/sys/class/net/br-lan/statistics/rx_bytes")
+    local tx = read_file("/sys/class/net/br-lan/statistics/tx_bytes")
+    
+    local total = (tonumber(rx) or 0) + (tonumber(tx) or 0)
+    return total
+end
+
+-- ==========================================
+-- TỔNG HỢP VÀ GHI CACHE
+-- ==========================================
+local basic_info = get_system_basic()
+
+local result = {
+    model = get_device_model(),
+    cpu = get_cpu_usage(),
+    ram = get_memory(),
+    rom = get_rom(),
+    uptime = basic_info.uptime,
+    temp = basic_info.temp,
+    lan_total = get_lan_traffic()
+}
+
+local json_output = cjson.encode(result)
+write_file(cache_file, json_output)
+
+print("Content-type: application/json\n\n")
+print(json_output)

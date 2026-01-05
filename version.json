@@ -1,0 +1,12 @@
+{
+    "dashboard": {
+        "version": "1.0.3",
+        "url": "https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.zip",
+        "log": "- Cập nhật giao diện Dashboard phiên bản 1.0.3\n- Sửa lỗi hiển thị thông tin SMS\n- Tối ưu mã nguồn và cải thiện hiệu suất"
+    },
+    "firmware": {
+        "version": "1.0.0",
+        "url": "",
+        "log": ""
+    }
+}

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VWRT | Đăng nhập Hệ thống</title>
+    <link rel="stylesheet" href="css/login.css">
+    <link rel="stylesheet" href="css/toast.css">
+</head>
+<body>
+
+    <div class="login-wrapper">
+        <div class="login-card">
+            <div class="brand-header">
+                <div class="logo-vwrt">
+                    <span class="wifi-icon"></span>
+                    <span class="logo-text">VWRT</span>
+                </div>
+                <h2>Admin Panel</h2>
+                <p>Hệ thống quản lý Router</p>
+            </div>
+            
+            <form id="loginForm">
+                <div class="input-group">
+                    <input type="text" id="username" placeholder="Tài khoản" value="admin" required>
+                </div>
+                <div class="input-group">
+                    <input type="password" id="password" placeholder="Mật khẩu (Để trống nếu không có)">
+                </div>
+                
+                <button type="submit" id="btnLogin">Đăng nhập ngay</button>
+                
+                <p id="error-msg" class="error-text hidden">Thông tin đăng nhập không đúng!</p>
+            </form>
+    <div class="footer-info" style="margin-top: 20px;">
+    <p>Powered by <a href="https://www.facebook.com/pham.viet.853811"target="_blank">VWRT </a>
+    <span id="app-version"></span></p>
+    </div>
+    <script src="js/login.js"></script>
+    <script src="js/toast.js"></script>
+</body>
+</html>

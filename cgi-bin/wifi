@@ -1,0 +1,185 @@
+#!/usr/bin/lua
+
+local cjson = require "cjson"
+
+function exec(cmd)
+    local f = io.popen(cmd)
+    if not f then return "" end
+    local s = f:read("*all")
+    f:close()
+    return s or ""
+end
+
+function escape_pattern(text)
+    return text:gsub("([^%w])", "%%%1")
+end
+
+-- Hàm chấm điểm để sắp xếp (Wifi 6 > Wifi 5 > Wifi 4 | 160MHz > 80MHz...)
+function get_mode_score(val)
+    local score = 0
+    -- Điểm giao thức
+    if val:match("HE") then score = 3000
+    elseif val:match("VHT") then score = 2000
+    elseif val:match("HT") then score = 1000 end
+    
+    -- Điểm độ rộng
+    if val:match("160") then score = score + 160
+    elseif val:match("80") then score = score + 80
+    elseif val:match("40") then score = score + 40
+    elseif val:match("20") then score = score + 20 end
+    
+    return score
+end
+
+-- Hàm tạo Label hiển thị đẹp
+function get_mode_label(val)
+    if val:match("HE") then
+        local w = val:gsub("HE", "")
+        return "AX | " .. w .. " MHz (Wifi 6)"
+    elseif val:match("VHT") then
+        local w = val:gsub("VHT", "")
+        return "AC | " .. w .. " MHz (Wifi 5)"
+    elseif val:match("HT") then
+        local w = val:gsub("HT", "")
+        return "N | " .. w .. " MHz (Wifi 4)"
+    end
+    return val
+end
+
+-- [HYBRID] Lấy danh sách mode: Kết hợp hỏi Driver + Check thủ công Wifi 6
+function get_smart_modes(iface, info_str, band)
+    local modes = {}
+    local existing = {} -- Dùng để lọc trùng
+    
+    -- 1. Lấy danh sách chuẩn từ Driver (htmodelist)
+    local mode_str = exec("iwinfo " .. iface .. " htmodelist")
+    if mode_str and mode_str ~= "" then
+        for m in mode_str:gmatch("%S+") do
+    if not m:match("80%+80") and not existing[m] then
+        table.insert(modes, {val=m, label=get_mode_label(m), score=get_mode_score(m)})
+        existing[m] = true
+        end
+    end 
+    else
+        -- Fallback nếu driver không trả lời
+        table.insert(modes, {val="HT20", label="N | 20 MHz", score=1020})
+        table.insert(modes, {val="HT40", label="N | 40 MHz", score=1040})
+        existing["HT20"] = true
+        existing["HT40"] = true
+    end
+
+    -- 2. [QUAN TRỌNG] Kiểm tra xem Driver có bị "giấu" Wifi 6 (HE) không?
+    -- Nhiều bản Firmware MediaTek hỗ trợ HE nhưng htmodelist lại không hiện.
+    local he_support = info_str:match("HE Capable: true") or info_str:match("Supports HE: yes") or info_str:match("11ax")
+    
+    if he_support then
+        -- Tự động bơm thêm các mode HE vào danh sách nếu chưa có
+        local he_list = {}
+        if band == "5GHz" then
+            he_list = {"HE20", "HE40", "HE80", "HE160"}
+        else
+            he_list = {"HE20", "HE40"}
+        end
+
+        for _, hm in ipairs(he_list) do
+            if not existing[hm] then
+                table.insert(modes, {val=hm, label=get_mode_label(hm), score=get_mode_score(hm)})
+                existing[hm] = true
+            end
+        end
+    end
+
+    -- 3. Sắp xếp danh sách: Cái nào xịn nhất (Điểm cao nhất) lên đầu
+    table.sort(modes, function(a, b) return a.score > b.score end)
+
+    -- Xóa trường 'score' trước khi trả về JSON cho nhẹ
+    for _, v in ipairs(modes) do v.score = nil end
+
+    return modes
+end
+
+function get_wifi_details_by_ssid(target_ssid)
+    local uci_dump = exec("uci show wireless")
+    local safe_ssid = escape_pattern(target_ssid)
+    local section = uci_dump:match("wireless%.([%w_]+)%.ssid='" .. safe_ssid .. "'")
+    
+    if not section then return nil end
+
+    local device = uci_dump:match("wireless%." .. section .. "%.device='([^']*)'")
+    if not device then return nil end
+
+    local key = uci_dump:match("wireless%." .. section .. "%.key='([^']*)'")
+    local enc = uci_dump:match("wireless%." .. section .. "%.encryption='([^']*)'")
+    local disabled = uci_dump:match("wireless%." .. section .. "%.disabled='([^']*)'")
+    local conf_channel = uci_dump:match("wireless%." .. device .. "%.channel='([^']*)'") or "auto"
+    local conf_htmode = uci_dump:match("wireless%." .. device .. "%.htmode='([^']*)'") or "HT20"
+    
+    if enc == "none" then key = "" end
+
+    return {
+        device_section = device,
+        iface_section = section,
+        key = key or "",
+        enc = enc or "none",
+        conf_channel = conf_channel,
+        conf_htmode = conf_htmode,
+        enabled = (disabled ~= "1")
+    }
+end
+
+function get_wifi_info()
+    local wifis = {}
+    local handle = io.popen("iwinfo | grep ESSID")
+    
+    if handle then
+        for line in handle:lines() do
+            local iface = line:match("^(%S+)%s+ESSID")
+            
+            if iface then
+                local info_str = exec("iwinfo " .. iface .. " info")
+                local mode = info_str:match("Mode:%s*([%w]+)")
+                
+                if mode == "Master" then
+                    local ssid = info_str:match('ESSID:%s*"(.*)"') or "Hidden"
+                    local channel = tonumber(info_str:match("Channel:%s*(%d+)")) or 0
+                    local band = (channel > 14) and "5GHz" or "2.4GHz"
+                    
+                    local clients_str = exec("iwinfo " .. iface .. " assoclist")
+                    local client_count = 0
+                    for mac in clients_str:gmatch("%x%x:%x%x:%x%x:%x%x:%x%x:%x%x") do
+                        client_count = client_count + 1
+                    end
+
+                    local config = get_wifi_details_by_ssid(ssid)
+                    
+                    -- [GỌI HÀM MỚI]
+                    local support_list = get_smart_modes(iface, info_str, band)
+
+                    if config then
+                        table.insert(wifis, {
+                            iface = iface,
+                            ssid = ssid,
+                            band = band,
+                            channel = channel,
+                            clients = client_count,
+                            device = config.device_section,
+                            section = config.iface_section,
+                            key = config.key,
+                            enc = config.enc,
+                            conf_channel = config.conf_channel,
+                            conf_htmode = config.conf_htmode,
+                            enabled = config.enabled,
+                            caps = support_list 
+                        })
+                    end
+                end
+            end
+        end
+        handle:close()
+    end
+    return wifis
+end
+
+print("Content-type: application/json\n\n")
+local data = get_wifi_info()
+print(cjson.encode(data))

@@ -1,0 +1,58 @@
+#!/usr/bin/lua
+
+local cjson = require "cjson"
+
+local UPDATE_URL = "https://raw.githubusercontent.com/vietter99/vwrtdashbroad/refs/heads/main/version.json"
+
+-- Đường dẫn file trên router
+local LOCAL_VER_FILE = "/www/vwrt/version.json"
+
+function read_file(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local c = f:read("*all")
+    f:close()
+    return c
+end
+
+function exec(cmd)
+    local f = io.popen(cmd)
+    local s = f:read("*all")
+    f:close()
+    return s
+end
+
+-- 1. Lấy thông tin bản Remote (Trên mạng)
+local remote_json = exec("curl -k -s " .. UPDATE_URL)
+local remote_data = nil
+
+if remote_json and remote_json ~= "" then
+    local status, res = pcall(cjson.decode, remote_json)
+    if status then remote_data = res end
+end
+
+-- 2. Lấy thông tin bản Local (Hiện tại)
+local local_json = read_file(LOCAL_VER_FILE)
+local local_data = { dashboard = { version = "1.0.0" } }
+
+if local_json then
+    local status, res = pcall(cjson.decode, local_json)
+    if status then local_data = res end
+end
+
+-- 3. So sánh
+local result = {
+    current = local_data,
+    latest = remote_data,
+    has_update = false
+}
+
+if remote_data and remote_data.dashboard then
+    if remote_data.dashboard.version ~= local_data.dashboard.version then
+        result.has_update = true
+        result.update_type = "dashboard"
+    end
+end
+
+print("Content-type: application/json\n\n")
+print(cjson.encode(result))

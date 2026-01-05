@@ -1,0 +1,53 @@
+const Modal = {
+    init: function() {
+        if (!document.getElementById('custom-modal-overlay')) {
+            const html = `
+                <div id="custom-modal-overlay" class="modal-overlay hidden">
+                    <div class="modal-box">
+                        <div class="modal-icon">?</div>
+                        <h3 id="modal-title">Xác nhận</h3>
+                        <p id="modal-message">Nội dung thông báo...</p>
+                        <div class="modal-actions">
+                            <button id="btn-modal-cancel" class="btn-modal btn-secondary">Hủy bỏ</button>
+                            <button id="btn-modal-confirm" class="btn-modal btn-primary">Đồng ý</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', html);
+            document.getElementById('btn-modal-cancel').addEventListener('click', () => {
+                Modal.close();
+            });
+        }
+    },
+    confirm: function(title, message, onConfirm) {
+        this.init();
+
+        const overlay = document.getElementById('custom-modal-overlay');
+        const titleEl = document.getElementById('modal-title');
+        const msgEl = document.getElementById('modal-message');
+        const btnConfirm = document.getElementById('btn-modal-confirm');
+        titleEl.innerText = title;
+        msgEl.innerHTML = message;
+        const newBtn = btnConfirm.cloneNode(true);
+        btnConfirm.parentNode.replaceChild(newBtn, btnConfirm);
+        newBtn.addEventListener('click', () => {
+            Modal.close();
+            if (typeof onConfirm === 'function') {
+                onConfirm();
+            }
+        });
+        overlay.classList.remove('hidden');
+        overlay.classList.add('active');
+    },
+
+    close: function() {
+        const overlay = document.getElementById('custom-modal-overlay');
+        if (overlay) {
+            overlay.classList.remove('active');
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+            }, 300);
+        }
+    }
+};

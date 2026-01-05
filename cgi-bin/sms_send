@@ -1,0 +1,83 @@
+#!/usr/bin/lua
+print("Content-type: application/json\n")
+
+local json = require "luci.jsonc"
+
+function read_post_data()
+    local len = os.getenv("CONTENT_LENGTH")
+    if len then
+        return io.read(tonumber(len))
+    end
+    return nil
+end
+
+function exec(cmd)
+    local handle = io.popen(cmd .. " 2>&1")
+    local result = handle:read("*a")
+    handle:close()
+    return result or ""
+end
+
+function get_modem_index()
+    local handle = io.popen("mmcli -L 2>/dev/null")
+    local output = handle:read("*a")
+    handle:close()
+    local idx = output:match("/Modem/(%d+)")
+    return idx or "0"
+end
+
+-- --- XỬ LÝ CHÍNH ---
+
+-- 1. Đọc dữ liệu JSON
+local input = read_post_data()
+if not input then
+    print(json.stringify({status="error", message="No input data"}))
+    os.exit()
+end
+
+local data = json.parse(input)
+if not data or not data.number or not data.text then
+    print(json.stringify({status="error", message="Missing number or text"}))
+    os.exit()
+end
+
+-- 2. Lấy Modem Index động
+local m_idx = get_modem_index()
+
+-- 3. Xử lý ký tự đặc biệt trong nội dung
+local safe_text = data.text:gsub("'", " ")
+local safe_number = data.number:gsub("'", "")
+
+-- 4. Tạo tin nhắn 
+local create_cmd = string.format("mmcli -m %s --messaging-create-sms=\"text='%s',number='%s'\"", m_idx, safe_text, safe_number)
+local create_out = exec(create_cmd)
+
+local sms_id = create_out:match("/SMS/(%d+)")
+
+if sms_id then
+    -- 5. Gửi tin nhắn theo ID vừa tạo
+    local send_cmd = "mmcli -s " .. sms_id .. " --send"
+    local send_out = exec(send_cmd)
+    
+    -- Kiểm tra kết quả gửi
+    if send_out and send_out:find("successfully sent") then
+        print(json.stringify({
+            status = "success", 
+            message = "Sent successfully",
+            id = sms_id
+        }))
+    else
+        -- Gửi thất bại
+        print(json.stringify({
+            status = "error", 
+            message = "Created but failed to send. Check SIM.",
+            debug = send_out
+        }))
+    end
+else
+    print(json.stringify({
+        status = "error", 
+        message = "Could not create SMS object.",
+        debug = create_out 
+    }))
+end
