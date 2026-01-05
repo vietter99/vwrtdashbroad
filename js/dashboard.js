@@ -1,1 +1,63 @@
-eval(function(p,a,c,k,e,d){e=function(c){return(c<a?'':e(parseInt(c/a)))+((c=c%a)>35?String.fromCharCode(c+29):c.toString(36))};if(!''.replace(/^/,String)){while(c--){d[e(c)]=k[c]||e(c)}k=[function(e){return d[e]}];e=function(){return'\\w+'};c=1};while(c--){if(k[c]){p=p.replace(new RegExp('\\b'+e(c)+'\\b','g'),k[c])}}return p}('5.f(\'G\',8(){9 C=d.19(\'m\');0(!C){h.q.r=\'s.u\';P}0(2 E!==\'3\'){E.1();M.1()}0(2 F!==\'3\')F.1();0(2 H!==\'3\')H.1();0(2 A!==\'3\')A.1();0(2 I!==\'3\')I.1();0(2 J!==\'3\')J.1();0(2 z!==\'3\'){z.1()}9 b=5.g(\'O\');0(b){b.f(\'K\',8(e){e.N();0(2 l!==\'3\'){l.R("Đăy Qất","Bạn Tốn 18át?",()=>{d.p(\'m\');d.p(\'17\');h.q.r=\'s.u\'})}})}h.15=8(w){9 7=5.g(w);0(7)7.x=7.x==="k"?"13":"k"}});5.f(\'G\',8(){9 i=5.g(\'10-6\');0(i){Z(\'/Y-X/W\').o(D=>D.V()).o(4=>{0(4&&4.j&&4.j.6){i.11=`|v${4.j.6}`}}).12(()=>{U.14("Sưa có Lôy 16 6")})}});',62,72,'if|init|typeof|undefined|data|document|version|input|function|const||btnLogout||localStorage||addEventListener|getElementById|window|elVer|dashboard|password|Modal|vwrt_session||then|removeItem|location|href|index||html||id|type|ng|ThemeModule|SmsModule||session|response|HeaderModule|MobileModule|DOMContentLoaded|WifiModule|SystemModule|NetworkModule|click|th|SettingsModule|preventDefault|btnTopLogout|return|xu|confirm|Ch|mu|console|json|get_version|bin|cgi|fetch|app|innerText|catch|text|log|togglePass|tin|vwrt_user|tho|getItem'.split('|'),0,{}))
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Kiểm tra Session
+    const session = localStorage.getItem('vwrt_session');
+    if (!session) { window.location.href = 'index.html'; return; }
+
+    // 2. VẼ HEADER TRƯỚC
+    if(typeof HeaderModule !== 'undefined') {
+        HeaderModule.init();
+        SettingsModule.init();
+    }
+
+    if(typeof MobileModule !== 'undefined') MobileModule.init();
+    if(typeof WifiModule !== 'undefined') WifiModule.init();
+    if(typeof SmsModule !== 'undefined') SmsModule.init();
+
+    // 3. Khởi chạy các module khác
+    if(typeof SystemModule !== 'undefined') SystemModule.init();
+    if(typeof NetworkModule !== 'undefined') NetworkModule.init();
+
+    // 4. KHỞI CHẠY THEME
+    if(typeof ThemeModule !== 'undefined') {
+        ThemeModule.init(); 
+    }
+
+    // 5. Xử lý Logout
+    const btnLogout = document.getElementById('btnTopLogout');
+    if(btnLogout) {
+        btnLogout.addEventListener('click', function(e) {
+            e.preventDefault();
+            if(typeof Modal !== 'undefined') {
+                Modal.confirm("Đăng xuất", "Bạn muốn thoát?", () => {
+                    localStorage.removeItem('vwrt_session');
+                    localStorage.removeItem('vwrt_user');
+                    window.location.href = 'index.html';
+                });
+            }
+        });
+    }
+    
+    // Toggle pass helper
+    window.togglePass = function(id) {
+        const input = document.getElementById(id);
+        if (input) input.type = input.type === "password" ? "text" : "password";
+    }
+});
+
+// --- Tự động hiển thị Version dưới Footer ---
+document.addEventListener('DOMContentLoaded', function() {
+    const elVer = document.getElementById('app-version');
+    
+    if (elVer) {
+        fetch('/cgi-bin/get_version')
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.dashboard && data.dashboard.version) {
+                    elVer.innerText = `| v${data.dashboard.version}`;
+                }
+            })
+            .catch(() => {
+                console.log("Chưa có thông tin version");
+            });
+    }
+});
