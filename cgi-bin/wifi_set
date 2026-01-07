@@ -29,7 +29,6 @@ local htmode = safe_arg(input.htmode)
 local disabled = input.enabled and "0" or "1"
 
 -- 1. Cấu hình DEVICE (Kênh, Độ rộng)
--- Chỉ set channel/htmode nếu nó khác 'auto' hoặc có giá trị
 os.execute("uci set wireless." .. dev_sec .. ".channel=" .. channel)
 os.execute("uci set wireless." .. dev_sec .. ".htmode=" .. htmode)
 
@@ -38,24 +37,24 @@ os.execute("uci set wireless." .. iface_sec .. ".ssid=" .. ssid)
 os.execute("uci set wireless." .. iface_sec .. ".disabled=" .. disabled)
 
 -- 3. Cấu hình Mật khẩu & Bảo mật
-if #key_val >= 8 then
-    -- Đặt chế độ bảo mật WPA2-PSK (An toàn và tương thích tốt hơn mixed)
-    -- Nếu muốn hỗ trợ thiết bị quá cũ, bạn có thể đổi 'psk2' thành 'psk-mixed'
+if key_val and #key_val > 0 then
+    if #key_val < 8 then
+        print('{"status": "error", "message": "Mật khẩu Wifi phải từ 8 ký tự trở lên!"}')
+        os.exit()
+    end
+    -- Đủ 8 ký tự thì set pass
     os.execute("uci set wireless." .. iface_sec .. ".encryption='psk-mixed'")
     os.execute("uci set wireless." .. iface_sec .. ".key=" .. key)
 else
-    -- Không mật khẩu (Open)
     os.execute("uci set wireless." .. iface_sec .. ".encryption='none'")
     os.execute("uci set wireless." .. iface_sec .. ".key=''")
 end
 
--- 4. Lưu cấu hình (Chưa apply vội)
+-- 4. Lưu cấu hình
 os.execute("uci commit wireless")
 
--- [QUAN TRỌNG] Trả về kết quả cho trình duyệt TRƯỚC KHI mạng bị ngắt
 print('{"status": "success", "message": "Đã lưu! Wifi sẽ khởi động lại sau 1 giây."}')
-io.flush() -- Đẩy dữ liệu đi ngay lập tức
+io.flush()
 
--- 5. Thực hiện Reload Wifi ngầm (Background)
--- Dùng dấu & để chạy nền, sleep 1s để đảm bảo response đã gửi xong
+-- 5. Thực hiện Reload
 os.execute("(sleep 1; wifi reload) >/dev/null 2>&1 &")

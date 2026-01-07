@@ -6,13 +6,11 @@ package.path = script_path .. "?.lua;" .. package.path
 
 local json = require "luci.jsonc"
 
--- SỬA: Hàm đọc dữ liệu thông minh hơn (hỗ trợ cả Web và Terminal)
 function read_post_data()
     local len = os.getenv("CONTENT_LENGTH")
     if len then 
         return io.read(tonumber(len)) 
     else
-        -- Fallback: Đọc toàn bộ input (dùng cho test CLI)
         return io.read("*a")
     end
 end

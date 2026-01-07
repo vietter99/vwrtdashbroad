@@ -3,18 +3,15 @@
 echo "Content-type: application/json"
 echo ""
 
-# Đọc dữ liệu
 read POST_DATA
 URL=$(echo "$POST_DATA" | grep -o '"url":"[^"]*' | cut -d'"' -f4)
 TYPE=$(echo "$POST_DATA" | grep -o '"type":"[^"]*' | cut -d'"' -f4)
 VER=$(echo "$POST_DATA" | grep -o '"version":"[^"]*' | cut -d'"' -f4)
 
-# Nếu URL bị undefined hoặc rỗng, dùng link mặc định
 DEFAULT_URL="https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.zip"
 
 if [ -z "$URL" ] || [ "$URL" = "undefined" ]; then
     URL="$DEFAULT_URL"
-    # Ghi đè log để biết là đang dùng link dự phòng
     echo "Warning: URL was undefined. Using Default: $URL" > /tmp/update_debug.log
 fi
 
@@ -52,13 +49,11 @@ if [ "$TYPE" = "dashboard" ]; then
         # Giải nén
         if unzip -o update_dash.zip -d /tmp/ >/dev/null 2>&1; then
             
-            # Tìm thư mục giải nén (thường là vwrtdashbroad-main)
             FOLDER=$(find /tmp -maxdepth 1 -type d -name "vwrtdashbroad*")
             
             if [ -n "$FOLDER" ] && [ -d "$FOLDER" ]; then
                 cp -rf "$FOLDER"/* /www/vwrt/
             else
-                # Nếu không có thư mục con
                 unzip -o update_dash.zip -d /www/vwrt/ >/dev/null 2>&1
             fi
 

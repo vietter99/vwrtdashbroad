@@ -14,7 +14,6 @@ function escape_pattern(text)
     return text:gsub("([^%w])", "%%%1")
 end
 
--- Hàm chấm điểm để sắp xếp (Wifi 6 > Wifi 5 > Wifi 4 | 160MHz > 80MHz...)
 function get_mode_score(val)
     local score = 0
     -- Điểm giao thức
@@ -31,7 +30,6 @@ function get_mode_score(val)
     return score
 end
 
--- Hàm tạo Label hiển thị đẹp
 function get_mode_label(val)
     if val:match("HE") then
         local w = val:gsub("HE", "")
@@ -46,12 +44,10 @@ function get_mode_label(val)
     return val
 end
 
--- [HYBRID] Lấy danh sách mode: Kết hợp hỏi Driver + Check thủ công Wifi 6
 function get_smart_modes(iface, info_str, band)
     local modes = {}
-    local existing = {} -- Dùng để lọc trùng
+    local existing = {} 
     
-    -- 1. Lấy danh sách chuẩn từ Driver (htmodelist)
     local mode_str = exec("iwinfo " .. iface .. " htmodelist")
     if mode_str and mode_str ~= "" then
         for m in mode_str:gmatch("%S+") do
@@ -61,19 +57,15 @@ function get_smart_modes(iface, info_str, band)
         end
     end 
     else
-        -- Fallback nếu driver không trả lời
         table.insert(modes, {val="HT20", label="N | 20 MHz", score=1020})
         table.insert(modes, {val="HT40", label="N | 40 MHz", score=1040})
         existing["HT20"] = true
         existing["HT40"] = true
     end
 
-    -- 2. [QUAN TRỌNG] Kiểm tra xem Driver có bị "giấu" Wifi 6 (HE) không?
-    -- Nhiều bản Firmware MediaTek hỗ trợ HE nhưng htmodelist lại không hiện.
     local he_support = info_str:match("HE Capable: true") or info_str:match("Supports HE: yes") or info_str:match("11ax")
     
     if he_support then
-        -- Tự động bơm thêm các mode HE vào danh sách nếu chưa có
         local he_list = {}
         if band == "5GHz" then
             he_list = {"HE20", "HE40", "HE80", "HE160"}
@@ -89,10 +81,8 @@ function get_smart_modes(iface, info_str, band)
         end
     end
 
-    -- 3. Sắp xếp danh sách: Cái nào xịn nhất (Điểm cao nhất) lên đầu
     table.sort(modes, function(a, b) return a.score > b.score end)
 
-    -- Xóa trường 'score' trước khi trả về JSON cho nhẹ
     for _, v in ipairs(modes) do v.score = nil end
 
     return modes
@@ -152,7 +142,6 @@ function get_wifi_info()
 
                     local config = get_wifi_details_by_ssid(ssid)
                     
-                    -- [GỌI HÀM MỚI]
                     local support_list = get_smart_modes(iface, info_str, band)
 
                     if config then
