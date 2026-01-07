@@ -50,7 +50,7 @@ if [ "$TYPE" = "dashboard" ]; then
             fi
 
             if [ -z "$FOLDER" ]; then
-                 echo '{"status":"error", "message":"Lỗi cấu trúc file cập nhật (Không tìm thấy thư mục)"}'
+                 echo '{"status":"error", "message":"Lỗi cấu trúc file cập nhật"}'
                  exit 0
             fi
 
@@ -66,19 +66,25 @@ rm -rf /www/vwrt/*
 echo "Installing from $FOLDER..." >> /tmp/update_debug.log
 cp -rf "$FOLDER"/* /www/vwrt/
 
-# 3. Ghi lại version mới (nếu có)
+# 3. XÓA FILE install.sh THỪA (Nếu có)
+# Để tránh rác trong thư mục web sau khi update
+if [ -f "/www/vwrt/install.sh" ]; then
+    rm -f "/www/vwrt/install.sh"
+fi
+
+# 4. Ghi lại version mới (nếu có)
 if [ -n "$VER" ]; then
     echo "{\\"dashboard\\":{\\"version\\":\\"$VER\\"}}" > /www/vwrt/version.json
 fi
 
-# 4. Cấp quyền thực thi
+# 5. Cấp quyền thực thi
 chmod +x /www/vwrt/cgi-bin/*
 chmod -R 755 /www/vwrt
 
-# 5. Dọn dẹp file tạm
+# 6. Dọn dẹp file tạm
 rm -rf $WORKDIR
 
-# 6. Reboot hệ thống
+# 7. Reboot hệ thống
 echo "Rebooting..." >> /tmp/update_debug.log
 reboot
 EOF
@@ -86,7 +92,7 @@ EOF
             chmod +x /tmp/do_clean_install.sh
             sh /tmp/do_clean_install.sh >/dev/null 2>&1 &
 
-            echo '{"status":"success", "message":"Đã tải xong! Hệ thống đang cài đặt lại và sẽ tự khởi động lại sau 1 phút..."}'
+            echo '{"status":"success", "message":"Đã tải xong! Đang xóa sạch cũ, cài mới và reboot..."}'
         else
             echo '{"status":"error", "message":"Lỗi giải nén file .tar.gz (tar failed)"}'
         fi

@@ -3,7 +3,6 @@
 # ==========================================
 # CẤU HÌNH CÀI ĐẶT
 # ==========================================
-# Đổi sang link .tar.gz (GitHub hỗ trợ sẵn)
 GITHUB_URL="https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.tar.gz"
 INSTALL_DIR="/www/vwrt"
 TMP_DIR="/tmp/vwrt_install"
@@ -21,7 +20,6 @@ rm -rf $TMP_DIR
 mkdir -p $TMP_DIR
 rm -rf $INSTALL_DIR
 
-# Tải file .tar.gz
 if curl -k -L -o $TMP_DIR/source.tar.gz "$GITHUB_URL"; then
     echo " -> Tai ve thanh cong ($GITHUB_URL)"
     echo " -> Dang giai nen..."
@@ -47,6 +45,11 @@ if curl -k -L -o $TMP_DIR/source.tar.gz "$GITHUB_URL"; then
 
     mkdir -p /www
     cp -rf "$SOURCE_FOLDER" $INSTALL_DIR
+    
+    if [ -f "$INSTALL_DIR/install.sh" ]; then
+        rm -f "$INSTALL_DIR/install.sh"
+        echo " -> Da xoa file install.sh thua trong $INSTALL_DIR"
+    fi
     
     if [ ! -f "$INSTALL_DIR/version.json" ]; then
         echo '{"dashboard":{"version":"1.0.0"}}' > "$INSTALL_DIR/version.json"
@@ -173,6 +176,9 @@ echo ""
 echo "=========================================="
 echo "      CAI DAT THANH CONG! (Success)"
 echo "=========================================="
+
+rm -f "$0" 2>/dev/null
+
 echo "Dang khoi dong lai thiet bi sau 3 giay..."
 sleep 3
 reboot
