@@ -10,7 +10,7 @@ while true; do
     if [ -x "$INFO_SCRIPT" ]; then
         "$INFO_SCRIPT" json > "$TEMP_FILE" 2>/dev/null
     else
-        echo '{"operator_name":"Lỗi: Không tìm thấy 3ginfo","signal":"0"}' > "$CACHE_FILE"
+        echo '{"operator_name":"Lỗi: Không tìm thấy","signal":"0"}' > "$CACHE_FILE"
         sleep 10
         continue
     fi
