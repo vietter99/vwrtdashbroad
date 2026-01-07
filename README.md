@@ -4,9 +4,6 @@
 
 <<<<<<< HEAD
 ![Version](https://img.shields.io/badge/version-1.0.5-blue.svg)
-=======
-![Version](https://img.shields.io/badge/version-1.0.4-blue.svg)
->>>>>>> 7dac51629365c8e0fd3461037136f2ff7cb5597a
 ![Status](https://img.shields.io/badge/status-stable-green.svg)
 ![License](https://img.shields.io/badge/license-Vietter%20Exclusive-red.svg)
 
