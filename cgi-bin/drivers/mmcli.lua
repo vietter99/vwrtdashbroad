@@ -8,22 +8,39 @@ local function exec(cmd)
     return result or ""
 end
 
+local function decode_hex_data(hex)
+    if not hex or hex == "" or hex == "--" then return nil end
+    if hex:match("[^0-9a-fA-F]") then return hex end
+
+    local result = ""
+    for i = 1, #hex, 4 do
+        local chunk = hex:sub(i, i+3)
+        if #chunk == 4 then
+            local code = tonumber(chunk, 16)
+            if code then
+                if code < 128 then
+                    result = result .. string.char(code)
+                else
+                    result = result .. "&#" .. code .. ";"
+                end
+            end
+        end
+    end
+    return result
+end
+
 function M.send_sms(config, number, text)
-    local m_idx = "0"
-    if config.modem_index then
-        m_idx = config.modem_index
-    else
-        local handle = io.popen("mmcli -L 2>/dev/null")
-        local output = handle:read("*a")
-        handle:close()
-        m_idx = output:match("/Modem/(%d+)") or "0"
+    local m_idx = config.modem_index or "0"
+    if m_idx == "0" or m_idx == "" then
+        local out = exec("mmcli -L 2>/dev/null")
+        m_idx = out:match("/Modem/(%d+)") or "0"
     end
 
     local safe_text = text:gsub("'", "'\\''")
     local safe_number = number:gsub("'", "")
 
-    local create_cmd = string.format("mmcli -m %s --messaging-create-sms=\"text='%s',number='%s'\"", m_idx, safe_text, safe_number)
-    local create_out = exec(create_cmd)
+    local cmd = string.format("mmcli -m %s --messaging-create-sms=\"text='%s',number='%s'\"", m_idx, safe_text, safe_number)
+    local create_out = exec(cmd)
     local sms_id = create_out:match("/SMS/(%d+)")
 
     if sms_id then
@@ -32,7 +49,7 @@ function M.send_sms(config, number, text)
         if send_out and send_out:find("successfully sent") then
             return { status = "success", message = "Sent via mmcli", id = sms_id }
         else
-            return { status = "error", message = "Created but failed to send", debug = send_out }
+            return { status = "error", message = "Failed to send", debug = send_out }
         end
     else
         return { status = "error", message = "Could not create SMS", debug = create_out }
@@ -41,8 +58,12 @@ end
 
 function M.get_sms(config)
     local m_idx = config.modem_index or "0"
+    if m_idx == "0" or m_idx == "" then
+        local out = exec("mmcli -L 2>/dev/null")
+        m_idx = out:match("/Modem/(%d+)") or "0"
+    end
+
     local messages = {}
-    
     local list_cmd = string.format("mmcli -m %s --messaging-list-sms", m_idx)
     local list_out = exec(list_cmd)
 
@@ -50,7 +71,8 @@ function M.get_sms(config)
         local read_cmd = string.format("mmcli -s %s -J", sms_path)
         local read_out = exec(read_cmd)
         
-        local data = json.parse(read_out)
+        local ok, data = pcall(json.parse, read_out)
+        if not ok then data = nil end
         
         local sender_val = "Unknown"
         local text_val = ""
@@ -61,20 +83,28 @@ function M.get_sms(config)
             if data.sms.content then
                 sender_val = data.sms.content.number or "Unknown"
                 text_val = data.sms.content.text or ""
-            end
-            if data.sms.properties then
-                -- Lấy thời gian gốc
-                time_val = data.sms.properties.timestamp or ""
                 
-                -- XỬ LÝ LÀM ĐẸP TIME
-                if time_val == "--" then 
-                    time_val = "" -- Nếu là -- thì để rỗng cho Web tự xử lý
+                if (text_val == "" or text_val == "--") then
+                    if data.sms.content.data and data.sms.content.data ~= "--" then
+                        local decoded = decode_hex_data(data.sms.content.data)
+                        if decoded and decoded ~= "" then
+                            text_val = decoded
+                        else
+                            text_val = "(Hex): " .. data.sms.content.data
+                        end
+                    else
+                        text_val = "(Tin nhắn rỗng hoặc không hỗ trợ)"
+                    end
+                end
+            end
+
+            if data.sms.properties then
+                time_val = data.sms.properties.timestamp or ""
+                if time_val == "--" then time_val = "" 
                 elseif #time_val > 18 then
-                    -- Cắt chuỗi ISO: 2026-01-05T20:58:52+07 -> 2026-01-05 20:58:52
                     time_val = time_val:sub(1, 19):gsub("T", " ")
                 end
                 
-                -- Kiểm tra loại tin (nếu pdu-type là submit thì là tin gửi đi)
                 if data.sms.properties["pdu-type"] == "submit" then
                     type_val = "sent"
                 end
@@ -94,21 +124,21 @@ function M.get_sms(config)
     return messages
 end
 
-
 function M.delete_sms(config, index)
-    local m_idx = "0"
-    if config.modem_index then
-        m_idx = config.modem_index
-    else
-        local handle = io.popen("mmcli -L 2>/dev/null")
-        local output = handle:read("*a")
-        handle:close()
-        m_idx = output:match("/Modem/(%d+)") or "0"
+    local m_idx = config.modem_index or "0"
+    if m_idx == "0" or m_idx == "" then
+        local out = exec("mmcli -L 2>/dev/null")
+        m_idx = out:match("/Modem/(%d+)") or "0"
     end
+    exec(string.format("mmcli -m %s --messaging-delete-sms=%s", m_idx, index))
+    return { status = "success" }
+end
 
-    local cmd = string.format("mmcli -m %s --messaging-delete-sms=%s", m_idx, index)
-    os.execute(cmd)
-    
+function M.delete_all_sms(config)
+    local msgs = M.get_sms(config)
+    for _, msg in ipairs(msgs) do
+        M.delete_sms(config, msg.index)
+    end
     return { status = "success" }
 end
 

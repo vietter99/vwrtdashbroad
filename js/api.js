@@ -1,1 +1,44 @@
-(function(_0x4cf14b,_0x30913c){const _0x47c5ad=_0x159b,_0x24ee6a=_0x4cf14b();while(!![]){try{const _0x34664c=parseInt(_0x47c5ad(0x13c))/0x1+-parseInt(_0x47c5ad(0x148))/0x2*(parseInt(_0x47c5ad(0x14c))/0x3)+-parseInt(_0x47c5ad(0x153))/0x4*(-parseInt(_0x47c5ad(0x14d))/0x5)+parseInt(_0x47c5ad(0x150))/0x6+-parseInt(_0x47c5ad(0x14e))/0x7*(-parseInt(_0x47c5ad(0x152))/0x8)+parseInt(_0x47c5ad(0x13f))/0x9*(-parseInt(_0x47c5ad(0x143))/0xa)+parseInt(_0x47c5ad(0x144))/0xb;if(_0x34664c===_0x30913c)break;else _0x24ee6a['push'](_0x24ee6a['shift']());}catch(_0x32a107){_0x24ee6a['push'](_0x24ee6a['shift']());}}}(_0xa89d,0x44662));function _0x159b(_0x328cb6,_0x21caa6){_0x328cb6=_0x328cb6-0x13a;const _0xa89d44=_0xa89d();let _0x159b50=_0xa89d44[_0x328cb6];return _0x159b50;}function _0xa89d(){const _0x5370d1=['495yJvNjj','105mAAECU','POST','1755090Hqmrzy','call','151784OFACzJ','3048HXqvyz','stringify','2.0','No\x20Session','pow','109423EXVklE','log','API\x20Error','144TAVxWq','floor','result','Chưa\x20đăng\x20nhập:\x20Thiếu\x20Session\x20ID','300180msRVMI','3898202FDzOAt','/ubus','then','vwrt_session','19238vVeKoV','now','reject','error','111gDSHDh'];_0xa89d=function(){return _0x5370d1;};return _0xa89d();}const VWRT_API={'call':function(_0x39fb1d,_0x50228c,_0x13e37f){const _0x209820=_0x159b,_0x47d06f=localStorage['getItem'](_0x209820(0x147));if(!_0x47d06f)return console[_0x209820(0x14b)](_0x209820(0x142)),Promise[_0x209820(0x14a)](_0x209820(0x13a));const _0x1343d2={'jsonrpc':_0x209820(0x155),'id':Date[_0x209820(0x149)](),'method':_0x209820(0x151),'params':[_0x47d06f,_0x39fb1d,_0x50228c,_0x13e37f||{}]};return fetch(_0x209820(0x145),{'method':_0x209820(0x14f),'headers':{'Content-Type':'application/json'},'body':JSON[_0x209820(0x154)](_0x1343d2)})[_0x209820(0x146)](_0x1bf0fe=>_0x1bf0fe['json']())[_0x209820(0x146)](_0x3d7bd7=>{const _0xc69efa=_0x209820;if(_0x3d7bd7[_0xc69efa(0x14b)]){console[_0xc69efa(0x14b)]('API\x20Error:',_0x3d7bd7[_0xc69efa(0x14b)]);throw new Error(_0xc69efa(0x13e));}return _0x3d7bd7[_0xc69efa(0x141)][0x1];});},'formatBytes':function(_0x3167c1,_0x47c810=0x2){const _0x46bb41=_0x159b;if(!+_0x3167c1)return'0\x20Bytes';const _0xef6e2a=0x400,_0x30ed89=_0x47c810<0x0?0x0:_0x47c810,_0x5e416f=['Bytes','KB','MB','GB','TB'],_0x5d019d=Math[_0x46bb41(0x140)](Math['log'](_0x3167c1)/Math[_0x46bb41(0x13d)](_0xef6e2a));return parseFloat((_0x3167c1/Math[_0x46bb41(0x13b)](_0xef6e2a,_0x5d019d))['toFixed'](_0x30ed89))+'\x20'+_0x5e416f[_0x5d019d];}};
+const VWRT_API = {
+    call: function(object, method, params) {
+        const sessionId = localStorage.getItem('vwrt_session');
+        if (!sessionId) {
+            console.error("Chưa đăng nhập: Thiếu Session ID");
+            return Promise.reject("No Session");
+        }
+
+        const rpcData = {
+            "jsonrpc": "2.0",
+            "id": Date.now(),
+            "method": "call",
+            "params": [
+                sessionId,
+                object,
+                method,
+                params || {}
+            ]
+        };
+
+        return fetch('/ubus', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(rpcData)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                console.error("API Error:", data.error);
+                throw new Error("API Error");
+            }
+            return data.result[1]; 
+        });
+    },
+
+    formatBytes: function(bytes, decimals = 2) {
+        if (!+bytes) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+    }
+};

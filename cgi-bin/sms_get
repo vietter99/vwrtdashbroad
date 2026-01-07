@@ -1,11 +1,20 @@
 #!/usr/bin/lua
 print("Content-type: application/json\n")
 
--- Thêm đường dẫn để tìm thấy driver
 local script_path = "/www/vwrt/cgi-bin/"
 package.path = script_path .. "?.lua;" .. package.path
 
 local json = require "luci.jsonc"
+
+function get_query_param(key)
+    local query = os.getenv("QUERY_STRING") or ""
+    for k, v in string.gmatch(query, "([^&=]+)=([^&=]*)") do
+        if k == key then 
+            return v:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end)
+        end
+    end
+    return nil
+end
 
 local function get_config()
     local cfg = { driver = "mmcli", at_port = "" }
@@ -13,37 +22,52 @@ local function get_config()
     local drv = f:read("*a")
     f:close()
     if drv and drv:len() > 1 then cfg.driver = drv:gsub("[\r\n]", "") end
-
-    local f2 = io.popen("uci get vwrt.modem.at_port 2>/dev/null")
-    local port = f2:read("*a")
-    f2:close()
-    if port and port:len() > 1 then cfg.at_port = port:gsub("[\r\n]", "") end
     return cfg
 end
 
 local config = get_config()
 local status, driver_lib
-
--- TỰ ĐỘNG LOAD DRIVER DỰA VÀO CẤU HÌNH
-
 local target_driver = (config.driver and config.driver ~= "") and config.driver or "mmcli"
 
 status, driver_lib = pcall(require, "drivers." .. target_driver)
-
 if not status and target_driver ~= "mmcli" then
     status, driver_lib = pcall(require, "drivers.mmcli")
 end
 
 if not status then
-    print(json.stringify({ status = "error", message = "Driver load failed for: " .. target_driver }))
+    print(json.stringify({ status = "error", message = "Driver load failed" }))
     os.exit()
 end
 
--- Lấy tin nhắn từ driver
-local messages = driver_lib.get_sms(config)
-local response = {
-    status = "success",
-    data = messages
-}
+local action = get_query_param("action")
+local id_param = get_query_param("id")
 
-print(json.stringify(response))
+if action == "delete" and id_param then
+    if driver_lib.delete_sms then
+        for sms_id in string.gmatch(id_param, "([^,]+)") do
+            driver_lib.delete_sms(config, sms_id)
+        end
+        print(json.stringify({ status = "success" }))
+    else
+        print(json.stringify({ status = "error", message = "Driver không hỗ trợ xóa" }))
+    end
+
+elseif action == "delete_all" then
+    if driver_lib.delete_all_sms then
+        driver_lib.delete_all_sms(config)
+        print(json.stringify({ status = "success" }))
+    elseif driver_lib.get_sms and driver_lib.delete_sms then
+        local all = driver_lib.get_sms(config)
+        for _, msg in ipairs(all) do
+            driver_lib.delete_sms(config, msg.index)
+        end
+        print(json.stringify({ status = "success" }))
+    else
+        print(json.stringify({ status = "error", message = "Driver không hỗ trợ xóa tất cả" }))
+    end
+
+else
+    -- Mặc định: Lấy danh sách tin nhắn
+    local messages = driver_lib.get_sms(config)
+    print(json.stringify({ status = "success", data = messages }))
+end

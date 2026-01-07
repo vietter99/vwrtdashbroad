@@ -59,7 +59,7 @@ uci set uhttpd.vwrt.network_timeout='30'
 uci commit uhttpd
 /etc/init.d/uhttpd restart
 
-echo "[4/6] Dang thiet lap khoi dong (rc.local)..."
+echo "[4/6] Dang thiet lap khoi dong..."
 RC_FILE="/etc/rc.local"
 
 sed -i '/mobile_poller.sh/d' $RC_FILE
@@ -160,3 +160,6 @@ echo ""
 echo "=========================================="
 echo "      CAI DAT THANH CONG! (Success)"
 echo "=========================================="
+echo "Router se tu dong khoi dong lai de hoan tat cai dat."
+sleep 3
+reboot

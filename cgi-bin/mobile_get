@@ -1,74 +1,38 @@
 #!/usr/bin/lua
-print("Content-type: application/json\n")
 
-local script_path = "/www/vwrt/cgi-bin/"
-package.path = script_path .. "?.lua;" .. package.path
+local cjson = require "cjson"
 
-local json = require "luci.jsonc"
+-- Đường dẫn file cache
+local cache_file = "/tmp/vwrt_mobile.json"
 
-function get_query_param(key)
-    local query = os.getenv("QUERY_STRING") or ""
-    for k, v in string.gmatch(query, "([^&=]+)=([^&=]*)") do
-        if k == key then 
-            return v:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end)
-        end
-    end
-    return nil
-end
-
-local function get_config()
-    local cfg = { driver = "mmcli", at_port = "" }
-    local f = io.popen("uci get vwrt.modem.driver 2>/dev/null")
-    local drv = f:read("*a")
+-- Hàm đọc file
+function read_file(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local content = f:read("*all")
     f:close()
-    if drv and drv:len() > 1 then cfg.driver = drv:gsub("[\r\n]", "") end
-    return cfg
+    return content
 end
 
-local config = get_config()
-local status, driver_lib
-local target_driver = (config.driver and config.driver ~= "") and config.driver or "mmcli"
-
--- Load Driver
-status, driver_lib = pcall(require, "drivers." .. target_driver)
-if not status and target_driver ~= "mmcli" then
-    status, driver_lib = pcall(require, "drivers.mmcli")
-end
-
-if not status then
-    print(json.stringify({ status = "error", message = "Driver load failed" }))
-    os.exit()
-end
-
-local action = get_query_param("action")
-local id_param = get_query_param("id")
-
-if action == "delete" and id_param then
-    if driver_lib.delete_sms then
-        for sms_id in string.gmatch(id_param, "([^,]+)") do
-            driver_lib.delete_sms(config, sms_id)
+function get_data()
+    local content = read_file(cache_file)
+    local data = {}
+    
+    if content and content ~= "" then
+        local ok, parsed = pcall(cjson.decode, content)
+        if ok and parsed then
+            data = parsed
         end
-        print(json.stringify({ status = "success" }))
-    else
-        print(json.stringify({ status = "error", message = "Driver không hỗ trợ xóa" }))
     end
 
-elseif action == "delete_all" then
-    -- Xóa tất cả
-    if driver_lib.delete_all_sms then
-        driver_lib.delete_all_sms(config)
-        print(json.stringify({ status = "success" }))
-    elseif driver_lib.get_sms and driver_lib.delete_sms then
-        local all = driver_lib.get_sms(config)
-        for _, msg in ipairs(all) do
-            driver_lib.delete_sms(config, msg.index)
-        end
-        print(json.stringify({ status = "success" }))
-    else
-        print(json.stringify({ status = "error", message = "Driver không hỗ trợ xóa tất cả" }))
+    if not data.operator_name then
+        data.operator_name = "Loading..."
+        data.signal = "0"
+        data.mode = "Checking..."
     end
 
-else
-    local messages = driver_lib.get_sms(config)
-    print(json.stringify({ status = "success", data = messages }))
+    return { status = "success", data = data }
 end
+
+print("Content-type: application/json\n\n")
+print(cjson.encode(get_data()))

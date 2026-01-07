@@ -3,44 +3,40 @@
 echo "Content-type: application/json"
 echo ""
 
+# --- 1. ĐỌC DỮ LIỆU ---
 read POST_DATA
 URL=$(echo "$POST_DATA" | grep -o '"url":"[^"]*' | cut -d'"' -f4)
 TYPE=$(echo "$POST_DATA" | grep -o '"type":"[^"]*' | cut -d'"' -f4)
 VER=$(echo "$POST_DATA" | grep -o '"version":"[^"]*' | cut -d'"' -f4)
 
 DEFAULT_URL="https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.zip"
-
 if [ -z "$URL" ] || [ "$URL" = "undefined" ]; then
     URL="$DEFAULT_URL"
-    echo "Warning: URL was undefined. Using Default: $URL" > /tmp/update_debug.log
 fi
 
-# Log kiểm tra
-echo "Update Debug: Type=$TYPE | Ver=$VER | URL=$URL" >> /tmp/update_debug.log
+# Log debug
+echo "Update: Type=$TYPE | URL=$URL" > /tmp/update_debug.log
 
-cd /tmp
-rm -f update_dash.zip
-rm -rf /tmp/vwrtdashbroad-main
-
-# --- HÀM TẢI FILE (Hỗ trợ cả curl và wget) ---
 download_file() {
     if command -v curl >/dev/null 2>&1; then
         curl -k -L -o "$2" "$1" >> /tmp/update_debug.log 2>&1
-        return $?
     elif command -v wget >/dev/null 2>&1; then
         wget --no-check-certificate -O "$2" "$1" >> /tmp/update_debug.log 2>&1
-        return $?
     else
-        echo "Error: No download tool found (curl/wget)" >> /tmp/update_debug.log
         return 1
     fi
 }
 
-# --- XỬ LÝ CẬP NHẬT DASHBOARD ---
+# --- 2. XỬ LÝ CẬP NHẬT ---
 if [ "$TYPE" = "dashboard" ]; then
+    
+    cd /tmp
+    rm -f update_dash.zip
+    rm -rf /tmp/vwrtdashbroad-main
+
+    # Tải file về
     if download_file "$URL" "update_dash.zip"; then
         
-        # Kiểm tra dung lượng file
         if [ ! -s "update_dash.zip" ]; then
              echo '{"status":"error", "message":"Lỗi: File tải về bị rỗng (0 byte)"}'
              exit 0
@@ -50,28 +46,47 @@ if [ "$TYPE" = "dashboard" ]; then
         if unzip -o update_dash.zip -d /tmp/ >/dev/null 2>&1; then
             
             FOLDER=$(find /tmp -maxdepth 1 -type d -name "vwrtdashbroad*")
-            
-            if [ -n "$FOLDER" ] && [ -d "$FOLDER" ]; then
-                cp -rf "$FOLDER"/* /www/vwrt/
-            else
-                unzip -o update_dash.zip -d /www/vwrt/ >/dev/null 2>&1
+            if [ -z "$FOLDER" ]; then
+                 echo '{"status":"error", "message":"Lỗi cấu trúc file zip"}'
+                 exit 0
             fi
 
-            # Cập nhật version local
-            if [ -n "$VER" ]; then
-                echo "{\"dashboard\":{\"version\":\"$VER\"}}" > /www/vwrt/version.json
-            fi
+            # --- TẠO SCRIPT CÀI ĐẶT SẠCH & REBOOT ---
+cat <<EOF > /tmp/do_clean_install.sh
+#!/bin/sh
+sleep 2
 
-            # Cấp quyền lại
-            chmod +x /www/vwrt/cgi-bin/*
-            chmod -R 755 /www/vwrt
+# 1. Xóa sạch thư mục cũ (Giữ lại version.json nếu muốn, ở đây xóa hết theo yêu cầu)
+echo "Wiping old data..." >> /tmp/update_debug.log
+rm -rf /www/vwrt/*
 
-            echo '{"status":"success", "message":"Cập nhật thành công! Đang tải lại..."}'
+# 2. Copy mã nguồn mới vào
+echo "Installing new version..." >> /tmp/update_debug.log
+cp -rf "$FOLDER"/* /www/vwrt/
+
+# 3. Ghi lại version mới (nếu có)
+if [ -n "$VER" ]; then
+    echo "{\\"dashboard\\":{\\"version\\":\\"$VER\\"}}" > /www/vwrt/version.json
+fi
+
+# 4. Cấp quyền thực thi
+chmod +x /www/vwrt/cgi-bin/*
+chmod -R 755 /www/vwrt
+
+# 5. Reboot hệ thống
+echo "Rebooting..." >> /tmp/update_debug.log
+reboot
+EOF
+
+            chmod +x /tmp/do_clean_install.sh
+            sh /tmp/do_clean_install.sh >/dev/null 2>&1 &
+
+            echo '{"status":"success", "message":"Đã tải xong! Đang xóa dữ liệu cũ, cài mới và reboot (vui lòng đợi 1-2 phút)..."}'
         else
-            echo '{"status":"error", "message":"Lỗi giải nén. Vui lòng cài unzip (opkg install unzip)"}'
+            echo '{"status":"error", "message":"Lỗi giải nén (thiếu unzip?)"}'
         fi
     else
-        echo '{"status":"error", "message":"Không tải được file. Kiểm tra mạng router."}'
+        echo '{"status":"error", "message":"Không tải được file cập nhật."}'
     fi
 else
     echo '{"status":"error", "message":"Loại cập nhật không hợp lệ"}'
