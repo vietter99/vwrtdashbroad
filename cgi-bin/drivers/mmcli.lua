@@ -47,7 +47,6 @@ function M.get_sms(config)
     local list_out = exec(list_cmd)
 
     for sms_path in list_out:gmatch("/SMS/(%d+)") do
-        -- Đọc JSON
         local read_cmd = string.format("mmcli -s %s -J", sms_path)
         local read_out = exec(read_cmd)
         
@@ -93,6 +92,24 @@ function M.get_sms(config)
     
     table.sort(messages, function(a, b) return tonumber(a.index) > tonumber(b.index) end)
     return messages
+end
+
+
+function M.delete_sms(config, index)
+    local m_idx = "0"
+    if config.modem_index then
+        m_idx = config.modem_index
+    else
+        local handle = io.popen("mmcli -L 2>/dev/null")
+        local output = handle:read("*a")
+        handle:close()
+        m_idx = output:match("/Modem/(%d+)") or "0"
+    end
+
+    local cmd = string.format("mmcli -m %s --messaging-delete-sms=%s", m_idx, index)
+    os.execute(cmd)
+    
+    return { status = "success" }
 end
 
 return M
