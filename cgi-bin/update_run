@@ -3,102 +3,81 @@
 echo "Content-type: application/json"
 echo ""
 
-read POST_DATA
-URL=$(echo "$POST_DATA" | grep -o '"url":"[^"]*' | cut -d'"' -f4)
-TYPE=$(echo "$POST_DATA" | grep -o '"type":"[^"]*' | cut -d'"' -f4)
-VER=$(echo "$POST_DATA" | grep -o '"version":"[^"]*' | cut -d'"' -f4)
+URL="https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.tar.gz"
 
-DEFAULT_URL="https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.tar.gz"
+LOGfile="/tmp/update_debug.log"
+echo "Update Start: Forced URL=$URL" > $LOGfile
 
-if [ -z "$URL" ] || [ "$URL" = "undefined" ]; then
-    URL="$DEFAULT_URL"
-fi
-
-echo "Update: Type=$TYPE | URL=$URL" > /tmp/update_debug.log
+WORKDIR="/tmp/update_work"
 
 download_file() {
     if command -v curl >/dev/null 2>&1; then
-        curl -k -L -o "$2" "$1" >> /tmp/update_debug.log 2>&1
+        curl -k -L -o "$2" "$1" >> $LOGfile 2>&1
     elif command -v wget >/dev/null 2>&1; then
-        wget --no-check-certificate -O "$2" "$1" >> /tmp/update_debug.log 2>&1
+        wget --no-check-certificate -O "$2" "$1" >> $LOGfile 2>&1
     else
         return 1
     fi
 }
 
-if [ "$TYPE" = "dashboard" ]; then
-    
-    WORKDIR="/tmp/update_work"
-    rm -rf $WORKDIR
-    mkdir -p $WORKDIR
-    
-    cd $WORKDIR
+rm -rf $WORKDIR
+mkdir -p $WORKDIR
+cd $WORKDIR
 
-    if download_file "$URL" "update.tar.gz"; then
+if download_file "$URL" "update.tar.gz"; then
+    
+    if [ ! -s "update.tar.gz" ]; then
+         echo '{"status":"error", "message":"Lỗi: File tải về bị rỗng (0 byte)"}'
+         exit 0
+    fi
+
+    if tar -xzf update.tar.gz -C $WORKDIR >/tmp/tar_error.txt 2>&1; then
         
-        if [ ! -s "update.tar.gz" ]; then
-             echo '{"status":"error", "message":"Lỗi: File tải về bị rỗng (0 byte)"}'
+        FOLDER=$(ls -d $WORKDIR/*/ 2>/dev/null | head -n 1)
+        if [ -z "$FOLDER" ]; then
+             FOLDER=$(find $WORKDIR -maxdepth 1 -type d | grep -v "^$WORKDIR$" | head -n 1)
+        fi
+
+        if [ -z "$FOLDER" ]; then
+             echo '{"status":"error", "message":"Giải nén OK nhưng không tìm thấy thư mục code."}'
              exit 0
         fi
 
-        if tar -xzf update.tar.gz -C $WORKDIR >/dev/null 2>&1; then
-            
-            FOLDER=$(ls -d $WORKDIR/*/ 2>/dev/null | head -n 1)
-            
-            if [ -z "$FOLDER" ]; then
-                 FOLDER=$(find $WORKDIR -maxdepth 1 -type d | grep -v "^$WORKDIR$" | head -n 1)
-            fi
-
-            if [ -z "$FOLDER" ]; then
-                 echo '{"status":"error", "message":"Lỗi cấu trúc file cập nhật"}'
-                 exit 0
-            fi
-
-            cat <<EOF > /tmp/do_clean_install.sh
+        cat <<EOF > /tmp/do_clean_install.sh
 #!/bin/sh
 sleep 2
 
-# 1. Xóa sạch thư mục cũ
-echo "Wiping old data..." >> /tmp/update_debug.log
+# 1. Xóa sạch dữ liệu cũ
 rm -rf /www/vwrt/*
 
-# 2. Copy mã nguồn mới vào
-echo "Installing from $FOLDER..." >> /tmp/update_debug.log
+# 2. Copy mã nguồn mới
 cp -rf "$FOLDER"/* /www/vwrt/
 
-# 3. XÓA FILE install.sh THỪA (Nếu có)
-# Để tránh rác trong thư mục web sau khi update
+# 3. XÓA FILE install.sh THỪA (Để không bị rác)
 if [ -f "/www/vwrt/install.sh" ]; then
     rm -f "/www/vwrt/install.sh"
 fi
 
-# 4. Ghi lại version mới (nếu có)
-if [ -n "$VER" ]; then
-    echo "{\\"dashboard\\":{\\"version\\":\\"$VER\\"}}" > /www/vwrt/version.json
-fi
-
-# 5. Cấp quyền thực thi
+# 4. Cấp quyền
 chmod +x /www/vwrt/cgi-bin/*
 chmod -R 755 /www/vwrt
 
-# 6. Dọn dẹp file tạm
+# 5. Dọn dẹp
 rm -rf $WORKDIR
 
-# 7. Reboot hệ thống
-echo "Rebooting..." >> /tmp/update_debug.log
+# 6. Reboot
 reboot
 EOF
+        chmod +x /tmp/do_clean_install.sh
+        
+        sh /tmp/do_clean_install.sh >/dev/null 2>&1 &
 
-            chmod +x /tmp/do_clean_install.sh
-            sh /tmp/do_clean_install.sh >/dev/null 2>&1 &
-
-            echo '{"status":"success", "message":"Đã tải xong! Đang xóa sạch cũ, cài mới và reboot..."}'
-        else
-            echo '{"status":"error", "message":"Lỗi giải nén file .tar.gz (tar failed)"}'
-        fi
+        echo '{"status":"success", "message":"Tải bản cập nhật thành công! Hệ thống đang cài đặt lại và sẽ tự khởi động lại sau 1 phút."}'
     else
-        echo '{"status":"error", "message":"Không tải được file cập nhật."}'
+        ERR_MSG=$(cat /tmp/tar_error.txt)
+        SAFE_ERR=$(echo "$ERR_MSG" | sed 's/"/\\"/g')
+        echo "{\"status\":\"error\", \"message\":\"Lỗi lệnh TAR: $SAFE_ERR\"}"
     fi
 else
-    echo '{"status":"error", "message":"Loại cập nhật không hợp lệ"}'
+    echo '{"status":"error", "message":"Không tải được file từ GitHub."}'
 fi
