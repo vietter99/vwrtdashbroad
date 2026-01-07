@@ -2,7 +2,6 @@
 
 > **Hệ thống quản lý Router OpenWrt chuyên dụng, tối ưu hóa cho Modem 4G/5G.**
 
-<<<<<<< HEAD
 ![Version](https://img.shields.io/badge/version-1.0.5-blue.svg)
 ![Status](https://img.shields.io/badge/status-stable-green.svg)
 ![License](https://img.shields.io/badge/license-Vietter%20Exclusive-red.svg)
