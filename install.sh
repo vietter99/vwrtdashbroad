@@ -3,7 +3,8 @@
 # ==========================================
 # CẤU HÌNH CÀI ĐẶT
 # ==========================================
-GITHUB_URL="https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.zip"
+# Đổi sang link .tar.gz (GitHub hỗ trợ sẵn)
+GITHUB_URL="https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.tar.gz"
 INSTALL_DIR="/www/vwrt"
 TMP_DIR="/tmp/vwrt_install"
 INDEX_FILE="/www/index.html"
@@ -13,23 +14,36 @@ echo "=== BAT DAU CAI DAT VWRT DASHBOARD ==="
 
 echo "[1/6] Dang kiem tra va cai dat goi bo tro..."
 opkg update >/dev/null 2>&1
-opkg install unzip curl libiwinfo-lua >/dev/null 2>&1 
+opkg install curl libiwinfo-lua >/dev/null 2>&1 
 
 echo "[2/6] Dang tai..."
 rm -rf $TMP_DIR
 mkdir -p $TMP_DIR
 rm -rf $INSTALL_DIR
 
-if curl -k -L -o $TMP_DIR/source.zip "$GITHUB_URL"; then
-    echo " -> Tai ve thanh cong. Dang giai nen..."
-    unzip -o $TMP_DIR/source.zip -d $TMP_DIR >/dev/null 2>&1
-    
-    SOURCE_FOLDER=$(find $TMP_DIR -maxdepth 1 -type d -name "vwrtdashbroad*")
-    
-    if [ -z "$SOURCE_FOLDER" ]; then
-        echo "LOI: Khong tim thay thu muc source code sau khi giai nen!"
+# Tải file .tar.gz
+if curl -k -L -o $TMP_DIR/source.tar.gz "$GITHUB_URL"; then
+    echo " -> Tai ve thanh cong ($GITHUB_URL)"
+    echo " -> Dang giai nen..."
+    if tar -xzf $TMP_DIR/source.tar.gz -C $TMP_DIR >/dev/null 2>&1; then
+        echo " -> Giai nen OK."
+    else
+        echo "LOI: Lenh tar that bai! File tai ve co the bi loi."
         exit 1
     fi
+    
+    SOURCE_FOLDER=$(ls -d $TMP_DIR/*/ 2>/dev/null | head -n 1)
+    if [ -z "$SOURCE_FOLDER" ]; then
+        SOURCE_FOLDER=$(find $TMP_DIR -maxdepth 1 -type d | grep -v "^$TMP_DIR$" | head -n 1)
+    fi
+    
+    if [ -z "$SOURCE_FOLDER" ]; then
+        echo "LOI: Khong tim thay thu muc ma nguon!"
+        ls -l $TMP_DIR
+        exit 1
+    fi
+    
+    echo " -> Da tim thay source tai: $SOURCE_FOLDER"
 
     mkdir -p /www
     cp -rf "$SOURCE_FOLDER" $INSTALL_DIR
@@ -59,11 +73,10 @@ uci set uhttpd.vwrt.network_timeout='30'
 uci commit uhttpd
 /etc/init.d/uhttpd restart
 
-echo "[4/6] Dang thiet lap khoi dong..."
+echo "[4/6] Dang thiet lap khoi dong (rc.local)..."
 RC_FILE="/etc/rc.local"
 
 sed -i '/mobile_poller.sh/d' $RC_FILE
-
 sed -i '/exit 0/i killall mobile_poller.sh 2>/dev/null' $RC_FILE
 sed -i "/exit 0/i sh $INSTALL_DIR/cgi-bin/mobile_poller.sh &" $RC_FILE
 
@@ -160,6 +173,6 @@ echo ""
 echo "=========================================="
 echo "      CAI DAT THANH CONG! (Success)"
 echo "=========================================="
-echo "Router se tu dong khoi dong lai de hoan tat cai dat."
+echo "Dang khoi dong lai thiet bi sau 3 giay..."
 sleep 3
 reboot

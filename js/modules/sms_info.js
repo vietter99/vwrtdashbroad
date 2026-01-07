@@ -11,8 +11,7 @@ const SmsModule = {
         if (oldModal) oldModal.remove();
 
         const modalHtml = `
-            <div class="modal-overlay active" id="modal-sms-compose" style="z-index: 99999;">
-                <div class="modal-box" style="
+    <div class="modal-overlay active" id="modal-sms-compose" style="z-index: 99000;">                <div class="modal-box" style="
                     background: #fff; 
                     width: 400px; max-width: 90%; 
                     padding: 0; 
