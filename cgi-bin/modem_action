@@ -1,0 +1,69 @@
+#!/bin/sh
+
+echo "Content-type: application/json"
+echo ""
+
+# 1. XÁC ĐỊNH INTERFACE MẠNG DÙNG MODEMMANAGER
+TARGET_IFACE=$(uci show network | grep "proto='modemmanager'" | cut -d'.' -f2 | head -n 1)
+
+if [ -z "$TARGET_IFACE" ]; then
+    echo '{"status":"error", "message":"Lỗi: Không tìm thấy Interface mạng nào dùng ModemManager!"}'
+    exit 1
+fi
+
+# 2. TÌM DRIVER NODE CỦA MODEM
+MODEM_PATH=""
+FOUND_DRIVER_NODE=""
+
+for dev in /sys/class/usbmisc/cdc-wdm*; do
+    if [ -e "$dev" ]; then
+        FOUND_DRIVER_NODE="$dev"
+        break 
+    fi
+done
+
+if [ -z "$FOUND_DRIVER_NODE" ]; then
+    for dev in /sys/class/tty/ttyUSB*; do
+        if [ -e "$dev" ]; then
+            FOUND_DRIVER_NODE="$dev"
+            break
+        fi
+    done
+fi
+
+# 3. XÁC ĐỊNH ĐƯỜNG DẪN THIẾT BỊ MODEM
+if [ -n "$FOUND_DRIVER_NODE" ]; then
+    real_path=$(readlink -f "$FOUND_DRIVER_NODE")
+    current_path="$real_path"
+    
+    while [ "$current_path" != "/" ]; do
+        if [ -f "$current_path/idVendor" ]; then
+            MODEM_PATH="$current_path"
+            break
+        fi
+        current_path=$(dirname "$current_path")
+    done
+fi
+
+# 4. KIỂM TRA & KÍCH HOẠT
+if [ -z "$MODEM_PATH" ]; then
+    echo '{"status":"error", "message":"Không tìm thấy Modem nào được cắm vào (quét thất bại)."}'
+    exit 1
+fi
+
+# Ghi cấu hình vào UCI
+uci set network.$TARGET_IFACE.device="$MODEM_PATH"
+uci commit network
+
+# Reload và khởi động lại interface
+ifdown "$TARGET_IFACE"
+/etc/init.d/modemmanager restart >/dev/null 2>&1
+
+# Thời gian chờ kết nối
+sleep 15
+
+ifup "$TARGET_IFACE"
+
+port_name=$(basename "$MODEM_PATH")
+
+echo "{\"status\":\"success\", \"message\":\"Đã tìm thấy Modem tại cổng USB [$port_name] và kích hoạt.\"}"

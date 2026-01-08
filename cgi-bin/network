@@ -16,8 +16,6 @@ local interfaces_map = {}
 
 if dump and dump.interface then
     for _, iface in ipairs(dump.interface) do
-        -- THAY ĐỔI Ở ĐÂY: Thêm điều kiện (iface.interface ~= "loopback")
-        -- Chỉ xử lý nếu interface đã UP VÀ không phải là loopback
         if iface.up and iface.interface ~= "loopback" then
             
             local dev_name = iface.l3_device or iface.device
@@ -41,7 +39,6 @@ if dump and dump.interface then
                 end
             end
 
-            -- Chỉ thêm vào danh sách nếu có thiết bị vật lý
             if dev_name and (v4_str ~= "--" or v6_str ~= "--") then
                 interfaces_map[dev_name] = {
                     name = dev_name,
@@ -55,12 +52,10 @@ if dump and dump.interface then
     end
 end
 
--- 2. Lấy thống kê lưu lượng (Traffic Stats)
 local dev_stats = conn:call("network.device", "status", {}) or {}
 
 local final_list = {}
 
--- 3. Tổng hợp dữ liệu
 for dev_name, info in pairs(interfaces_map) do
     local stats = dev_stats[dev_name] or {}
     local stat_data = stats.statistics or {}

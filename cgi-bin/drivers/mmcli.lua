@@ -49,7 +49,6 @@ function M.send_sms(config, number, text)
     local safe_text = text:gsub("'", "'\\''")
     local safe_number = number:gsub("'", "")
 
-    -- THAY ĐỔI: Thêm cờ 'delivery-report-request=yes'
     local cmd = string.format("mmcli -m %s --messaging-create-sms=\"text='%s',number='%s',delivery-report-request=yes\"", m_idx, safe_text, safe_number)
     local create_out = exec(cmd)
     local sms_id = create_out:match("/SMS/(%d+)")
@@ -96,7 +95,7 @@ function M.get_sms(config)
             local text_val = ""
             local time_val = ""
             local type_val = "received"
-            local delivery_status = "" -- Thêm biến trạng thái giao hàng
+            local delivery_status = "" 
 
             if data and data.sms then
                 if data.sms.content then
@@ -121,7 +120,6 @@ function M.get_sms(config)
                     
                     if data.sms.properties["pdu-type"] == "submit" then
                         type_val = "sent"
-                        -- THAY ĐỔI: Lấy trạng thái giao hàng
                         delivery_status = data.sms.properties["delivery-state"] or "unknown"
                     end
                 end
@@ -133,7 +131,7 @@ function M.get_sms(config)
                 time = time_val,
                 text = text_val,
                 type = type_val,
-                status = delivery_status -- Trả về frontend
+                status = delivery_status 
             })
         end
     end

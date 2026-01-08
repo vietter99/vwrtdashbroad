@@ -5,20 +5,13 @@ const SmsModule = {
         this.fetchInbox(false);
     },
 
-// --- HÀM 1: MỞ FORM SOẠN TIN ---
     openCompose: function() {
         const oldModal = document.getElementById('modal-sms-compose');
         if (oldModal) oldModal.remove();
 
         const modalHtml = `
-    <div class="modal-overlay active" id="modal-sms-compose" style="z-index: 1001;">                <div class="modal-box" style="
-                    background: #fff; 
-                    width: 400px; max-width: 90%; 
-                    padding: 0; 
-                    border-radius: 12px; 
-                    box-shadow: 0 10px 30px rgba(0,0,0,0.2); 
-                    display:flex; flex-direction:column;">
-                    
+            <div class="modal-overlay active" id="modal-sms-compose" style="z-index: 1001;">
+                <div class="modal-box" style="background: #fff; width: 400px; max-width: 90%; padding: 0; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); display:flex; flex-direction:column;">
                     <div style="padding: 15px 20px; border-bottom: 1px solid #eee; display:flex; justify-content:space-between; align-items:center; background:#f8f9fa; border-top-left-radius:12px; border-top-right-radius:12px;">
                         <h3 style="margin:0; font-size:16px; color:#333; font-weight:700;">✍️ Soạn tin nhắn mới</h3>
                         <button onclick="document.getElementById('modal-sms-compose').remove()" style="border:none; background:none; font-size:20px; cursor:pointer; color:#999;">&times;</button>
@@ -44,21 +37,21 @@ const SmsModule = {
         `;
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         
-setTimeout(() => {
-        const inputTo = document.getElementById('sms-to-modal');
-        if(inputTo) inputTo.focus();
-    }, 100);
+        setTimeout(() => {
+            const inputTo = document.getElementById('sms-to-modal');
+            if(inputTo) inputTo.focus();
+        }, 100);
 
-    const escHandler = function(e) {
-        if (e.key === "Escape") {
-            const m = document.getElementById('modal-sms-compose');
-            if (m) m.remove();
-            document.removeEventListener('keydown', escHandler);
-        }
-    };
-    document.addEventListener('keydown', escHandler);
-},
-    // --- HÀM 2: GỬI TIN ---
+        const escHandler = function(e) {
+            if (e.key === "Escape") {
+                const m = document.getElementById('modal-sms-compose');
+                if (m) m.remove();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    },
+
     sendSMSFromModal: function() {
         const number = document.getElementById('sms-to-modal').value;
         const text = document.getElementById('sms-body-modal').value;
@@ -147,7 +140,6 @@ setTimeout(() => {
             const icon = isSent ? '↗' : '↙';
             const iconColor = isSent ? '#718096' : '#3182ce';
             const bgIcon = isSent ? '#f7fafc' : '#ebf8ff';
-            
             const timeShow = this.getDisplayTime(msg);
 
             html += `
@@ -182,62 +174,69 @@ setTimeout(() => {
             const ids = Array.from(checkedBoxes).map(cb => cb.value).join(",");
             if(typeof Toast !== 'undefined') Toast.show("Đang xóa...", "info");
             fetch(`${this.API_URL}?action=delete&id=${ids}`).then(() => {
-        if(typeof Toast !== 'undefined') Toast.show("Đã xóa!", "success");
-        setTimeout(() => {
-        this.fetchInbox(true);
-    }, 1500);
-});
+                if(typeof Toast !== 'undefined') Toast.show("Đã xóa!", "success");
+                setTimeout(() => {
+                    this.fetchInbox(true);
+                }, 1500);
+            });
         });
     },
 
     deleteAll: function() {
         Modal.confirm("Cảnh báo", "Xóa SẠCH toàn bộ tin nhắn?", () => {
-        if(typeof Toast !== 'undefined') Toast.show("Đang xóa...", "info");
-        fetch(`${this.API_URL}?action=delete_all`).then(() => {
-        if(typeof Toast !== 'undefined') Toast.show("Đã xóa sạch!", "success");
-    setTimeout(() => {
-        this.fetchInbox(true);
-    }, 2000);
-});
+            if(typeof Toast !== 'undefined') Toast.show("Đang xóa...", "info");
+            fetch(`${this.API_URL}?action=delete_all`).then(() => {
+                if(typeof Toast !== 'undefined') Toast.show("Đã xóa sạch!", "success");
+                setTimeout(() => {
+                    this.fetchInbox(true);
+                }, 2000);
+            });
         });
     },
 
     renderFullTable: function(messages) {
-    const oldModal = document.getElementById('modal-sms-full');
-    if (oldModal) oldModal.remove();
+        const oldModal = document.getElementById('modal-sms-full');
+        if (oldModal) oldModal.remove();
 
-    let rows = '';
+        let rows = '';
         if (!messages || messages.length === 0) {
             rows = '<tr><td colspan="5" style="text-align:center; padding:40px; color:#888;">Hộp thư trống.</td></tr>';
         } else {
             messages.forEach(msg => {
                 const isSent = msg.type === 'sent';
                 let typeLabel = '';
-    if (isSent) {
-        let statusIcon = '';
-        const s = (msg.status || '').toLowerCase(); 
-
-        if (s === 'completed-received') {
-            statusIcon = ' <span title="Đã nhận (Delivered)" style="color:#38a169;">✔✔</span>';
-        } else if (s.includes('failed')) {
-            statusIcon = ` <span title="Lỗi: ${msg.status}" style="color:#e53e3e;">✖</span>`;
-        } else {
-            statusIcon = ` <span title="Đã gửi - Status: ${msg.status || 'none'}" style="color:#a0aec0;">✔</span>`;
-        }
-
-        typeLabel = `<span style="color:#4a5568; background:#edf2f7; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold; border:1px solid #cbd5e0; display:inline-block; width:75px; text-align:center;">↗ Gửi đi${statusIcon}</span>`;
-    } else {
-        typeLabel = '<span style="color:#2b6cb0; background:#bee3f8; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold; border:1px solid #90cdf4; display:inline-block; width:75px; text-align:center;">↙ Tin đến</span>';
-    }                
+                
+                if (isSent) {
+                    let statusIcon = '';
+                    const s = (msg.status || '').toLowerCase(); 
+                    if (s === 'completed-received') statusIcon = ' <span title="Đã nhận" style="color:#38a169;">✔✔</span>';
+                    else if (s.includes('failed')) statusIcon = ` <span title="Lỗi: ${msg.status}" style="color:#e53e3e;">✖</span>`;
+                    else statusIcon = ` <span title="Đã gửi" style="color:#a0aec0;">✔</span>`;
+                    
+                    typeLabel = `<span style="color:#4a5568; background:#edf2f7; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold; border:1px solid #cbd5e0; display:inline-block; width:75px; text-align:center;">↗ Gửi đi${statusIcon}</span>`;
+                } else {
+                    typeLabel = '<span style="color:#2b6cb0; background:#bee3f8; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold; border:1px solid #90cdf4; display:inline-block; width:75px; text-align:center;">↙ Tin đến</span>';
+                }                
+                
                 const timeShow = this.getDisplayTime(msg);
 
                 rows += `
-                    <tr style="border-bottom:1px solid #eee; height: 50px;">
-                        <td style="text-align:center;"><input type="checkbox" class="sms-chk" value="${msg.index}" style="width:16px; height:16px; margin-top:4px; cursor:pointer;"></td>
-                        <td style="padding-left:15px;">${typeLabel}</td>
-                        <td style="font-weight:600; color:#2d3748; padding-left:5px;">${msg.number}</td>
-                        <td style="color:#4a5568; padding-left:5px;"><div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width: 100%;">${msg.text}</div></td>
-                        <td style="text-align:right; padding-right:15px; color:#718096; font-size:13px;">${timeShow}</td>
+                    <tr style="border-bottom:1px solid #eee;">
+                        <td style="text-align:center; vertical-align: top; padding-top: 15px;">
+                            <input type="checkbox" class="sms-chk" value="${msg.index}" style="width:16px; height:16px; cursor:pointer;">
+                        </td>
+                        <td style="padding-left:15px; vertical-align: top; padding-top: 12px;">${typeLabel}</td>
+                        <td style="font-weight:600; color:#2d3748; padding-left:5px; vertical-align: top; padding-top: 15px;">${msg.number}</td>
+                        
+                        <td style="color:#4a5568; padding: 12px 5px;">
+                            <div onclick="this.style.whiteSpace=this.style.whiteSpace==='normal'?'nowrap':'normal'" 
+                                 style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width: 100%; cursor:pointer; line-height: 1.5;" 
+                                 title="Chạm để xem toàn bộ">
+                                ${msg.text}
+                            </div>
+                        </td>
+                        
+                        <td style="text-align:right; padding-right:15px; color:#718096; font-size:13px; vertical-align: top; padding-top: 15px;">${timeShow}</td>
                     </tr>
                 `;
             });
@@ -258,7 +257,12 @@ setTimeout(() => {
                     </div>
                     <div style="flex:1; overflow-y: auto;">
                         <table style="width:100%; border-collapse: collapse; font-size:14px; table-layout: fixed;">
-                            <colgroup><col style="width: 50px;"><col style="width: 120px;"><col style="width: 150px;"><col style="width: auto;"><col style="width: 140px;"></colgroup>
+                            <colgroup>
+                                <col style="width: 50px;">
+                                <col style="width: 120px;">
+                                <col style="width: 130px;">
+                                <col style="width: auto;"> <col style="width: 140px;">
+                            </colgroup>
                             <thead style="background:#fff; position:sticky; top:0; z-index:10; border-bottom: 2px solid #eee;">
                                 <tr style="color:#718096; font-size:11px; font-weight:bold; height:45px;">
                                     <th style="text-align:center; background:#f8f9fa;"><input type="checkbox" onchange="SmsModule.toggleAll(this)" style="width:16px; height:16px; cursor:pointer;"></th>
