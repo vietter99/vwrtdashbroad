@@ -1,8 +1,8 @@
 {
     "dashboard": {
-        "version": "1.0.5",
+        "version": "1.0.6",
         "url": "https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.zip",
-        "log": "- Sửa lỗi hiển thị thông tin modem EM9190.\n- Cải thiện hiệu suất và giao diện người dùng."
+        "log": "- Cập nhật giao diện bảng điều khiển.\n- Sửa lỗi nhỏ."
     },
     "firmware": {
         "version": "1.0.0",
