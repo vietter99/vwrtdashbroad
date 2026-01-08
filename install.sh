@@ -155,7 +155,7 @@ cat << 'EOF' > "$INDEX_FILE"
     <div id="selection-screen">
         <h2 style="margin-top:0; color:#333;">Dashboard Selection</h2>
         <p style="margin-bottom:20px;">Chọn giao diện quản lý Router</p>
-        <button class="btn btn-luci" onclick="selectDashboard('luci')">LuCI (Mặc định)</button>
+        <button class="btn btn-luci" onclick="selectDashboard('luci')">LuCI</button>
         <button class="btn btn-vwrt" onclick="selectDashboard('vwrt')">VWRT Dashboard</button>
         <p class="note">Để chọn lại, hãy truy cập: <b>IP-Router/?reset=1</b></p>
     </div>
