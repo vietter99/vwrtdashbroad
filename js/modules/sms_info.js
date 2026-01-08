@@ -5,13 +5,13 @@ const SmsModule = {
         this.fetchInbox(false);
     },
 
-    // --- HÀM 1: MỞ FORM SOẠN TIN ---
+// --- HÀM 1: MỞ FORM SOẠN TIN ---
     openCompose: function() {
         const oldModal = document.getElementById('modal-sms-compose');
         if (oldModal) oldModal.remove();
 
         const modalHtml = `
-    <div class="modal-overlay active" id="modal-sms-compose" style="z-index: 99000;">                <div class="modal-box" style="
+    <div class="modal-overlay active" id="modal-sms-compose" style="z-index: 1001;">                <div class="modal-box" style="
                     background: #fff; 
                     width: 400px; max-width: 90%; 
                     padding: 0; 
@@ -44,9 +44,20 @@ const SmsModule = {
         `;
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         
-        setTimeout(() => document.getElementById('sms-to-modal').focus(), 100);
-    },
+setTimeout(() => {
+        const inputTo = document.getElementById('sms-to-modal');
+        if(inputTo) inputTo.focus();
+    }, 100);
 
+    const escHandler = function(e) {
+        if (e.key === "Escape") {
+            const m = document.getElementById('modal-sms-compose');
+            if (m) m.remove();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+},
     // --- HÀM 2: GỬI TIN ---
     sendSMSFromModal: function() {
         const number = document.getElementById('sms-to-modal').value;
@@ -171,41 +182,58 @@ const SmsModule = {
             const ids = Array.from(checkedBoxes).map(cb => cb.value).join(",");
             if(typeof Toast !== 'undefined') Toast.show("Đang xóa...", "info");
             fetch(`${this.API_URL}?action=delete&id=${ids}`).then(() => {
-                if(typeof Toast !== 'undefined') Toast.show("Đã xóa!", "success");
-                this.fetchInbox(true);
-            });
+        if(typeof Toast !== 'undefined') Toast.show("Đã xóa!", "success");
+        setTimeout(() => {
+        this.fetchInbox(true);
+    }, 1500);
+});
         });
     },
 
     deleteAll: function() {
         Modal.confirm("Cảnh báo", "Xóa SẠCH toàn bộ tin nhắn?", () => {
-            if(typeof Toast !== 'undefined') Toast.show("Đang xóa...", "info");
-            fetch(`${this.API_URL}?action=delete_all`).then(() => {
-                if(typeof Toast !== 'undefined') Toast.show("Đã xóa sạch!", "success");
-                this.fetchInbox(true);
-            });
+        if(typeof Toast !== 'undefined') Toast.show("Đang xóa...", "info");
+        fetch(`${this.API_URL}?action=delete_all`).then(() => {
+        if(typeof Toast !== 'undefined') Toast.show("Đã xóa sạch!", "success");
+    setTimeout(() => {
+        this.fetchInbox(true);
+    }, 2000);
+});
         });
     },
 
     renderFullTable: function(messages) {
-        const oldModal = document.getElementById('modal-sms-full');
-        if (oldModal) oldModal.remove();
+    const oldModal = document.getElementById('modal-sms-full');
+    if (oldModal) oldModal.remove();
 
-        let rows = '';
+    let rows = '';
         if (!messages || messages.length === 0) {
             rows = '<tr><td colspan="5" style="text-align:center; padding:40px; color:#888;">Hộp thư trống.</td></tr>';
         } else {
             messages.forEach(msg => {
                 const isSent = msg.type === 'sent';
-                const typeLabel = isSent 
-                    ? '<span style="color:#4a5568; background:#edf2f7; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold; border:1px solid #cbd5e0; display:inline-block; width:60px; text-align:center;">↗ Gửi đi</span>' 
-                    : '<span style="color:#2b6cb0; background:#bee3f8; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold; border:1px solid #90cdf4; display:inline-block; width:60px; text-align:center;">↙ Tin đến</span>';
-                
+                let typeLabel = '';
+    if (isSent) {
+        let statusIcon = '';
+        const s = (msg.status || '').toLowerCase(); 
+
+        if (s === 'completed-received') {
+            statusIcon = ' <span title="Đã nhận (Delivered)" style="color:#38a169;">✔✔</span>';
+        } else if (s.includes('failed')) {
+            statusIcon = ` <span title="Lỗi: ${msg.status}" style="color:#e53e3e;">✖</span>`;
+        } else {
+            statusIcon = ` <span title="Đã gửi - Status: ${msg.status || 'none'}" style="color:#a0aec0;">✔</span>`;
+        }
+
+        typeLabel = `<span style="color:#4a5568; background:#edf2f7; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold; border:1px solid #cbd5e0; display:inline-block; width:75px; text-align:center;">↗ Gửi đi${statusIcon}</span>`;
+    } else {
+        typeLabel = '<span style="color:#2b6cb0; background:#bee3f8; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold; border:1px solid #90cdf4; display:inline-block; width:75px; text-align:center;">↙ Tin đến</span>';
+    }                
                 const timeShow = this.getDisplayTime(msg);
 
                 rows += `
                     <tr style="border-bottom:1px solid #eee; height: 50px;">
-                        <td style="text-align:center;"><input type="checkbox" class="sms-chk" value="${msg.id}" style="width:16px; height:16px; margin-top:4px; cursor:pointer;"></td>
+                        <td style="text-align:center;"><input type="checkbox" class="sms-chk" value="${msg.index}" style="width:16px; height:16px; margin-top:4px; cursor:pointer;"></td>
                         <td style="padding-left:15px;">${typeLabel}</td>
                         <td style="font-weight:600; color:#2d3748; padding-left:5px;">${msg.number}</td>
                         <td style="color:#4a5568; padding-left:5px;"><div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width: 100%;">${msg.text}</div></td>
