@@ -27,7 +27,7 @@ local function ucs2_to_utf8(hex)
     return table.concat(res)
 end
 
--- Hàm lấy text từ CLI
+-- Hàm lấy text từ CLI (dùng khi JSON trả về --)
 local function get_text_from_cli(sms_path_id)
     local id = sms_path_id:match("/SMS/(%d+)")
     if not id then return nil end
@@ -39,13 +39,15 @@ local function get_text_from_cli(sms_path_id)
     return text
 end
 
-function M.send_sms(config, number, text)
-    local m_idx = config.modem_index or "0"
-    if m_idx == "0" or m_idx == "" then
-        local out = exec("mmcli -L 2>/dev/null")
-        m_idx = out:match("/Modem/(%d+)") or "0"
-    end
+-- TỰ ĐỘNG DÒ TÌM MODEM INDEX
+local function get_current_modem_index()
+    local out = exec("mmcli -L 2>/dev/null")
+    local idx = out:match("/Modem/(%d+)")
+    return idx or "0"
+end
 
+function M.send_sms(config, number, text)
+    local m_idx = get_current_modem_index()
     local safe_text = text:gsub("'", "'\\''")
     local safe_number = number:gsub("'", "")
 
@@ -67,12 +69,7 @@ function M.send_sms(config, number, text)
 end
 
 function M.get_sms(config)
-    local m_idx = config.modem_index or "0"
-    if m_idx == "0" or m_idx == "" then
-        local out = exec("mmcli -L 2>/dev/null")
-        m_idx = out:match("/Modem/(%d+)") or "0"
-    end
-
+    local m_idx = get_current_modem_index()
     local messages = {}
     local list_cmd = string.format("mmcli -m %s --messaging-list-sms", m_idx)
     local list_out = exec(list_cmd)
@@ -84,22 +81,19 @@ function M.get_sms(config)
         local ok, data = pcall(json.parse, read_out)
         if not ok then data = nil end
         
-        -- Lọc tin nhắn đang nhận
-        local state_val = "unknown"
-        if data and data.sms and data.sms.properties then
-            state_val = data.sms.properties.state or "unknown"
-        end
+        if data and data.sms and data.sms.properties and data.sms.properties.state ~= "receiving" then
+            local pdu_type = data.sms.properties["pdu-type"] or ""
+            
+            -- LỌC 1: Bỏ qua nếu là báo cáo giao hàng (status-report)
+            if pdu_type ~= "status-report" then
+                local sender_val = (data.sms.content and data.sms.content.number) or "Unknown"
+                local text_val = ""
+                local time_val = data.sms.properties.timestamp or ""
+                local type_val = "received"
+                local delivery_status = ""
 
-        if state_val ~= "receiving" then
-            local sender_val = "Unknown"
-            local text_val = ""
-            local time_val = ""
-            local type_val = "received"
-            local delivery_status = "" 
-
-            if data and data.sms then
+                -- Lấy nội dung tin nhắn
                 if data.sms.content then
-                    sender_val = data.sms.content.number or "Unknown"
                     text_val = data.sms.content.text or ""
                     
                     if (text_val == "" or text_val == "--") then
@@ -110,29 +104,28 @@ function M.get_sms(config)
                          local decoded = ucs2_to_utf8(data.sms.content.data)
                          if decoded and decoded ~= "" then text_val = decoded end
                     end
-                    if text_val == "" or text_val == "--" then text_val = "(Tin nhắn rỗng)" end
                 end
 
-                if data.sms.properties then
-                    time_val = data.sms.properties.timestamp or ""
-                    if time_val == "--" then time_val = "" 
-                    elseif #time_val > 18 then time_val = time_val:sub(1, 19):gsub("T", " ") end
-                    
+                -- LỌC 2: Chỉ xử lý nếu tin nhắn thực sự có nội dung văn bản
+                if text_val ~= "" and text_val ~= "--" then
                     if data.sms.properties["pdu-type"] == "submit" then
                         type_val = "sent"
                         delivery_status = data.sms.properties["delivery-state"] or "unknown"
                     end
+
+                    if time_val == "--" then time_val = "" 
+                    elseif #time_val > 18 then time_val = time_val:sub(1, 19):gsub("T", " ") end
+
+                    table.insert(messages, {
+                        index = sms_path,
+                        number = sender_val,
+                        time = time_val,
+                        text = text_val,
+                        type = type_val,
+                        status = delivery_status 
+                    })
                 end
             end
-            
-            table.insert(messages, {
-                index = sms_path,
-                number = sender_val,
-                time = time_val,
-                text = text_val,
-                type = type_val,
-                status = delivery_status 
-            })
         end
     end
     
@@ -141,11 +134,7 @@ function M.get_sms(config)
 end
 
 function M.delete_sms(config, index)
-    local m_idx = config.modem_index or "0"
-    if m_idx == "0" or m_idx == "" then
-        local out = exec("mmcli -L 2>/dev/null")
-        m_idx = out:match("/Modem/(%d+)") or "0"
-    end
+    local m_idx = get_current_modem_index()
     local res = exec(string.format("mmcli -m %s --messaging-delete-sms=%s", m_idx, index))
     if res and res:find("successfully deleted") then return { status = "success" }
     else return { status = "error", message = res } end
