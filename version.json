@@ -1,8 +1,8 @@
 {
     "dashboard": {
-        "version": "1.0.7",
+        "version": "1.0.8",
         "url": "https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.zip",
-        "log": "- Cập nhật giao diện dashboard.\n- Sửa lỗi hiển thị thông tin mạng.\n- Tối ưu hóa hiệu suất tải trang."
+        "log": "- Loại bỏ một số tính năng không cần thiết để tối ưu hóa hiệu suất.\n- Cập nhật giao diện người dùng để thân thiện hơn."
     },
     "firmware": {
         "version": "1.0.0",
