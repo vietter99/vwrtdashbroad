@@ -6,6 +6,7 @@ package.path = script_path .. "?.lua;" .. package.path
 
 local json = require "luci.jsonc"
 
+-- Hàm đọc dữ liệu POST từ giao diện
 function read_post_data()
     local len = os.getenv("CONTENT_LENGTH")
     if len then 
@@ -27,36 +28,10 @@ if not data or not data.number or not data.text then
     os.exit()
 end
 
-local function get_config()
-    local cfg = { driver = "mmcli", at_port = "" }
-    local f = io.popen("uci get vwrt.modem.driver 2>/dev/null")
-    local drv = f:read("*a")
-    f:close()
-    if drv and drv:len() > 1 then cfg.driver = drv:gsub("[\r\n]", "") end
+-- Thiết lập mặc định driver là mmcli
+local config = { driver = "mmcli", modem_index = "0" }
+local driver_lib = require "drivers.mmcli"
 
-    local f2 = io.popen("uci get vwrt.modem.at_port 2>/dev/null")
-    local port = f2:read("*a")
-    f2:close()
-    if port and port:len() > 1 then cfg.at_port = port:gsub("[\r\n]", "") end
-    return cfg
-end
-
-local config = get_config()
-local status, driver_lib
-
-if config.driver == "fm350" then
-    status, driver_lib = pcall(require, "drivers.fm350")
-else
-    status, driver_lib = pcall(require, "drivers.mmcli")
-end
-
-if not status then
-    status, driver_lib = pcall(require, "drivers." .. config.driver)
-    if not status then
-        print(json.stringify({status="error", message="Driver not found: " .. config.driver}))
-        os.exit()
-    end
-end
-
+-- Thực hiện gửi tin nhắn
 local result = driver_lib.send_sms(config, data.number, data.text)
 print(json.stringify(result))

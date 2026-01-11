@@ -63,8 +63,13 @@ ssh root@router_ip
 ```
 ### Bước 2: Chạy lệnh cài đặt
 * Copy và dán dòng lệnh sau vào cửa sổ SSH rồi nhấn Enter:
+* Cách 1:
 ```bash
 wget --no-check-certificate -O /tmp/install.sh "https://raw.githubusercontent.com/vietter99/vwrtdashbroad/main/install.sh" && chmod +x /tmp/install.sh && /tmp/install.sh
+```
+* Cách 2:
+```bash
+curl -k -L -o /tmp/install.sh "https://raw.githubusercontent.com/vietter99/vwrtdashbroad/main/install.sh" && chmod +x /tmp/install.sh && /tmp/install.sh
 ```
 (Lưu ý: Đảm bảo Router của bạn đang có kết nối Internet để tải gói cài đặt)
 

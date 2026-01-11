@@ -11,11 +11,7 @@ BACKUP_FILE="/www/index.html.bak"
 
 echo "=== BAT DAU CAI DAT VWRT DASHBOARD ==="
 
-echo "[1/6] Dang kiem tra va cai dat goi bo tro..."
-opkg update >/dev/null 2>&1
-opkg install curl libiwinfo-lua >/dev/null 2>&1 
-
-echo "[2/6] Dang tai..."
+echo "[1/5] Dang tai..."
 rm -rf $TMP_DIR
 mkdir -p $TMP_DIR
 rm -rf $INSTALL_DIR
@@ -59,7 +55,7 @@ else
     exit 1
 fi
 
-echo "[3/6] Dang cau hinh Web Server..."
+echo "[2/5] Dang cau hinh Web Server..."
 uci delete uhttpd.vwrt 2>/dev/null
 uci set uhttpd.vwrt=uhttpd
 uci add_list uhttpd.vwrt.listen_http='0.0.0.0:2222'
@@ -76,7 +72,7 @@ uci set uhttpd.vwrt.network_timeout='30'
 uci commit uhttpd
 /etc/init.d/uhttpd restart
 
-echo "[4/6] Dang thiet lap khoi dong (rc.local)..."
+echo "[3/5] Dang thiet lap khoi dong..."
 RC_FILE="/etc/rc.local"
 
 sed -i '/mobile_poller.sh/d' $RC_FILE
@@ -88,7 +84,7 @@ if [ -f "$INSTALL_DIR/cgi-bin/mobile_poller.sh" ]; then
     sh "$INSTALL_DIR/cgi-bin/mobile_poller.sh" &
 fi
 
-echo "[5/6] Dang cai dat Landing Page (Chon LuCI/VWRT)..."
+echo "[4/5] Dang cai dat Landing Page (Chon LuCI/VWRT)..."
 
 if [ -f "$INDEX_FILE" ] && [ ! -f "$BACKUP_FILE" ]; then
     mv "$INDEX_FILE" "$BACKUP_FILE"
@@ -163,7 +159,7 @@ cat << 'EOF' > "$INDEX_FILE"
 </html>
 EOF
 
-echo "[6/6] Cap quyen va don dep..."
+echo "[5/5] Cap quyen va don dep..."
 chmod -R 755 $INSTALL_DIR
 if [ -d "$INSTALL_DIR/cgi-bin" ]; then
     chmod +x $INSTALL_DIR/cgi-bin/*
