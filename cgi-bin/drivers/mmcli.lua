@@ -27,7 +27,6 @@ local function ucs2_to_utf8(hex)
     return table.concat(res)
 end
 
--- Hàm lấy text từ CLI (dùng khi JSON trả về --)
 local function get_text_from_cli(sms_path_id)
     local id = sms_path_id:match("/SMS/(%d+)")
     if not id then return nil end
@@ -84,7 +83,6 @@ function M.get_sms(config)
         if data and data.sms and data.sms.properties and data.sms.properties.state ~= "receiving" then
             local pdu_type = data.sms.properties["pdu-type"] or ""
             
-            -- LỌC 1: Bỏ qua nếu là báo cáo giao hàng (status-report)
             if pdu_type ~= "status-report" then
                 local sender_val = (data.sms.content and data.sms.content.number) or "Unknown"
                 local text_val = ""
@@ -106,7 +104,6 @@ function M.get_sms(config)
                     end
                 end
 
-                -- LỌC 2: Chỉ xử lý nếu tin nhắn thực sự có nội dung văn bản
                 if text_val ~= "" and text_val ~= "--" then
                     if data.sms.properties["pdu-type"] == "submit" then
                         type_val = "sent"
