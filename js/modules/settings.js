@@ -69,14 +69,12 @@ const SettingsModule = {
             </div>
         `;
         
-        // Cập nhật text version hiện tại
         fetch('/cgi-bin/get_version').then(r=>r.json()).then(v=>{
             const el = document.getElementById('cur-ver-text');
             if(el) el.innerText = `Dashboard: ${v.dashboard.version}`;
         }).catch(()=>{});
     },
 
-    // Hiển thị Popup chi tiết cập nhật
     showUpdatePopup: function() {
         if (!this.updateData || (!this.updateData.has_update && !this.updateData.has_update_fw)) {
             if(typeof Toast !== 'undefined') Toast.show("Hệ thống đang ở phiên bản mới nhất!", "success");
@@ -87,7 +85,6 @@ const SettingsModule = {
         const cur = this.updateData.current;
         let htmlContent = `<div style="text-align:left; font-size:13px;">`;
 
-        // 1. DASHBOARD UPDATE
         if (this.updateData.has_update) {
             htmlContent += `
                 <div style="background:#f0fff4; padding:10px; border-radius:8px; border:1px solid #9ae6b4; margin-bottom:10px;">
@@ -99,7 +96,6 @@ const SettingsModule = {
             `;
         }
 
-        // 2. FIRMWARE UPDATE
         if (this.updateData.has_update_fw) {
             htmlContent += `
                 <div style="background:#fff5f5; padding:10px; border-radius:8px; border:1px solid #feb2b2;">
@@ -166,8 +162,6 @@ const SettingsModule = {
             if(typeof Toast !== 'undefined') Toast.show("Lỗi kết nối Server", "error");
         });
     },
-
-    // --- ĐÃ XÓA HÀM savePort ---
 
     closePopup: function() {
         const popup = document.getElementById('settings-popup-content');

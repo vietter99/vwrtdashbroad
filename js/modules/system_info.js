@@ -16,7 +16,7 @@ const SystemModule = {
 
     startLoop: function() {
         if (!this.interval) {
-            this.fetchData(); // Gọi ngay 1 lần cho mượt
+            this.fetchData();
             this.interval = setInterval(() => this.fetchData(), 5000);
         }
     },

@@ -6,7 +6,7 @@ local cache_file = "/tmp/sysinfo_output.json"
 local cache_ttl = 2 
 
 -- ==========================================
--- CƠ CHẾ CACHE THÔNG MINH
+-- CƠ CHẾ CACHE
 -- ==========================================
 function check_cache()
     local f = io.open(cache_file, "r")

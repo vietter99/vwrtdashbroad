@@ -3,14 +3,12 @@
 local ubus = require "ubus"
 local cjson = require "cjson"
 
--- Kết nối tới hệ thống UBUS
 local conn = ubus.connect()
 if not conn then
     print("Content-type: application/json\n\n[]")
     return
 end
 
--- 1. Lấy thông tin các Logical Interface
 local dump = conn:call("network.interface", "dump", {})
 local interfaces_map = {}
 
@@ -20,14 +18,12 @@ if dump and dump.interface then
             
             local dev_name = iface.l3_device or iface.device
             
-            -- Lấy địa chỉ IPv4
             local v4_list = iface["ipv4-address"]
             local v4_str = "--"
             if v4_list and #v4_list > 0 then
                 v4_str = v4_list[1].address
             end
 
-            -- Lấy địa chỉ IPv6 (Lọc bỏ fe80::)
             local v6_list = iface["ipv6-address"]
             local v6_str = "--"
             if v6_list and #v6_list > 0 then
@@ -64,7 +60,6 @@ for dev_name, info in pairs(interfaces_map) do
     local tx = stat_data.tx_bytes or 0
     local mac = stats.macaddr or "00:00:00:00:00:00"
 
-    -- Xử lý màu sắc
     local color = "tag-blue" 
     
     if info.label == "LAN" or dev_name:find("br%-") then

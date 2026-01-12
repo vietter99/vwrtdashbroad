@@ -1,8 +1,4 @@
 #!/bin/sh
-
-# ==========================================
-# CẤU HÌNH CÀI ĐẶT
-# ==========================================
 GITHUB_URL="https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.tar.gz"
 INSTALL_DIR="/www/vwrt"
 TMP_DIR="/tmp/vwrt_install"
@@ -37,14 +33,11 @@ if curl -k -L -o $TMP_DIR/source.tar.gz "$GITHUB_URL"; then
         exit 1
     fi
     
-    echo " -> Da tim thay source tai: $SOURCE_FOLDER"
-
     mkdir -p /www
     cp -rf "$SOURCE_FOLDER" $INSTALL_DIR
-    
+
     if [ -f "$INSTALL_DIR/install.sh" ]; then
         rm -f "$INSTALL_DIR/install.sh"
-        echo " -> Da xoa file install.sh thua trong $INSTALL_DIR"
     fi
     
     if [ ! -f "$INSTALL_DIR/version.json" ]; then
@@ -72,7 +65,7 @@ uci set uhttpd.vwrt.network_timeout='30'
 uci commit uhttpd
 /etc/init.d/uhttpd restart
 
-echo "[3/5] Dang thiet lap khoi dong..."
+echo "[3/5] Dang thiet lap..."
 RC_FILE="/etc/rc.local"
 
 sed -i '/mobile_poller.sh/d' $RC_FILE
@@ -84,7 +77,7 @@ if [ -f "$INSTALL_DIR/cgi-bin/mobile_poller.sh" ]; then
     sh "$INSTALL_DIR/cgi-bin/mobile_poller.sh" &
 fi
 
-echo "[4/5] Dang cai dat Landing Page (Chon LuCI/VWRT)..."
+echo "[4/5] Dang cai dat chon LuCI/VWRT..."
 
 if [ -f "$INDEX_FILE" ] && [ ! -f "$BACKUP_FILE" ]; then
     mv "$INDEX_FILE" "$BACKUP_FILE"

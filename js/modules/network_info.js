@@ -55,12 +55,10 @@ const NetworkModule = {
 
         let html = '';
         interfaces.forEach(net => {
-            // Tính tổng Data
             const rx = parseInt(net.rx) || 0;
             const tx = parseInt(net.tx) || 0;
             const total = rx + tx;
 
-            // Xử lý hiển thị IP
             let v4Display = `<span class="ip-val ip-v4">${net.ipv4}</span>`;
             let v6Display = `<span class="ip-val ip-v6">${net.ipv6}</span>`;
 

@@ -3,7 +3,6 @@
 echo "Content-type: application/json"
 echo ""
 
-# 1. XÁC ĐỊNH INTERFACE MẠNG DÙNG MODEMMANAGER
 TARGET_IFACE=$(uci show network | grep "proto='modemmanager'" | cut -d'.' -f2 | head -n 1)
 
 if [ -z "$TARGET_IFACE" ]; then
@@ -11,7 +10,6 @@ if [ -z "$TARGET_IFACE" ]; then
     exit 1
 fi
 
-# 2. TÌM DRIVER NODE CỦA MODEM
 MODEM_PATH=""
 FOUND_DRIVER_NODE=""
 
@@ -31,7 +29,6 @@ if [ -z "$FOUND_DRIVER_NODE" ]; then
     done
 fi
 
-# 3. XÁC ĐỊNH ĐƯỜNG DẪN THIẾT BỊ MODEM
 if [ -n "$FOUND_DRIVER_NODE" ]; then
     real_path=$(readlink -f "$FOUND_DRIVER_NODE")
     current_path="$real_path"
@@ -45,21 +42,17 @@ if [ -n "$FOUND_DRIVER_NODE" ]; then
     done
 fi
 
-# 4. KIỂM TRA & KÍCH HOẠT
 if [ -z "$MODEM_PATH" ]; then
     echo '{"status":"error", "message":"Không tìm thấy Modem nào được cắm vào (quét thất bại)."}'
     exit 1
 fi
 
-# Ghi cấu hình vào UCI
 uci set network.$TARGET_IFACE.device="$MODEM_PATH"
 uci commit network
 
-# Reload và khởi động lại interface
 ifdown "$TARGET_IFACE"
 /etc/init.d/modemmanager restart >/dev/null 2>&1
 
-# Thời gian chờ kết nối
 sleep 15
 
 ifup "$TARGET_IFACE"

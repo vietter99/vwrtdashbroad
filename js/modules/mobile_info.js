@@ -43,7 +43,6 @@ const MobileModule = {
         }
 
         let bandText = rawMode;
-        // Xử lý chuỗi kiểu "LTE | B3 (1800 MHz)" -> Lấy "B3 (1800 MHz)"
         if (bandText.includes('|')) {
             bandText = bandText.split('|')[1].trim();
         } else {
@@ -57,7 +56,6 @@ const MobileModule = {
         };
     },
 
-    // Hàm lấy màu theo nhiệt độ
     getTempColor: function(tempStr) {
         let t = parseFloat(tempStr);
         if (isNaN(t)) return "var(--text-sub)";
@@ -101,14 +99,7 @@ const MobileModule = {
                     <span style="color: var(--text-sub);">Băng tần chính</span> 
                     <span style="font-weight: 600; color: var(--text-main);" id="mob-band-main">--</span>
                 </div>
-
-                <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border-color); display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px;">
-                    <div>S1: <strong style="color:var(--text-main)" id="mob-s1">--</strong></div>
-                    <div>S2: <strong style="color:var(--text-main)" id="mob-s2">--</strong></div>
-                    <div>S3: <strong style="color:var(--text-main)" id="mob-s3">--</strong></div>
-                    <div>S4: <strong style="color:var(--text-main)" id="mob-s4">--</strong></div>
                 </div>
-            </div>
         `;
     },
 
@@ -159,16 +150,10 @@ const MobileModule = {
         setTxt('mob-provider', data.operator_name);
         setTxt('mob-band-main', data.display_band);
         
-        setTxt('mob-s1', (data.s1band && data.s1band !== "-") ? data.s1band : "--");
-        setTxt('mob-s2', (data.s2band && data.s2band !== "-") ? data.s2band : "--");
-        setTxt('mob-s3', (data.s3band && data.s3band !== "-") ? data.s3band : "--");
-        setTxt('mob-s4', (data.s4band && data.s4band !== "-") ? data.s4band : "--");
-
         let signalPercent = parseInt(data.signal);
         if (isNaN(signalPercent)) signalPercent = 0;
         setTxt('mob-signal', signalPercent + "%");
 
-        // Cập nhật text trạng thái kết nối ở popup
         const isReg = data.registration === "1" || data.registration === "5";
         const elStatus = document.getElementById('mob-status');
         if(elStatus) {
@@ -176,7 +161,6 @@ const MobileModule = {
             elStatus.style.color = isReg ? "var(--text-sub)" : "#e53e3e";
         }
         
-        // Vẽ thanh sóng
         const bars = document.querySelectorAll('#signal-bars .signal-bar');
         let level = Math.ceil(signalPercent / 20); 
         if (level < 1 && signalPercent > 0) level = 1;
@@ -200,7 +184,6 @@ const MobileModule = {
 
         const setTxt = (id, txt) => { const e = document.getElementById(id); if(e) e.innerText = txt; };
 
-        // 1. Cập nhật thông tin cơ bản
         setTxt('mob-card-operator', (mobData.operator_name || "--").toUpperCase());
         setTxt('mob-card-type', mobData.display_type || "MOBILE");
         
@@ -208,16 +191,10 @@ const MobileModule = {
         cleanBand = cleanBand.replace(/\s*\([^)]*\)/g, '').trim();
         setTxt('mob-card-band', cleanBand);
 
-        // 2. Nhiệt độ (Temp) có màu
-        const elStatusLabel = card.querySelector('.mob-info-grid .mob-box:nth-child(2) .mob-label');
         const elStatusVal = document.getElementById('mob-card-status');
-        
-        if (elStatusLabel && elStatusVal) {
-            elStatusLabel.innerText = "Nhiệt độ";
-            
+        if (elStatusVal) {
             let tempVal = mobData.mtemp || "--";
             let parsedTemp = parseFloat(tempVal);
-            
             if (!isNaN(parsedTemp)) {
                 elStatusVal.innerText = parsedTemp + "°C";
                 elStatusVal.style.color = this.getTempColor(parsedTemp); 
@@ -227,26 +204,6 @@ const MobileModule = {
                 elStatusVal.style.color = "var(--text-sub)";
             }
         }
-
-        const updatePill = (id, label, value) => {
-            const el = document.getElementById(id);
-            if (!el) return;
-            
-            const parent = el.closest('.stat-pill-box');
-            if (parent) {
-                const labelEl = parent.querySelector('.mob-stat-lbl');
-                if (labelEl) labelEl.innerText = label; 
-            }
-            
-            let showVal = (value && value !== "-") ? value.replace(/\s*\([^)]*\)/g, '').trim() : "--";
-            el.innerText = showVal;
-            el.className = `mob-stat-val val-cyan`;
-        };
-
-        updatePill('mob-card-temp', 'S1 BAND', mobData.s1band);
-        updatePill('mob-card-ping', 'S2 BAND', mobData.s2band);
-        updatePill('mob-card-rx',   'S3 BAND', mobData.s3band);
-        updatePill('mob-card-tx',   'S4 BAND', mobData.s4band);
 
         setTxt('mob-card-rsrp', (mobData.rsrp || "--") + " dBm");
         setTxt('mob-card-sinr', (mobData.sinr || "--") + " dB");

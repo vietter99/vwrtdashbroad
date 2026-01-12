@@ -11,7 +11,6 @@ const NavbarModule = {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation(); 
-                // 1. Đóng các popup khác
                 navItems.forEach(otherItem => {
                     if (otherItem !== item) {
                         const otherPopup = otherItem.querySelector('.popup-box');
@@ -21,8 +20,6 @@ const NavbarModule = {
                         }
                     }
                 });
-
-                // 2. Toggle popup hiện tại
                 const isHidden = popup.classList.contains('hidden');
                 if (isHidden) {
                     popup.classList.remove('hidden');
@@ -33,8 +30,6 @@ const NavbarModule = {
                 }
             });
         });
-
-        // Click ra ngoài thì đóng tất cả
         document.addEventListener('click', (e) => {
             navItems.forEach(item => {
                 const popup = item.querySelector('.popup-box');

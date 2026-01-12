@@ -2,10 +2,8 @@
 
 local cjson = require "cjson"
 
--- Đường dẫn file cache
 local cache_file = "/tmp/vwrt_mobile.json"
 
--- Hàm đọc file
 function read_file(path)
     local f = io.open(path, "r")
     if not f then return nil end

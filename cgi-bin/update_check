@@ -4,7 +4,6 @@ local cjson = require "cjson"
 
 local UPDATE_URL = "https://raw.githubusercontent.com/vietter99/vwrtdashbroad/refs/heads/main/version.json"
 
--- Đường dẫn file trên router
 local LOCAL_VER_FILE = "/www/vwrt/version.json"
 
 function read_file(path)
@@ -22,7 +21,6 @@ function exec(cmd)
     return s
 end
 
--- 1. Lấy thông tin bản Remote (Trên mạng)
 local remote_json = exec("curl -k -s " .. UPDATE_URL)
 local remote_data = nil
 
@@ -31,7 +29,6 @@ if remote_json and remote_json ~= "" then
     if status then remote_data = res end
 end
 
--- 2. Lấy thông tin bản Local (Hiện tại)
 local local_json = read_file(LOCAL_VER_FILE)
 local local_data = { dashboard = { version = "1.0.0" } }
 
@@ -40,7 +37,6 @@ if local_json then
     if status then local_data = res end
 end
 
--- 3. So sánh
 local result = {
     current = local_data,
     latest = remote_data,

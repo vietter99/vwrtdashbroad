@@ -43,7 +43,6 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
         setTimeout(() => { card.style.animation = "none"; }, 500);
     };
 
-    // --- BẮT ĐẦU QUÁ TRÌNH LOGIN ---
     btn.disabled = true;
     btn.innerText = "Đang kết nối...";
 

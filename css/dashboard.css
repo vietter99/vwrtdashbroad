@@ -513,7 +513,7 @@ body.dark .custom-select {
 /* --- VERSION TEXT IN FOOTER --- */
 #app-version {
     font-size: 11px;
-    color: var(--text-sub); /* Tự động theo giao diện Sáng/Tối */
+    color: var(--text-sub); 
     opacity: 0.8;
     margin-left: 6px;
     font-weight: normal;

@@ -465,6 +465,19 @@ if [ -n "$LBAND" ] && [ -z "$PBAND" ]; then
     PBAND=$LBAND
 fi
 
+MM_OUT=$(mmcli -m 0 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g')
+M_OWN_NUM=$(echo "$MM_OUT" | awk -F': ' '/own:/ {print $2}' | xargs)
+M_MANUF=$(echo "$MM_OUT" | awk -F': ' '/manufacturer:/ {print $2}' | xargs)
+M_MODEL_FULL=$(echo "$MM_OUT" | awk -F': ' '/model:/ {print $2}' | xargs)
+M_STATE_MAIN=$(echo "$MM_OUT" | awk -F': ' '/state:/ {print $2}' | xargs)
+M_STATE_PKT=$(echo "$MM_OUT" | awk -F': ' '/packet service state:/ {print $2}' | xargs)
+
+if [ -n "$M_STATE_PKT" ] && [ "$M_STATE_PKT" != "-" ]; then
+    M_STATE_FINAL="$M_STATE_MAIN ($M_STATE_PKT)"
+else
+    M_STATE_FINAL="$M_STATE_MAIN"
+fi
+
 cat <<EOF
 {
 "conn_time":"$(sanitize_string "$CONN_TIME")",
@@ -475,6 +488,10 @@ cat <<EOF
 "modem":"$(sanitize_string "$MODEL")",
 "mtemp":"$(sanitize_string "$TEMP")",
 "firmware":"$(sanitize_string "$FW")",
+"own_number":"$(sanitize_string "$M_OWN_NUM")",
+"manufacturer":"$(sanitize_string "$M_MANUF")",
+"modem_state":"$(sanitize_string "$M_STATE_FINAL")",
+"model_full":"$(sanitize_string "$M_MODEL_FULL")",
 "cport":"$(sanitize_string "$DEVICE")",
 "protocol":"$(sanitize_string "$PROTO")",
 "csq":"$(sanitize_number "$CSQ")",

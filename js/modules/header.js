@@ -22,33 +22,31 @@ const HeaderModule = {
                 </div>
 
                 <div class="popup-body" style="padding: 15px; background: var(--bg-card);">
-                    <div style="display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 20px;">
-                        
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
-                            <span style="color: var(--text-sub); font-size: 12px; white-space: nowrap; margin-top: 1px;">Thiết bị:</span>
-                            <span id="h-modem-name" 
-                                onclick="this.style.whiteSpace=this.style.whiteSpace==='normal'?'nowrap':'normal'"
-                                style="color: var(--text-main); font-weight: 600; font-size: 13px; text-align: right; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;" 
-                                title="Chạm để xem đầy đủ">--</span>
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 15px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
+                            <span style="color: var(--text-sub); font-size: 12px;">Số điện thoại:</span>
+                            <span id="h-modem-num" style="color: #e53e3e; font-weight: 700; font-size: 13px;">--</span>
                         </div>
 
                         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
-                            <span style="color: var(--text-sub); font-size: 12px; white-space: nowrap;">IP WAN:</span>
+                            <span style="color: var(--text-sub); font-size: 12px;">IP WAN:</span>
                             <span id="h-modem-ip" style="color: #3182ce; font-weight: 600; font-size: 13px; font-family: monospace;">--</span>
                         </div>
 
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
-                            <span style="color: var(--text-sub); font-size: 12px; white-space: nowrap; margin-top: 1px;">Firmware:</span>
-                            <span id="h-modem-fw" 
-                                onclick="this.style.whiteSpace=this.style.whiteSpace==='normal'?'nowrap':'normal'"
-                                style="color: var(--text-main); font-weight: 600; font-size: 13px; text-align: right; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;" 
-                                title="Chạm để xem đầy đủ">--</span>
-                        </div>
-                        
                         <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 2px;">
-                            <span style="color: var(--text-sub); font-size: 12px; white-space: nowrap;">IMEI:</span>
+                            <span style="color: var(--text-sub); font-size: 12px;">IMEI:</span>
                             <span id="h-modem-imei" style="color: var(--text-main); font-weight: 600; font-size: 13px; font-family: monospace;">--</span>
                         </div>
+                    </div>
+
+                    <button onclick="HeaderModule.toggleExtra()" style="width: 100%; padding: 5px; background: #edf2f7; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 11px; color: #4a5568; cursor: pointer; margin-bottom: 10px;">
+                        Thông tin hệ thống ▼
+                    </button>
+                    
+                    <div id="modem-extra-details" class="hidden" style="font-size: 11px; color: var(--text-main); background: rgba(0,0,0,0.03); padding: 8px; border-radius: 6px; margin-bottom: 15px; border: 1px dashed var(--border-color);">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Nhà SX:</span><span id="h-extra-manuf">--</span></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Model:</span><span id="h-extra-model" style="text-align:right; max-width:140px;">--</span></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Firmware:</span><span id="h-extra-fw" style="text-align:right; max-width:140px; word-break:break-all;">--</span></div>
                     </div>
 
                     <button id="btn-active-net" onclick="HeaderModule.triggerModemAction()" 
@@ -56,7 +54,6 @@ const HeaderModule = {
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
                         Kích hoạt mạng
                     </button>
-                    
                     <div id="modem-action-status" style="text-align: center; font-size: 11px; margin-top: 8px; min-height: 16px; color: var(--text-sub);"></div>
                 </div>
             </div>
@@ -107,38 +104,27 @@ const HeaderModule = {
         });
     },
 
-    updateModemInfo: function() {
-        const statusDiv = document.getElementById('modem-action-status');
-        if(statusDiv) statusDiv.innerText = "";
-        
-        // 1. Lấy thông tin Modem
+toggleExtra: function() {
+    const el = document.getElementById('modem-extra-details');
+    if(el) el.classList.toggle('hidden');
+},
+
+updateModemInfo: function() {
         fetch('/cgi-bin/mobile_get')
             .then(res => res.json())
             .then(res => {
                 if(res.status === 'success' && res.data) {
                     const d = res.data;
-                    const elName = document.getElementById('h-modem-name');
-                    const elFw = document.getElementById('h-modem-fw');
-                    const elImei = document.getElementById('h-modem-imei');
-
-                    // Gán Text
-                    const txtName = d.modem || d.product_name || "--";
-                    const txtFw = d.firmware || d.sw_version || "--";
+                    const setTxt = (id, val) => { const e = document.getElementById(id); if(e) e.innerText = val || "--"; };
                     
-                    if(elName) {
-                        elName.innerText = txtName;
-                        elName.title = txtName; 
-                    }
-                    if(elFw) {
-                        elFw.innerText = txtFw;
-                        elFw.title = txtFw;
-                    }
-                    if(elImei) elImei.innerText = d.imei || "--";
+                    setTxt('h-modem-num', d.own_number);
+                    setTxt('h-modem-imei', d.imei);
+                    setTxt('h-extra-manuf', d.manufacturer);
+                    setTxt('h-extra-model', d.model_full);
+                    setTxt('h-extra-fw', d.firmware);
                 }
             })
-            .catch(e => console.error(e));
-
-        // 2. Lấy trạng thái IP để xử lý nút bấm
+            .catch(e => console.error("Lỗi Modem:", e));
         fetch('/cgi-bin/network')
             .then(res => res.json())
             .then(data => {
@@ -176,6 +162,30 @@ const HeaderModule = {
                 }
             })
             .catch(err => console.error("Lỗi check network", err));
+    },
+
+    checkNetwork: function() {
+        fetch('/cgi-bin/network')
+            .then(res => res.json())
+            .then(data => {
+                const modemIface = data.find(iface => 
+                    (iface.proto === 'modemmanager' || iface.name.includes('wwan')) && iface.ipv4 && iface.ipv4 !== '--'
+                );
+                const btn = document.getElementById('btn-active-net');
+                const ipLabel = document.getElementById('h-modem-ip');
+
+                if (modemIface) {
+                    if(ipLabel) ipLabel.innerText = modemIface.ipv4;
+                    btn.disabled = true;
+                    btn.style.background = "#48bb78";
+                    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="margin-right:6px"><polyline points="20 6 9 17 4 12"></polyline></svg> Đã kết nối`;
+                } else {
+                    if(ipLabel) ipLabel.innerText = "--";
+                    btn.disabled = false;
+                    btn.style.background = "#3182ce";
+                    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg> Kích hoạt mạng`;
+                }
+            });
     },
 
     triggerModemAction: function() {

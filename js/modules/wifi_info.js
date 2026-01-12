@@ -244,11 +244,6 @@ openEditModal: function(dataStr) {
                                 style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px;">
                             <div id="key-msg" style="font-size:12px; color:#e53e3e; margin-top:5px; min-height:18px;"></div>
                         </div>
-                        
-                        <label style="font-size:13px; color:var(--text-main); display:flex; align-items:center; gap:8px; margin-top:5px; cursor:pointer;">
-                            <input type="checkbox" id="edit-enable" ${w.enabled ? 'checked' : ''} style="width:16px; height:16px;"> 
-                            <strong>Bật Wifi này</strong>
-                        </label>
                     </div>
 
                     <div class="modal-actions" style="margin-top:20px; justify-content:flex-end;">

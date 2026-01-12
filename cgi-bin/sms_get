@@ -27,14 +27,12 @@ local action = get_query_param("action")
 local id_param = get_query_param("id")
 
 if action == "delete" and id_param then
-    -- Xử lý xóa tin nhắn
     for sms_id in string.gmatch(id_param, "([^,]+)") do
         driver_lib.delete_sms(config, sms_id)
     end
     print(json.stringify({ status = "success" }))
 
 elseif action == "delete_all" then
-    -- Xử lý xóa tất cả tin nhắn
     if driver_lib.delete_all_sms then
         driver_lib.delete_all_sms(config)
     else
@@ -46,7 +44,6 @@ elseif action == "delete_all" then
     print(json.stringify({ status = "success" }))
 
 else
-    -- Mặc định: Lấy danh sách tin nhắn
     local messages = driver_lib.get_sms(config)
     print(json.stringify({ status = "success", data = messages }))
 end
