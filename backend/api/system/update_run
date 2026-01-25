@@ -74,11 +74,11 @@ chmod +x /www/vwrt/cgi-bin/*/* 2>/dev/null
 chmod +x /www/vwrt/services/* 2>/dev/null
 
 # 4. Restart Services
-killall mobile_poller.sh 2>/dev/null
-if [ -f "/www/vwrt/services/mobile_poller.sh" ]; then
-    sh /www/vwrt/services/mobile_poller.sh &
-elif [ -f "/www/vwrt/cgi-bin/mobile_poller.sh" ]; then
-    sh /www/vwrt/cgi-bin/mobile_poller.sh &
+killall mobile_poller.lua 2>/dev/null
+if [ -f "/www/vwrt/services/mobile_poller.lua" ]; then
+    lua /www/vwrt/services/mobile_poller.lua &
+elif [ -f "/www/vwrt/cgi-bin/mobile_poller.lua" ]; then
+    lua /www/vwrt/cgi-bin/mobile_poller.lua &
 fi
 
 # 5. Dọn dẹp
@@ -87,8 +87,15 @@ rm -rf $WORKDIR
 # 5. Fix RC.LOCAL (Nếu path cũ sai)
 RC_FILE="/etc/rc.local"
 sed -i '/mobile_poller.sh/d' $RC_FILE
-sed -i '/exit 0/i killall mobile_poller.sh 2>/dev/null' $RC_FILE
-sed -i "/exit 0/i sh /www/vwrt/services/mobile_poller.sh &" $RC_FILE
+sed -i '/mobile_poller.lua/d' $RC_FILE
+sed -i '/exit 0/i killall mobile_poller.lua 2>/dev/null' $RC_FILE
+sed -i "/exit 0/i lua /www/vwrt/services/mobile_poller.lua &" $RC_FILE
+
+# 6. Enable ModemManager Debug Mode
+if [ -f "/etc/init.d/modemmanager" ]; then
+    sed -i "s|/usr/sbin/ModemManager$|/usr/sbin/ModemManager --log-level=DEBUG --debug --log-file=/tmp/mm.log|g" /etc/init.d/modemmanager
+    /etc/init.d/modemmanager restart
+fi
 
 # 6. Reboot (Optional)
 reboot

@@ -63,12 +63,12 @@ const SettingsModule = {
                 </div>
 
                 <div class="setting-item" onclick="SettingsModule.restartMobileService()">
-                    <div class="si-icon" style="color:#3182ce; background:#ebf8ff;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></div>
-                    <span>Reset Mobile Service</span>
+                    <div class="si-icon" style="color:#3182ce;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></div>
+                    <span>Khởi động lại dịch vụ Mobile</span>
                 </div>
 
                 <div class="setting-item" onclick="SettingsModule.showPasswordModal()">
-                    <div class="si-icon" style="color:#805ad5; background:#faf5ff;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></div>
+                    <div class="si-icon" style="color:#805ad5;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></div>
                     <span>Đổi mật khẩu</span>
                 </div>
 
@@ -238,10 +238,33 @@ const SettingsModule = {
     },
 
     restartMobileService: function() {
-        this.closePopup();
-        if(confirm("Khởi động lại dịch vụ Mobile Poller (không reboot router)?")) {
-            this.sendAction('restart_mobile');
+        // Anti-spam check (30s cooldown)
+        const lastClick = localStorage.getItem('last_mobile_restart');
+        const now = Date.now();
+        if (lastClick && (now - lastClick < 30000)) {
+            const remain = Math.ceil((30000 - (now - lastClick)) / 1000);
+            if(typeof Toast !== 'undefined') Toast.show(`Vui lòng đợi ${remain}s trước khi thử lại!`, "warning");
+            return;
         }
+
+        this.closePopup();
+        
+        if(typeof Modal !== 'undefined') {
+            Modal.confirm(
+                "Khởi động lại dịch vụ Mobile",
+                "Hành động này sẽ restart ModemManager và Mobile Service (mất khoảng 15s).<br>Bạn có chắc chắn không?",
+                () => {
+                    this.doRestartMobile();
+                }
+            );
+        } else if(confirm("Khởi động lại dịch vụ (mất 15s)?")) {
+            this.doRestartMobile();
+        }
+    },
+
+    doRestartMobile: function() {
+        localStorage.setItem('last_mobile_restart', Date.now());
+        this.sendAction('restart_mobile');
     },
 
     doChangePassword: function() {

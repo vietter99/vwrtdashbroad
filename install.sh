@@ -100,6 +100,12 @@ sed -i '/exit 0/i killall mobile_poller.lua 2>/dev/null' $RC_FILE
 sed -i '/exit 0/i killall mobile_poller.sh 2>/dev/null' $RC_FILE
 sed -i "/exit 0/i lua $INSTALL_DIR/services/mobile_poller.lua &" $RC_FILE
 
+# Enable ModemManager Debug Mode
+if [ -f "/etc/init.d/modemmanager" ]; then
+    sed -i "s|/usr/sbin/ModemManager$|/usr/sbin/ModemManager --log-level=DEBUG --debug --log-file=/tmp/mm.log|g" /etc/init.d/modemmanager
+    /etc/init.d/modemmanager restart
+fi
+
 # Start the service now
 if [ -f "$INSTALL_DIR/services/mobile_poller.lua" ]; then
     killall mobile_poller.lua 2>/dev/null

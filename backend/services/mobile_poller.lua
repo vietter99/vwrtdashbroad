@@ -4,6 +4,14 @@ local cjson = require "cjson"
 local CACHE_FILE = "/tmp/vwrt_mobile.json"
 local TEMP_FILE = "/tmp/vwrt_mobile_temp.json"
 
+function log(msg)
+    local f = io.open("/tmp/poller_debug.log", "a")
+    if f then
+        f:write(os.date() .. ": " .. msg .. "\n")
+        f:close()
+    end
+end
+
 function exec(cmd)
     local f = io.popen(cmd)
     if not f then return nil end
@@ -11,6 +19,16 @@ function exec(cmd)
     f:close()
     return content
 end
+
+
+function exec_at_tty(device, cmd)
+    local command = "/www/vwrt/services/at_cmd.sh " .. device .. " '" .. cmd .. "'"
+    log("Executing TTY: " .. command)
+    local out = exec(command)
+    log("TTY Result: " .. (out or "NIL"))
+    return out
+end
+
 
 function read_file(path)
     local f = io.open(path, "r")
@@ -43,35 +61,28 @@ function parse_at_gstatus(output)
     if not output then return {} end
     local res = {}
     
+    log("Parsing AT Output length: " .. #output)
+
     -- Temp
     local temp = output:match("Temperature:%s*(%d+)")
-    if temp then res.mtemp = temp end
+    if temp then res.mtemp = temp; log("Parsed Temp: " .. temp) end
     
     -- Band (LTE)
-    local lte_band = output:match("LTE band:%s*(%S+)")
-    -- Band (5G)
-    local nr_band = output:match("NR5G band:%s*(%S+)")
-    
-    if nr_band and nr_band ~= "---" then
-        res.active_band = nr_band
-        res.active_mode = "5G"
-    elseif lte_band and lte_band ~= "---" then
-        res.active_band = lte_band
-        res.active_mode = "LTE"
-    end
-    
+    local lte_band = output:match("LTE band:.-(%S+)")
+    if lte_band then log("Parsed LTE Band: " .. lte_band) end
+
     -- Signal Stats
-    local rsrp = output:match("Rx0 RSRP:%s*([%-%d]+)")
-    if rsrp then res.rsrp = rsrp end
+    local rsrp = output:match("Rx0 RSRP:.-([%-%d]+)")
+    if rsrp then res.rsrp = rsrp; log("Parsed RSRP: " .. rsrp) else log("Failed to parse RSRP") end
     
-    local rsrq = output:match("RSRQ %(dB%):%s*([%-%d%.]+)")
+    local rsrq = output:match("RSRQ %(dB%):.-([%-%d%.]+)")
     if rsrq then res.rsrq = rsrq end
-    
-    local sinr = output:match("SINR %(dB%):%s*([%-%d%.]+)")
+
+    local sinr = output:match("SINR %(dB%):.-([%-%d%.]+)")
     if sinr then res.sinr = sinr end
 
     -- RSSI (PCC Rx0 RSSI)
-    local rssi = output:match("Rx0 RSSI:%s*([%-%d]+)")
+    local rssi = output:match("Rx0 RSSI:.-([%-%d]+)")
     if rssi then res.rssi = rssi end
     
     return res
@@ -150,13 +161,61 @@ function main()
 
     while true do
         local raw_modem = exec("mmcli -m 0 -J")
-        local raw_at = exec("mmcli -m 0 --command='AT!GSTATUS?'") -- Sierra Specific
+        local raw_signal = exec("mmcli -m 0 --signal-get -J")
         
+        -- Try mmcli AT first
+        local raw_at = exec("mmcli -m 0 --command='AT!GSTATUS?' 2>/dev/null")
+        
+        -- Fallback to direct TTY if mmcli AT fails or is empty, and TTY exists
+        if (not raw_at or raw_at == "") then
+             local f = io.open("/dev/ttyUSB0", "r")
+             if f then
+                 f:close()
+                 log("Attempting Fallback TTY")
+                 raw_at = exec_at_tty("/dev/ttyUSB0", "AT!GSTATUS?")
+             end
+        end
+
         local data_modem = parse_mmcli_json(raw_modem)
+        local signal_data = parse_mmcli_signal(raw_signal)
         local at_data = parse_at_gstatus(raw_at)
         
+        if not data_modem then
+            data_modem = {
+                operator_name = "No Device",
+                operator_mcc = "-",
+                operator_mnc = "-",
+                simulation = "false",
+                mode = "No Device",
+                signal = "0",
+                imei = "-",
+                modem = "No Device",
+                model = "-",
+                firmware = "-",
+                manufacturer = "-",
+                own_number = "-",
+                mtemp = "-",
+                rsrp = "-",
+                rsrq = "-",
+                sinr = "-",
+                rssi = "-",
+                conn_time = "-",
+                rx = "0",
+                tx = "0",
+                csq = "0",
+                registration = "0",
+                cell_id = "-"
+            }
+        end
+        
         if data_modem then
-            -- Merge AT Data
+            -- Merge signal data from mmcli --signal-get
+            if signal_data.rsrp then data_modem.rsrp = signal_data.rsrp end
+            if signal_data.rsrq then data_modem.rsrq = signal_data.rsrq end
+            if signal_data.sinr then data_modem.sinr = signal_data.sinr end
+            if signal_data.rssi then data_modem.rssi = signal_data.rssi end
+
+            -- Merge AT Data (Overwrite mmcli if available, as AT is more detailed)
             if at_data.mtemp then data_modem.mtemp = at_data.mtemp end
             if at_data.rsrp then data_modem.rsrp = at_data.rsrp end
             if at_data.rsrq then data_modem.rsrq = at_data.rsrq end

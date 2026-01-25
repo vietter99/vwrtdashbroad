@@ -101,7 +101,7 @@ Nếu bạn không muốn sử dụng VWRT Dashboard nữa, hãy chạy các l�
 
 ```bash
 # 1. Dừng dịch vụ chạy ngầm
-killall mobile_poller.sh
+killall mobile_poller.lua
 
 # 2. Xóa toàn bộ file nguồn
 rm -rf /www/vwrt
@@ -112,7 +112,7 @@ uci commit uhttpd
 /etc/init.d/uhttpd restart
 
 # 4. Xóa script khởi động (Clean rc.local)
-sed -i '/mobile_poller.sh/d' /etc/rc.local
+sed -i '/mobile_poller.lua/d' /etc/rc.local
 
 # 5. Khôi phục trang chủ mặc định (Mở LuCI trực tiếp)
 # Mở file index.html và sửa lại chuyển hướng về /cgi-bin/luci

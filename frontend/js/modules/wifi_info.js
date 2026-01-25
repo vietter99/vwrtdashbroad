@@ -38,12 +38,7 @@ const WifiModule = {
             });
     },
 
-    openLuci: function() {
-        const protocol = window.location.protocol;
-        const ip = window.location.hostname;
-        const url = `${protocol}//${ip}/cgi-bin/luci/admin/network/wireless`;
-        window.open(url, '_blank');
-    },
+
 
     updateBadge: function(totalClients) {
         const badge = document.getElementById('wifi-badge');
@@ -171,9 +166,7 @@ const WifiModule = {
         });
 
         html += `
-                <div class="popup-actions">
-                    <button class="btn-full btn-light" onclick="WifiModule.openLuci()">Cấu hình Nâng cao (LuCI) ↗</button>
-                </div>
+
             </div>
         `;
 
