@@ -62,6 +62,13 @@ const SettingsModule = {
                     <span>Khởi động lại</span>
                 </div>
 
+                <div class="setting-item" onclick="SettingsModule.showPasswordModal()">
+                    <div class="si-icon" style="color:#805ad5; background:#faf5ff;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></div>
+                    <span>Đổi mật khẩu</span>
+                </div>
+
+
+
                 <div class="setting-item danger" onclick="SettingsModule.confirmReset()">
                     <div class="si-icon danger"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></div>
                     <span>Khôi phục gốc</span>
@@ -202,5 +209,54 @@ const SettingsModule = {
                     if (typeof Toast !== 'undefined') Toast.show("Lỗi: " + data.message, "error");
                 }
             });
+    },
+
+    showPasswordModal: function() {
+        this.closePopup();
+        const html = `
+            <div class="modal-overlay active" id="modal-passwd" style="z-index:99999;">
+                <div class="modal-box" style="max-width:350px;">
+                    <h3>Đổi mật khẩu Admin</h3>
+                    <div style="text-align:left; margin:15px 0;">
+                        <label style="font-size:12px; font-weight:bold; color:#555;">Mật khẩu mới:</label>
+                        <input type="password" id="new-pass" placeholder="Nhập pass mới..." style="width:100%; padding:10px; margin-top:5px; border:1px solid #ddd; border-radius:6px;">
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn-modal btn-secondary" onclick="document.getElementById('modal-passwd').remove()">Hủy</button>
+                        <button class="btn-modal btn-primary" onclick="SettingsModule.doChangePassword()">Lưu thay đổi</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', html);
+        setTimeout(() => document.getElementById('new-pass').focus(), 100);
+    },
+
+    doChangePassword: function() {
+        const pass = document.getElementById('new-pass').value;
+        if (!pass || pass.length < 1) {
+            if(typeof Toast !== 'undefined') Toast.show("Vui lòng nhập mật khẩu!", "warning");
+            return;
+        }
+
+        if(typeof Toast !== 'undefined') Toast.show("Đang đổi mật khẩu...", "info");
+        document.getElementById('modal-passwd').remove();
+
+        fetch('/cgi-bin/system/passwd', {
+            method: 'POST',
+            body: JSON.stringify({ username: "root", password: pass })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                if(typeof Toast !== 'undefined') Toast.show("Thành công! Vui lòng đăng nhập lại.", "success");
+                setTimeout(() => { window.location.href = "/"; }, 2000);
+            } else {
+                if(typeof Toast !== 'undefined') Toast.show("Lỗi: " + data.message, "error");
+            }
+        })
+        .catch(() => {
+            if(typeof Toast !== 'undefined') Toast.show("Lỗi kết nối Server", "error");
+        });
     }
 };
