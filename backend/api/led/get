@@ -1,0 +1,58 @@
+#!/usr/bin/lua
+-- LED Config Get API
+-- Returns: { leds: [{ name, brightness, trigger }] }
+
+local json = require("luci.jsonc")
+
+print("Content-Type: application/json")
+print("")
+
+local function get_leds()
+    local result = { leds = {} }
+    local led_path = "/sys/class/leds"
+    
+    -- Use popen to list directory
+    local p = io.popen("ls " .. led_path)
+    if p then
+        for led_name in p:lines() do
+            local led = {
+                name = led_name,
+                brightness = 0,
+                trigger = "none"
+            }
+            
+            -- Read brightness
+            local brightness_file = io.open(led_path .. "/" .. led_name .. "/brightness", "r")
+            if brightness_file then
+                local val = brightness_file:read("*l")
+                led.brightness = tonumber(val) or 0
+                brightness_file:close()
+            end
+            
+            -- Read current trigger
+            local trigger_file = io.open(led_path .. "/" .. led_name .. "/trigger", "r")
+            if trigger_file then
+                local content = trigger_file:read("*all")
+                trigger_file:close()
+                -- Find the active trigger (wrapped in [])
+                local active = content:match("%[([^%]]+)%]")
+                if active then
+                    led.trigger = active
+                end
+            end
+            
+            table.insert(result.leds, led)
+        end
+        p:close()
+    end
+    
+    -- Sort by name
+    table.sort(result.leds, function(a, b) return a.name < b.name end)
+    
+    print(json.stringify(result))
+end
+
+local ok, err = pcall(get_leds)
+if not ok then
+    print(json.stringify({ error = tostring(err) }))
+end

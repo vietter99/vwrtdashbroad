@@ -1,0 +1,61 @@
+#!/usr/bin/lua
+-- LED Config Set API
+-- Params: name (string), brightness (0/1), trigger (string)
+
+local json = require("luci.jsonc")
+local fs = require("nixio.fs")
+
+print("Content-Type: application/json")
+print("")
+
+local function parse_post_data()
+    local content_length = tonumber(os.getenv("CONTENT_LENGTH") or 0)
+    if content_length > 0 then
+        local raw = io.read(content_length)
+        return json.parse(raw) or {}
+    end
+    return {}
+end
+
+local function set_led()
+    local data = parse_post_data()
+    local led_path = "/sys/class/leds"
+    
+    if not data.name or data.name == "" then
+        print(json.stringify({ success = false, error = "Tên LED không được để trống." }))
+        return
+    end
+    
+    local led_dir = led_path .. "/" .. data.name
+    if not fs.stat(led_dir) then
+        print(json.stringify({ success = false, error = "LED không tồn tại." }))
+        return
+    end
+    
+    -- Set trigger if provided
+    if data.trigger then
+        local trigger_file = led_dir .. "/trigger"
+        local f = io.open(trigger_file, "w")
+        if f then
+            f:write(data.trigger)
+            f:close()
+        end
+    end
+    
+    -- Set brightness if provided
+    if data.brightness ~= nil then
+        local brightness_file = led_dir .. "/brightness"
+        local f = io.open(brightness_file, "w")
+        if f then
+            f:write(tostring(data.brightness))
+            f:close()
+        end
+    end
+    
+    print(json.stringify({ success = true, message = "Đã cập nhật LED." }))
+end
+
+local ok, err = pcall(set_led)
+if not ok then
+    print(json.stringify({ success = false, error = tostring(err) }))
+end

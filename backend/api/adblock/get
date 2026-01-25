@@ -1,0 +1,39 @@
+#!/usr/bin/lua
+-- AdBlock Fast Status API
+-- Returns: { enabled: bool, lists: [{ name, enabled, size }] }
+
+local json = require("luci.jsonc")
+local uci = require("luci.model.uci").cursor()
+
+print("Content-Type: application/json")
+print("")
+
+local function get_status()
+    local result = {
+        enabled = false,
+        lists = {}
+    }
+    
+    -- Get global enabled status
+    local enabled = uci:get("adblock-fast", "config", "enabled")
+    result.enabled = (enabled == "1")
+    
+    -- Iterate through file_url sections to get lists
+    uci:foreach("adblock-fast", "file_url", function(s)
+        local list = {
+            name = s.name or "Unknown",
+            enabled = (s.enabled == "1"),
+            size = s.size or "0",
+            url = s.url or ""
+        }
+        table.insert(result.lists, list)
+    end)
+    
+    print(json.stringify(result))
+end
+
+-- Handle request
+local ok, err = pcall(get_status)
+if not ok then
+    print(json.stringify({ error = tostring(err) }))
+end

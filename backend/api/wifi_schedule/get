@@ -1,0 +1,66 @@
+#!/usr/bin/lua
+-- Wifi Schedule Get API
+-- Returns: { enabled, schedules: [{ id, time_off, time_on, days, wifi, active }], wifi_interfaces: [...] }
+
+local json = require("luci.jsonc")
+local uci = require("luci.model.uci").cursor()
+
+print("Content-Type: application/json")
+print("")
+
+local function get_wifi_interfaces()
+    local interfaces = {}
+    uci:foreach("wireless", "wifi-iface", function(s)
+        if s.mode == "ap" then
+            table.insert(interfaces, {
+                name = s[".name"],
+                ssid = s.ssid or "Unknown",
+                device = s.device or "",
+                disabled = s.disabled == "1"
+            })
+        end
+    end)
+    return interfaces
+end
+
+local function read_schedules()
+    local schedules = {}
+    local schedule_file = "/etc/vwrt_wifi_schedule.json"
+    
+    local f = io.open(schedule_file, "r")
+    if f then
+        local content = f:read("*all")
+        f:close()
+        local data = json.parse(content)
+        if data and data.schedules then
+            schedules = data.schedules
+        end
+    end
+    
+    return schedules
+end
+
+local function get_schedule()
+    local result = {
+        enabled = false,
+        schedules = {},
+        wifi_interfaces = get_wifi_interfaces()
+    }
+    
+    -- Check if scheduling is enabled (via presence of cron entries)
+    local p = io.popen("grep -c 'vwrt_wifi' /etc/crontabs/root 2>/dev/null || echo 0")
+    if p then
+        local count = tonumber(p:read("*l")) or 0
+        result.enabled = count > 0
+        p:close()
+    end
+    
+    result.schedules = read_schedules()
+    
+    print(json.stringify(result))
+end
+
+local ok, err = pcall(get_schedule)
+if not ok then
+    print(json.stringify({ error = tostring(err) }))
+end

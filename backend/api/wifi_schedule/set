@@ -1,0 +1,162 @@
+#!/usr/bin/lua
+-- Wifi Schedule Set API
+-- Params: action (add/delete/toggle), schedule object
+
+local json = require("luci.jsonc")
+
+print("Content-Type: application/json")
+print("")
+
+local schedule_file = "/etc/vwrt_wifi_schedule.json"
+local cron_file = "/etc/crontabs/root"
+
+local function parse_post_data()
+    local content_length = tonumber(os.getenv("CONTENT_LENGTH") or 0)
+    if content_length > 0 then
+        local raw = io.read(content_length)
+        return json.parse(raw) or {}
+    end
+    return {}
+end
+
+local function read_schedules()
+    local schedules = {}
+    local f = io.open(schedule_file, "r")
+    if f then
+        local content = f:read("*all")
+        f:close()
+        local data = json.parse(content)
+        if data and data.schedules then
+            schedules = data.schedules
+        end
+    end
+    return schedules
+end
+
+local function save_schedules(schedules)
+    local f = io.open(schedule_file, "w")
+    if f then
+        f:write(json.stringify({ schedules = schedules }))
+        f:close()
+        return true
+    end
+    return false
+end
+
+local function regenerate_cron()
+    local schedules = read_schedules()
+    
+    -- Read existing cron, remove vwrt_wifi entries
+    local existing_entries = {}
+    local f = io.open(cron_file, "r")
+    if f then
+        for line in f:lines() do
+            if not line:match("vwrt_wifi") then
+                table.insert(existing_entries, line)
+            end
+        end
+        f:close()
+    end
+    
+    -- Add new entries for enabled schedules
+    for _, schedule in ipairs(schedules) do
+        if schedule.active then
+            local wifi_cmd = schedule.wifi or "default_MT7981_1_1"
+            
+            -- Time off entry
+            if schedule.time_off and schedule.time_off ~= "" then
+                local hour, min = schedule.time_off:match("(%d+):(%d+)")
+                if hour and min then
+                    local days = schedule.days or "*"
+                    local cron_entry = string.format("%s %s * * %s uci set wireless.%s.disabled=1 && wifi reload # vwrt_wifi off %s",
+                        min, hour, days, wifi_cmd, schedule.id or "")
+                    table.insert(existing_entries, cron_entry)
+                end
+            end
+            
+            -- Time on entry
+            if schedule.time_on and schedule.time_on ~= "" then
+                local hour, min = schedule.time_on:match("(%d+):(%d+)")
+                if hour and min then
+                    local days = schedule.days or "*"
+                    local cron_entry = string.format("%s %s * * %s uci set wireless.%s.disabled=0 && wifi reload # vwrt_wifi on %s",
+                        min, hour, days, wifi_cmd, schedule.id or "")
+                    table.insert(existing_entries, cron_entry)
+                end
+            end
+        end
+    end
+    
+    -- Write back to cron file
+    f = io.open(cron_file, "w")
+    if f then
+        for _, line in ipairs(existing_entries) do
+            f:write(line .. "\n")
+        end
+        f:close()
+    end
+    
+    -- Reload cron
+    os.execute("/etc/init.d/cron restart >/dev/null 2>&1 &")
+end
+
+local function set_schedule()
+    local data = parse_post_data()
+    local action = data.action or ""
+    
+    if action == "add" then
+        local schedules = read_schedules()
+        local new_schedule = {
+            id = tostring(os.time()),
+            time_off = data.time_off or "",
+            time_on = data.time_on or "",
+            days = data.days or "*",
+            wifi = data.wifi or "default_MT7981_1_1",
+            active = true
+        }
+        table.insert(schedules, new_schedule)
+        save_schedules(schedules)
+        regenerate_cron()
+        print(json.stringify({ success = true, message = "Đã thêm lịch mới." }))
+        
+    elseif action == "delete" then
+        if not data.id then
+            print(json.stringify({ success = false, error = "ID không hợp lệ." }))
+            return
+        end
+        local schedules = read_schedules()
+        local new_schedules = {}
+        for _, s in ipairs(schedules) do
+            if s.id ~= data.id then
+                table.insert(new_schedules, s)
+            end
+        end
+        save_schedules(new_schedules)
+        regenerate_cron()
+        print(json.stringify({ success = true, message = "Đã xóa lịch." }))
+        
+    elseif action == "toggle" then
+        if not data.id then
+            print(json.stringify({ success = false, error = "ID không hợp lệ." }))
+            return
+        end
+        local schedules = read_schedules()
+        for i, s in ipairs(schedules) do
+            if s.id == data.id then
+                schedules[i].active = not schedules[i].active
+                break
+            end
+        end
+        save_schedules(schedules)
+        regenerate_cron()
+        print(json.stringify({ success = true, message = "Đã cập nhật trạng thái." }))
+        
+    else
+        print(json.stringify({ success = false, error = "Action không hợp lệ." }))
+    end
+end
+
+local ok, err = pcall(set_schedule)
+if not ok then
+    print(json.stringify({ success = false, error = tostring(err) }))
+end

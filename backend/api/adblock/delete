@@ -1,0 +1,59 @@
+#!/usr/bin/lua
+-- AdBlock Fast Delete List API
+-- Params: name (string)
+
+local json = require("luci.jsonc")
+local uci = require("luci.model.uci").cursor()
+
+print("Content-Type: application/json")
+print("")
+
+local function parse_post_data()
+    local content_length = tonumber(os.getenv("CONTENT_LENGTH") or 0)
+    if content_length > 0 then
+        local raw = io.read(content_length)
+        return json.parse(raw) or {}
+    end
+    return {}
+end
+
+local function delete_list()
+    local data = parse_post_data()
+    
+    if not data.name or data.name == "" then
+        print(json.stringify({ success = false, error = "Tên danh sách không được để trống." }))
+        return
+    end
+    
+    -- Find and delete the list by name
+    local deleted = false
+    local sections_to_delete = {}
+    
+    uci:foreach("adblock-fast", "file_url", function(s)
+        if s.name == data.name then
+            table.insert(sections_to_delete, s[".name"])
+        end
+    end)
+    
+    if #sections_to_delete == 0 then
+        print(json.stringify({ success = false, error = "Không tìm thấy danh sách với tên này." }))
+        return
+    end
+    
+    for _, section_name in ipairs(sections_to_delete) do
+        uci:delete("adblock-fast", section_name)
+        deleted = true
+    end
+    
+    if deleted then
+        uci:commit("adblock-fast")
+        print(json.stringify({ success = true, message = "Đã xóa danh sách." }))
+    else
+        print(json.stringify({ success = false, error = "Không thể xóa danh sách." }))
+    end
+end
+
+local ok, err = pcall(delete_list)
+if not ok then
+    print(json.stringify({ success = false, error = tostring(err) }))
+end
