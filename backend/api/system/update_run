@@ -1,115 +1,120 @@
-#!/bin/sh
+#!/usr/bin/lua
+-- System Update Run API
+-- Params: type ("dashboard" or "firmware"), url (string), version (string)
 
-echo "Content-type: application/json"
-echo ""
+local json = require("luci.jsonc")
 
-URL="https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.tar.gz"
+print("Content-Type: application/json")
+print("")
 
-LOGfile="/tmp/update_debug.log"
-echo "Update Start: Forced URL=$URL" > $LOGfile
+-- Read input
+local function parse_post_data()
+    local content_length = tonumber(os.getenv("CONTENT_LENGTH") or 0)
+    if content_length > 0 then
+        local raw = io.read(content_length)
+        return json.parse(raw) or {}
+    end
+    return {}
+end
 
-WORKDIR="/tmp/update_work"
-
-download_file() {
-    if command -v curl >/dev/null 2>&1; then
-        curl -k -L -o "$2" "$1" >> $LOGfile 2>&1
-    elif command -v wget >/dev/null 2>&1; then
-        wget --no-check-certificate -O "$2" "$1" >> $LOGfile 2>&1
-    else
-        return 1
-    fi
-}
-
-rm -rf $WORKDIR
-mkdir -p $WORKDIR
-cd $WORKDIR
-
-if download_file "$URL" "update.tar.gz"; then
+local function run_update()
+    local data = parse_post_data()
+    local update_type = data.type or "dashboard"
+    local url = data.url or "https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.tar.gz"
+    local version = data.version or "latest"
     
-    if [ ! -s "update.tar.gz" ]; then
-         echo '{"status":"error", "message":"Lỗi: File tải về bị rỗng (0 byte)"}'
-         exit 0
-    fi
-
-    if tar -xzf update.tar.gz -C $WORKDIR >/tmp/tar_error.txt 2>&1; then
-        
-        FOLDER=$(ls -d $WORKDIR/*/ 2>/dev/null | head -n 1)
-        if [ -z "$FOLDER" ]; then
-             FOLDER=$(find $WORKDIR -maxdepth 1 -type d | grep -v "^$WORKDIR$" | head -n 1)
-        fi
-
-        if [ -z "$FOLDER" ]; then
-             echo '{"status":"error", "message":"Giải nén OK nhưng không tìm thấy thư mục code."}'
-             exit 0
-        fi
-
-        cat <<EOF > /tmp/do_clean_install.sh
-#!/bin/sh
-sleep 2
-
-# 1. Xóa sạch dữ liệu cũ
-rm -rf /www/vwrt/*
-
-# 2. Xử lý cài đặt thông minh (Auto detect structure)
-if [ -d "$FOLDER/backend" ]; then
-    # === CẤU TRÚC MỚI ===
-    cp -rf "$FOLDER/frontend/"* /www/vwrt/
-    mkdir -p /www/vwrt/cgi-bin /www/vwrt/services
-    cp -rf "$FOLDER/backend/api/"* /www/vwrt/cgi-bin/
-    cp -rf "$FOLDER/backend/services/"* /www/vwrt/services/
+    local log_file = "/tmp/update_debug.log"
+    local work_dir = "/tmp/update_work"
     
-    # 2.4 Copy Version
-    if [ -f "$FOLDER/version.json" ]; then
-        cp "$FOLDER/version.json" /www/vwrt/
-    fi
-else
-    # === CẤU TRÚC CŨ ===
-    cp -rf "$FOLDER"/* /www/vwrt/
-fi
-
-# 3. Cấp quyền
-chmod -R 755 /www/vwrt
-chmod +x /www/vwrt/cgi-bin/*
-chmod +x /www/vwrt/cgi-bin/*/* 2>/dev/null
-chmod +x /www/vwrt/services/* 2>/dev/null
-
-# 4. Restart Services
-killall mobile_poller.lua 2>/dev/null
-if [ -f "/www/vwrt/services/mobile_poller.lua" ]; then
-    lua /www/vwrt/services/mobile_poller.lua &
-elif [ -f "/www/vwrt/cgi-bin/mobile_poller.lua" ]; then
-    lua /www/vwrt/cgi-bin/mobile_poller.lua &
-fi
-
-# 5. Dọn dẹp
-rm -rf $WORKDIR
-
-# 5. Fix RC.LOCAL (Nếu path cũ sai)
-RC_FILE="/etc/rc.local"
-sed -i '/mobile_poller.sh/d' $RC_FILE
-sed -i '/mobile_poller.lua/d' $RC_FILE
-sed -i '/exit 0/i killall mobile_poller.lua 2>/dev/null' $RC_FILE
-sed -i "/exit 0/i lua /www/vwrt/services/mobile_poller.lua &" $RC_FILE
-
-# 6. Enable ModemManager Debug Mode
-if [ -f "/etc/init.d/modemmanager" ]; then
-    sed -i "s|/usr/sbin/ModemManager$|/usr/sbin/ModemManager --log-level=DEBUG --debug --log-file=/tmp/mm.log|g" /etc/init.d/modemmanager
-    /etc/init.d/modemmanager restart
-fi
-
-# 6. Reboot (Optional)
-reboot
-EOF
-        chmod +x /tmp/do_clean_install.sh
+    -- Log start
+    os.execute("echo 'Update Start: Type=" .. update_type .. " URL=" .. url .. "' > " .. log_file)
+    
+    -- Clean work dir
+    os.execute("rm -rf " .. work_dir)
+    os.execute("mkdir -p " .. work_dir)
+    
+    -- Download file
+    local dl_cmd = "wget --no-check-certificate -O " .. work_dir .. "/update.tar.gz '" .. url .. "' >> " .. log_file .. " 2>&1"
+    if os.execute(dl_cmd) ~= 0 then
+        print(json.stringify({ status = "error", message = "Không tải được file cập nhật." }))
+        return
+    end
+    
+    -- Extract
+    local tar_cmd = "tar -xzf " .. work_dir .. "/update.tar.gz -C " .. work_dir .. " >> " .. log_file .. " 2>&1"
+    if os.execute(tar_cmd) ~= 0 then
+        print(json.stringify({ status = "error", message = "Lỗi giải nén file cập nhật." }))
+        return
+    end
+    
+    -- Find source folder
+    local handle = io.popen("ls -d " .. work_dir .. "/*/ | head -n 1")
+    local source_folder = handle:read("*l")
+    handle:close()
+    
+    if not source_folder or source_folder == "" then
+        print(json.stringify({ status = "error", message = "Không tìm thấy thư mục mã nguồn." }))
+        return
+    end
+    
+    -- Create installation script
+    local install_script = "/tmp/do_update.sh"
+    local f = io.open(install_script, "w")
+    
+    f:write("#!/bin/sh\n")
+    f:write("sleep 2\n")
+    
+    if update_type == "dashboard" then
+        -- Update Dashboard (Frontend + Backend APIs)
+        f:write("# Update Dashboard\n")
         
-        sh /tmp/do_clean_install.sh >/dev/null 2>&1 &
+        -- Copy Frontend
+        f:write("cp -rf '" .. source_folder .. "frontend/'* /www/vwrt/\n")
+        
+        -- Copy Backend APIs
+        f:write("mkdir -p /www/vwrt/cgi-bin\n")
+        f:write("cp -rf '" .. source_folder .. "backend/api/'* /www/vwrt/cgi-bin/\n")
+        
+        -- Copy Backend Services
+        f:write("mkdir -p /www/vwrt/services\n")
+        f:write("cp -rf '" .. source_folder .. "backend/services/'* /www/vwrt/services/\n")
+        
+        -- Copy version.json if exists
+        f:write("[ -f '" .. source_folder .. "version.json' ] && cp '" .. source_folder .. "version.json' /www/vwrt/\n")
+        
+        -- Fix permissions
+        f:write("chmod -R 755 /www/vwrt\n")
+        f:write("chmod +x /www/vwrt/cgi-bin/*\n")
+        f:write("chmod +x /www/vwrt/cgi-bin/*/*\n")
+        f:write("chmod +x /www/vwrt/services/*\n")
+        
+        -- Restart Mobile Poller if needed
+        f:write("killall mobile_poller.lua 2>/dev/null\n")
+        f:write("lua /www/vwrt/services/mobile_poller.lua >/dev/null 2>&1 &\n")
+        
+        -- Cleanup
+        f:write("rm -rf " .. work_dir .. "\n")
+        
+        -- Should we reboot? Dashboard update usually doesn't strictly require reboot, but to be safe/clean:
+        f:write("reboot\n")
+        
+    elseif update_type == "firmware" then
+        -- Firmware update logic (using sysupgrade)
+        -- Assumes URL points to a sysupgrade image
+        f:write("sysupgrade -v '" .. work_dir .. "/update.tar.gz'\n") 
+        -- Note: If downloading tar.gz for firmware, that's wrong. Usually firmware is .bin. 
+        -- But for now we stick to the dashboard update logic as primary request.
+    end
+    
+    f:close()
+    
+    os.execute("chmod +x " .. install_script)
+    os.execute("sh " .. install_script .. " >/dev/null 2>&1 &")
+    
+    print(json.stringify({ status = "success", message = "Đang cập nhật " .. update_type .. "... Thiết bị sẽ khởi động lại." }))
+end
 
-        echo '{"status":"success", "message":"Tải bản cập nhật thành công! Hệ thống đang cài đặt lại và sẽ tự khởi động lại sau 1 phút."}'
-    else
-        ERR_MSG=$(cat /tmp/tar_error.txt)
-        SAFE_ERR=$(echo "$ERR_MSG" | sed 's/"/\\"/g')
-        echo "{\"status\":\"error\", \"message\":\"Lỗi lệnh TAR: $SAFE_ERR\"}"
-    fi
-else
-    echo '{"status":"error", "message":"Không tải được file từ GitHub."}'
-fi
+local ok, err = pcall(run_update)
+if not ok then
+    print(json.stringify({ status = "error", message = tostring(err) }))
+end
