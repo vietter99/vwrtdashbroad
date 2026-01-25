@@ -260,8 +260,8 @@ const SmsModule = {
                             <colgroup>
                                 <col style="width: 50px;">
                                 <col style="width: 120px;">
-                                <col style="width: 130px;">
-                                <col style="width: auto;"> <col style="width: 140px;">
+                                <col style="width: 125px;">
+                                <col style="width: auto;"> <col style="width: 160px;">
                             </colgroup>
                             <thead style="background:#fff; position:sticky; top:0; z-index:10; border-bottom: 2px solid #eee;">
                                 <tr style="color:#718096; font-size:11px; font-weight:bold; height:45px;">

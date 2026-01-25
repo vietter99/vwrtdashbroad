@@ -178,15 +178,15 @@ openEditModal: function(dataStr) {
         const is5G = w.band === "5GHz";
 
         let channelOptions = `<option value="auto" ${w.conf_channel == 'auto' ? 'selected' : ''}>Tự động (Auto)</option>`;
-        if (is5G) {
-            [36, 40, 44, 48, 149, 153, 157, 161].forEach(ch => {
-                channelOptions += `<option value="${ch}" ${w.conf_channel == ch ? 'selected' : ''}>Kênh ${ch}</option>`;
-            });
-        } else {
-            for (let i = 1; i <= 13; i++) {
-                channelOptions += `<option value="${i}" ${w.conf_channel == i ? 'selected' : ''}>Kênh ${i}</option>`;
-            }
+        
+        // Use dynamic channels from backend, fallback to defaults
+        let channelList = w.channels || [];
+        if (channelList.length === 0) {
+            channelList = is5G ? [36, 40, 44, 48, 149, 153, 157, 161] : [1,2,3,4,5,6,7,8,9,10,11,12,13];
         }
+        channelList.forEach(ch => {
+            channelOptions += `<option value="${ch}" ${w.conf_channel == ch ? 'selected' : ''}>Kênh ${ch}</option>`;
+        });
 
         let modeOptions = '';
         if (w.caps && Array.isArray(w.caps) && w.caps.length > 0) {
@@ -260,8 +260,8 @@ openEditModal: function(dataStr) {
         const key = document.getElementById('edit-key').value;
         const channel = document.getElementById('edit-channel').value;
         const htmode = document.getElementById('edit-htmode').value;
-        const enabled = document.getElementById('edit-enable').checked;
-
+        // Note: enabled is always true when saving (no toggle in modal)
+        const enabled = true;
         if (ssid.length < 1) { alert("Tên Wifi không được để trống!"); return; }
         if (key.length > 0 && key.length < 8) { alert("Mật khẩu phải từ 8 ký tự trở lên!"); return; }
 

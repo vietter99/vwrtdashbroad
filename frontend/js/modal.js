@@ -20,25 +20,42 @@ const Modal = {
             });
         }
     },
-    confirm: function(title, message, onConfirm) {
+    show: function(options) {
         this.init();
-
         const overlay = document.getElementById('custom-modal-overlay');
         const titleEl = document.getElementById('modal-title');
         const msgEl = document.getElementById('modal-message');
         const btnConfirm = document.getElementById('btn-modal-confirm');
-        titleEl.innerText = title;
-        msgEl.innerHTML = message;
+        const btnCancel = document.getElementById('btn-modal-cancel');
+        
+        titleEl.innerText = options.title || "Thông báo";
+        msgEl.innerHTML = options.content || "";
+        
+        btnConfirm.innerText = options.confirmText || "Đồng ý";
+        btnCancel.innerText = options.cancelText || "Hủy bỏ";
+        
+        if (options.showCancel === false) btnCancel.style.display = 'none';
+        else btnCancel.style.display = 'inline-block';
+
+        // Clear and add listener
         const newBtn = btnConfirm.cloneNode(true);
         btnConfirm.parentNode.replaceChild(newBtn, btnConfirm);
+        
         newBtn.addEventListener('click', () => {
-            Modal.close();
-            if (typeof onConfirm === 'function') {
-                onConfirm();
-            }
+            if (options.onConfirm) options.onConfirm();
+            this.close();
         });
+
         overlay.classList.remove('hidden');
         overlay.classList.add('active');
+    },
+
+    confirm: function(title, message, onConfirm) {
+        this.show({
+            title: title,
+            content: message,
+            onConfirm: onConfirm
+        });
     },
 
     close: function() {

@@ -88,6 +88,36 @@ function get_smart_modes(iface, info_str, band)
     return modes
 end
 
+function get_channels(iface, band)
+    local channels = {}
+    local freq_str = exec("iwinfo " .. iface .. " freqlist")
+    
+    if freq_str and freq_str ~= "" then
+        for ch in freq_str:gmatch("Channel (%d+)") do
+            local ch_num = tonumber(ch)
+            if ch_num then
+                -- Filter by band
+                if band == "5GHz" and ch_num > 14 then
+                    table.insert(channels, ch_num)
+                elseif band == "2.4GHz" and ch_num <= 14 then
+                    table.insert(channels, ch_num)
+                end
+            end
+        end
+    end
+    
+    -- Fallback if empty
+    if #channels == 0 then
+        if band == "5GHz" then
+            channels = {36, 40, 44, 48, 149, 153, 157, 161}
+        else
+            for i = 1, 13 do table.insert(channels, i) end
+        end
+    end
+    
+    return channels
+end
+
 function get_wifi_details_by_ssid(target_ssid)
     local uci_dump = exec("uci show wireless")
     local safe_ssid = escape_pattern(target_ssid)
@@ -158,7 +188,8 @@ function get_wifi_info()
                             conf_channel = config.conf_channel,
                             conf_htmode = config.conf_htmode,
                             enabled = config.enabled,
-                            caps = support_list 
+                            caps = support_list,
+                            channels = get_channels(iface, band)
                         })
                     end
                 end

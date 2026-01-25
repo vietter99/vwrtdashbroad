@@ -46,6 +46,7 @@ const HeaderModule = {
                     <div id="modem-extra-details" class="hidden" style="font-size: 11px; color: var(--text-main); background: rgba(0,0,0,0.03); padding: 8px; border-radius: 6px; margin-bottom: 15px; border: 1px dashed var(--border-color);">
                         <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Nhà SX:</span><span id="h-extra-manuf">--</span></div>
                         <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Model:</span><span id="h-extra-model" style="text-align:right; max-width:140px;">--</span></div>
+
                         <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Firmware:</span><span id="h-extra-fw" style="text-align:right; max-width:140px; word-break:break-all;">--</span></div>
                     </div>
 
@@ -228,3 +229,4 @@ updateModemInfo: function() {
         if (luciLink) luciLink.href = `${window.location.protocol}//${window.location.hostname}/cgi-bin/luci`;
     }
 };
+window.HeaderModule = HeaderModule;

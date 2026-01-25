@@ -6,6 +6,9 @@ const MobileModule = {
         const container = document.getElementById('mobile-popup-content');
         if (container) this.renderTemplate(container);
         
+        if (container) this.renderTemplate(container);
+        
+        this.fetchTTL(); // Init TTL value
         this.startLoop();
 
         document.addEventListener("visibilitychange", () => {
@@ -64,6 +67,16 @@ const MobileModule = {
         return "#e53e3e";            
     },
 
+    getPingColor: function(msStr) {
+        let ms = parseFloat(msStr);
+        if (isNaN(ms)) return "var(--text-sub)";
+        if (ms < 60) return "#48bb78"; // Good (Green)
+        if (ms < 150) return "#ed8936"; // Fair (Orange)
+        return "#e53e3e"; // Bad (Red)
+    },
+    
+
+
     renderTemplate: function(container) {
         container.innerHTML = `
             <div class="popup-header-modern" style="padding: 15px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 10px;">
@@ -109,7 +122,17 @@ const MobileModule = {
                     <span style="color: var(--text-sub);">Băng tần chính</span> 
                     <span style="font-weight: 600; color: var(--text-main);" id="mob-band-main">--</span>
                 </div>
+
+                <div style="border-bottom: 1px dashed var(--border-color); margin: 5px 0;"></div>
+                
+                <div style="margin-bottom: 5px; font-size: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--text-sub);">TTL Custom</span> 
+                    <div style="display:flex; gap:5px;">
+                        <input type="number" id="inp-ttl" placeholder="IPv4 TTL" style="width:60px; padding:2px 5px; border:1px solid var(--border-color); border-radius:4px; font-size:12px;">
+                        <button onclick="MobileModule.setTTL()" style="border:none; background:var(--primary-color, #3182ce); color:white; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;">Set</button>
+                    </div>
                 </div>
+            </div>
         `;
     },
 
@@ -231,5 +254,188 @@ const MobileModule = {
             if(elSigText) elSigText.innerText = `${signal}%`;
             elSigBar.style.background = signal > 70 ? '#48bb78' : (signal > 30 ? '#ed8936' : '#e53e3e');
         }
+
+        // Update Ping
+        const elPing = document.getElementById('mob-card-ping');
+        if (elPing) {
+            if (mobData.ping && mobData.ping !== '-') {
+                elPing.innerText = mobData.ping + " ms";
+                elPing.style.color = this.getPingColor(mobData.ping);
+                elPing.style.fontWeight = "bold";
+            } else {
+                elPing.innerText = "--";
+                elPing.style.color = "var(--text-sub)";
+                elPing.style.fontWeight = "normal";
+                elPing.style.color = "var(--text-sub)";
+                elPing.style.fontWeight = "normal";
+            }
+        }
+        
+
+    },
+
+    fetchTTL: function() {
+        fetch('/cgi-bin/ttl')
+            .then(r => r.json())
+            .then(d => {
+                const el = document.getElementById('mob-card-ttl');
+                if(el && d.ttl && d.ttl > 0) el.innerText = d.ttl;
+                else if (el) el.innerText = "--";
+            }).catch(()=>{});
+    },
+
+    setTTL: function() {
+        const el = document.getElementById('inp-ttl');
+        if(!el) return;
+        const val = parseInt(el.value);
+        
+        if (typeof Toast !== 'undefined') Toast.show("Đang áp dụng TTL...", "info");
+
+        fetch('/cgi-bin/ttl', {
+            method: 'POST',
+            body: JSON.stringify({ ttl: val || 0 })
+        })
+        .then(r => r.json())
+        .then(d => {
+            if(d.status === 'success') {
+                if (typeof Toast !== 'undefined') Toast.show("Đã set TTL: " + (val || "Disabled"), "success");
+            } else {
+                if (typeof Toast !== 'undefined') Toast.show("Lỗi: " + d.message, "error");
+            }
+        })
+        .catch(() => {
+            if (typeof Toast !== 'undefined') Toast.show("Lỗi kết nối", "error");
+        });
+    },
+
+    showModemDetails: function() {
+        if (typeof Modal === 'undefined') return;
+        
+        Modal.show({
+            title: "Thông tin Modem",
+            content: `
+                <div style="text-align:center;"><div class="spinner"></div></div>
+            `
+        });
+
+        // Fetch details
+        fetch('/cgi-bin/mobile/get')
+            .then(r => r.json())
+            .then(res => {
+                if(res.status === 'success' && res.data) {
+                    const d = res.data;
+                    const content = `
+                        <div style="padding: 10px;">
+                            <div style="margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                                    <span style="color:var(--text-sub);">Số điện thoại:</span>
+                                    <span style="font-weight:bold; color:#e53e3e;">${d.own_number || '--'}</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                                    <span style="color:var(--text-sub);">IMEI:</span>
+                                    <span style="font-family:monospace; font-weight:bold;">${d.imei || '--'}</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between;">
+                                    <span style="color:var(--text-sub);">Nhà sản xuất:</span>
+                                    <span>${d.manufacturer || '--'}</span>
+                                </div>
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                                    <span style="color:var(--text-sub);">Model:</span>
+                                    <span style="text-align:right;">${d.model || '--'}</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between;">
+                                    <span style="color:var(--text-sub);">Firmware:</span>
+                                    <span style="text-align:right; font-family:monospace; font-size:11px;">${d.firmware || '--'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    Modal.show({
+                        title: "Thông tin Modem",
+                        content: content,
+                        showCancel: false,
+                        confirmText: "Đóng",
+                        onConfirm: () => {} 
+                    });
+                } else {
+                     Modal.show({ title: "Lỗi", content: "Không lấy được thông tin modem." });
+                }
+            })
+            .catch(() => {
+                Modal.show({ title: "Lỗi", content: "Mất kết nối server." });
+            });
+    },
+
+    showTTLModal: function() {
+        if (typeof Modal === 'undefined') return;
+        
+        // Show Loading first
+        Modal.show({
+            title: "Cấu hình TTL",
+            content: `
+                <div style="text-align:center;">
+                    <p style="margin-bottom:10px; color:var(--text-sub);">Đang tải cấu hình...</p>
+                    <div class="spinner"></div>
+                </div>
+            `
+        });
+
+        // Fetch current
+        fetch('/cgi-bin/ttl').then(r=>r.json()).then(d => {
+            const current = (d.ttl && d.ttl > 0) ? d.ttl : "";
+            
+            Modal.show({
+                title: "Cấu hình TTL (Bypass Hotspot)",
+                content: `
+                    <div style="padding: 10px;">
+                        <p style="margin-bottom: 15px; color: var(--text-sub); font-size: 13px;">
+                            Nhập giá trị TTL (thường là <b>64</b> hoặc <b>65</b> để bypass):
+                        </p>
+                        <div style="display:flex; gap:10px; justify-content:center;">
+                            <input type="number" id="modal-ttl-input" placeholder="Ví dụ: 64" value="${current}" 
+                                style="padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; width: 100px; text-align: center; font-weight: bold;">
+                        </div>
+                        <div style="margin-top: 15px; font-size: 12px; color: #718096; text-align: center;">
+                            Để trống hoặc nhập 0 để tắt tính năng này.
+                        </div>
+                    </div>
+                `,
+                onConfirm: () => {
+                   const inp = document.getElementById('modal-ttl-input');
+                   const val = inp ? parseInt(inp.value) : 0;
+                   this.doSetTTL(val);
+                },
+                confirmText: "Áp dụng",
+                cancelText: "Hủy"
+            });
+        });
+    },
+
+    doSetTTL: function(val) {
+        if (typeof Toast !== 'undefined') Toast.show("Đang áp dụng...", "info");
+        
+        // Update dashboard UI immediately for responsiveness
+        const dashEl = document.getElementById('mob-card-ttl');
+        if(dashEl) dashEl.innerText = val || "--";
+
+        fetch('/cgi-bin/ttl', {
+            method: 'POST',
+            body: JSON.stringify({ ttl: val || 0 })
+        })
+        .then(r => r.json())
+        .then(d => {
+            if(d.status === 'success') {
+                if (typeof Toast !== 'undefined') Toast.show("Thành công! TTL: " + (val || "Off"), "success");
+            } else {
+                if (typeof Toast !== 'undefined') Toast.show("Lỗi: " + d.message, "error");
+            }
+        })
+        .catch(() => {
+             if (typeof Toast !== 'undefined') Toast.show("Mất kết nối", "error");
+        });
     }
 };
+window.MobileModule = MobileModule;

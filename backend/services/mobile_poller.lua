@@ -47,6 +47,17 @@ function write_file(path, content)
     end
 end
 
+function get_net_stats(iface)
+    local rx_path = "/sys/class/net/" .. iface .. "/statistics/rx_bytes"
+    local tx_path = "/sys/class/net/" .. iface .. "/statistics/tx_bytes"
+    local rx = read_file(rx_path)
+    local tx = read_file(tx_path)
+    return {
+        rx = rx and rx:gsub("\n", "") or "0",
+        tx = tx and tx:gsub("\n", "") or "0"
+    }
+end
+
 
 function get_bands_string(bands_list)
     if not bands_list or #bands_list == 0 then return "" end
@@ -111,7 +122,7 @@ function parse_at_gstatus(output)
 
     -- Signal Stats
     local rsrp = output:match("Rx0 RSRP:.-([%-%d]+)")
-    if rsrp then res.rsrp = rsrp; log("Parsed RSRP: " .. rsrp) else log("Failed to parse RSRP") end
+    if rsrp then res.rsrp = rsrp; log("Parsed RSRP: " .. rsrp) end
     
     local rsrq = output:match("RSRQ %(dB%):.-([%-%d%.]+)")
     if rsrq then res.rsrq = rsrq end
@@ -190,7 +201,8 @@ function parse_mmcli_json(raw_json)
         tx = "0",
         csq = "0",
         registration = "1",
-        cell_id = "-"
+        cell_id = "-",
+        ping = "-" -- Initialize ping
     }
     
     return result
@@ -310,7 +322,23 @@ function main()
                 if (data_modem.signal == "0" or data_modem.signal == "-") and data_modem.rsrp ~= "-" then
                     data_modem.signal = tostring(calculate_signal_strength(data_modem.rsrp))
                 end
+
+                -- Run Ping (Fast)
+                local ping_cmd = "ping -c 1 -W 1 -I wwan0 8.8.8.8 2>/dev/null | grep 'time=' | awk -F'time=' '{print $2}' | awk '{print $1}'"
+                local p = io.popen(ping_cmd)
+                if p then
+                    local p_val = p:read("*a")
+                    p:close()
+                    if p_val and p_val ~= "" then
+                        data_modem.ping = p_val:gsub("\n", "")
+                    end
+                end
                 
+                -- Get Data Usage from wwan0
+                local net_stats = get_net_stats("wwan0")
+                data_modem.rx = net_stats.rx
+                data_modem.tx = net_stats.tx
+
                 local json_str = cjson.encode(data_modem)
                 write_file(TEMP_FILE, json_str)
                 os.rename(TEMP_FILE, CACHE_FILE)

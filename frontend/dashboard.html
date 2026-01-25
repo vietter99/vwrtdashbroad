@@ -1,145 +1,337 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VWRT | Dashboard</title>
-    <link rel="stylesheet" href="css/dashboard.css">
-    <link rel="stylesheet" href="css/toast.css">
-    <link rel="stylesheet" href="css/wifi.css">
-    <link rel="stylesheet" href="css/sms.css">
-</head>
-<body>    
+    <link rel="stylesheet" href="css/dashboard.css" />
+    <link rel="stylesheet" href="css/toast.css" />
+    <link rel="stylesheet" href="css/wifi.css" />
+    <link rel="stylesheet" href="css/sms.css" />
+  </head>
+  <body>
     <div class="overlay" id="overlay"></div>
 
     <div class="wrapper">
-        <main class="content">
-            <div class="main-container">
-                
-                <header class="top-header">
-                    <div class="header-left-group">
-                        <div class="header-title">
-                            <h1>Dashboard</h1>
-                            <p>Tổng quan hệ thống</p>
-                        </div>
+      <main class="content">
+        <div class="main-container">
+          <header class="top-header">
+            <div class="header-left-group">
+              <div class="header-title">
+                <h1>Dashboard</h1>
+                <p>Tổng quan hệ thống</p>
+              </div>
+            </div>
+            <div class="header-right" id="header-container"></div>
+          </header>
+
+          <div class="cards-wrapper">
+            <div class="cards-track">
+              <div class="card card-system">
+                <div class="card-header-compact">
+                  <div class="card-icon-small bg-blue-light">
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <rect
+                        x="4"
+                        y="4"
+                        width="16"
+                        height="16"
+                        rx="2"
+                        ry="2"
+                      ></rect>
+                      <line x1="9" y1="20" x2="9" y2="23"></line>
+                      <line x1="15" y1="20" x2="15" y2="23"></line>
+                    </svg>
+                  </div>
+                  <div class="header-text-col">
+                    <h3>Thiết bị</h3>
+                    <div class="model-name" id="sys-model">Đang tải...</div>
+                  </div>
+                </div>
+                <div class="sys-details-compact">
+                  <div class="sys-stats-grid">
+                    <div class="stat-box-mini">
+                      <div class="sb-label">Hoạt động</div>
+                      <div class="sb-val" id="sys-uptime">--:--</div>
                     </div>
-                    <div class="header-right" id="header-container"></div>
-                </header>
+                    <div class="stat-box-mini">
+                      <div class="sb-label">Nhiệt độ</div>
+                      <div class="sb-val text-red" id="sys-temp">--°C</div>
+                    </div>
+                    <div class="stat-box-mini">
+                      <div class="sb-label">Public IP</div>
+                      <div class="sb-val text-blue" id="sys-public-ip">...</div>
+                    </div>
+                  </div>
+                  <div class="separator"></div>
+                  <div class="sys-progress-group">
+                    <div class="sys-row-mini">
+                      <span class="sys-label">CPU Load</span
+                      ><span class="sys-val-mini" id="cpu-text">--%</span>
+                    </div>
+                    <div class="progress-bg">
+                      <div
+                        class="progress-bar bg-purple"
+                        id="cpu-bar"
+                        style="width: 0%"
+                      ></div>
+                    </div>
+                  </div>
+                  <div class="sys-progress-group">
+                    <div class="sys-row-mini">
+                      <span class="sys-label">RAM</span
+                      ><span class="sys-val-mini" id="ram-text">--%</span>
+                    </div>
+                    <div class="progress-bg">
+                      <div
+                        class="progress-bar"
+                        id="ram-bar"
+                        style="width: 0%"
+                      ></div>
+                    </div>
+                  </div>
+                  <div class="sys-progress-group">
+                    <div class="sys-row-mini">
+                      <span class="sys-label">ROM</span
+                      ><span class="sys-val-mini" id="rom-text">--%</span>
+                    </div>
+                    <div class="progress-bg">
+                      <div
+                        class="progress-bar bg-orange"
+                        id="rom-bar"
+                        style="width: 0%"
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-                <div class="cards-wrapper">
-                    
-                    <div class="cards-track">
-                        <div class="card card-system">
-                            <div class="card-header-compact">
-                                <div class="card-icon-small bg-blue-light">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line></svg>
-                                </div>
-                                <div class="header-text-col">
-                                    <h3>Thiết bị</h3>
-                                    <div class="model-name" id="sys-model">Đang tải...</div>
-                                </div>
-                            </div>
-                            <div class="sys-details-compact">
-                                <div class="sys-stats-grid">
-                                    <div class="stat-box-mini"><div class="sb-label">Hoạt động</div><div class="sb-val" id="sys-uptime">--:--</div></div>
-                                    <div class="stat-box-mini"><div class="sb-label">Nhiệt độ</div><div class="sb-val text-red" id="sys-temp">--°C</div></div>
-                                    <div class="stat-box-mini"><div class="sb-label">Public IP</div><div class="sb-val text-blue" id="sys-public-ip">...</div></div>
-                                </div>
-                                <div class="separator"></div>
-                                <div class="sys-progress-group">
-                                    <div class="sys-row-mini"><span class="sys-label">CPU Load</span><span class="sys-val-mini" id="cpu-text">--%</span></div>
-                                    <div class="progress-bg"><div class="progress-bar bg-purple" id="cpu-bar" style="width:0%"></div></div>
-                                </div>
-                                <div class="sys-progress-group">
-                                    <div class="sys-row-mini"><span class="sys-label">RAM</span><span class="sys-val-mini" id="ram-text">--%</span></div>
-                                    <div class="progress-bg"><div class="progress-bar" id="ram-bar" style="width:0%"></div></div>
-                                </div>
-                                <div class="sys-progress-group">
-                                    <div class="sys-row-mini"><span class="sys-label">ROM</span><span class="sys-val-mini" id="rom-text">--%</span></div>
-                                    <div class="progress-bg"><div class="progress-bar bg-orange" id="rom-bar" style="width:0%"></div></div>
-                                </div>
-                            </div>
-                        </div>
+              <div class="card card-system mobile-card-layout" id="card-mobile">
+                <div class="card-header-compact">
+                  <div class="card-icon-small bg-green-light">
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+                      <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                      <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                      <line x1="12" y1="20" x2="12.01" y2="20"></line>
+                    </svg>
+                  </div>
+                  <div class="header-text-col">
+                    <h3>Nhà mạng</h3>
+                    <div class="model-name" id="mob-card-operator">--</div>
+                  </div>
+                  <div id="mob-card-type" class="mob-badge-right">--</div>
+                </div>
+                <div class="sys-details-compact">
+                  <div class="sys-progress-group mob-signal-group">
+                    <div class="sys-row-mini">
+                      <span class="sys-label">Tín hiệu</span
+                      ><span class="sys-val-mini" id="mob-card-signal-text"
+                        >0%</span
+                      >
+                    </div>
+                    <div class="progress-bg h-8">
+                      <div
+                        class="progress-bar bg-green-signal"
+                        id="mob-card-signal-bar"
+                        style="width: 0%"
+                      ></div>
+                    </div>
+                  </div>
+                  <div class="mob-info-grid">
+                    <div class="mob-box">
+                      <div class="mob-label">Band</div>
+                      <div id="mob-card-band" class="mob-value">--</div>
+                    </div>
+                    <div class="mob-box">
+                      <div class="mob-label">Nhiệt độ</div>
+                      <div id="mob-card-status" class="mob-value">--</div>
+                    </div>
+                    <div class="mob-box" onclick="MobileModule.showTTLModal()" style="cursor: pointer;"><div class="mob-label">TTL</div><div id="mob-card-ttl" class="mob-value">--</div></div>
+                    <div class="mob-box"><div class="mob-label">Ping</div><div id="mob-card-ping" class="mob-value">--</div></div>
+                  </div>
+                  <div class="mob-stats-footer">
+                    <div class="stat-pill-box">
+                      <span class="mob-stat-lbl">RSRP</span
+                      ><span id="mob-card-rsrp" class="mob-stat-val val-green"
+                        >--</span
+                      >
+                    </div>
+                    <div class="stat-pill-box">
+                      <span class="mob-stat-lbl">SINR</span
+                      ><span id="mob-card-sinr" class="mob-stat-val val-blue"
+                        >--</span
+                      >
+                    </div>
+                    <div class="stat-pill-box">
+                      <span class="mob-stat-lbl">RSRQ</span
+                      ><span id="mob-card-rsrq" class="mob-stat-val val-purple"
+                        >--</span
+                      >
+                    </div>
+                    <div class="stat-pill-box">
+                      <span class="mob-stat-lbl">RSSI</span
+                      ><span id="mob-card-rssi" class="mob-stat-val val-orange"
+                        >--</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="cards-track">
+              <div class="card card-system">
+                <div class="card-header-compact">
+                  <div class="card-icon-small bg-purple-light">
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <path d="M2 12h20"></path>
+                      <path
+                        d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+                      ></path>
+                    </svg>
+                  </div>
+                  <div class="header-text-col">
+                    <h3>Trạng thái Mạng</h3>
+                    <div class="model-name">Interfaces</div>
+                  </div>
+                </div>
+                <div
+                  class="sys-details-compact"
+                  id="network-list"
+                  style="min-height: 200px"
+                >
+                  <div
+                    class="sys-row"
+                    style="justify-content: center; color: #999"
+                  >
+                    Đang tải...
+                  </div>
+                </div>
+              </div>
 
-                        <div class="card card-system mobile-card-layout" id="card-mobile">
-                            <div class="card-header-compact">
-                                <div class="card-icon-small bg-green-light">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
-                                </div>
-                                <div class="header-text-col">
-                                    <h3>Nhà mạng</h3>
-                                    <div class="model-name" id="mob-card-operator">--</div>
-                                </div>
-                                <div id="mob-card-type" class="mob-badge-right">--</div>
-                            </div>
-                            <div class="sys-details-compact">
-                                <div class="sys-progress-group mob-signal-group">
-                                    <div class="sys-row-mini"><span class="sys-label">Tín hiệu</span><span class="sys-val-mini" id="mob-card-signal-text">0%</span></div>
-                                    <div class="progress-bg h-8"><div class="progress-bar bg-green-signal" id="mob-card-signal-bar" style="width:0%;"></div></div>
-                                </div>
-                                <div class="mob-info-grid">
-                                    <div class="mob-box"><div class="mob-label">Band</div><div id="mob-card-band" class="mob-value">--</div></div>
-                                    <div class="mob-box"><div class="mob-label">Nhiệt độ</div><div id="mob-card-status" class="mob-value">--</div></div>
-                                </div>
-                    <div class="mob-stats-footer">
-                        <div class="stat-pill-box"><span class="mob-stat-lbl">RSRP</span><span id="mob-card-rsrp" class="mob-stat-val val-green">--</span></div>
-                        <div class="stat-pill-box"><span class="mob-stat-lbl">SINR</span><span id="mob-card-sinr" class="mob-stat-val val-blue">--</span></div>
-                        <div class="stat-pill-box"><span class="mob-stat-lbl">RSRQ</span><span id="mob-card-rsrq" class="mob-stat-val val-purple">--</span></div>
-                        <div class="stat-pill-box"><span class="mob-stat-lbl">RSSI</span><span id="mob-card-rssi" class="mob-stat-val val-orange">--</span></div>
-                    </div>  
-                        </div>
-                        </div>
-                    </div> <div class="cards-track">
-                        <div class="card card-system">
-                            <div class="card-header-compact">
-                                <div class="card-icon-small bg-purple-light">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                                </div>
-                                <div class="header-text-col">
-                                    <h3>Trạng thái Mạng</h3>
-                                    <div class="model-name">Interfaces</div>
-                                </div>
-                            </div>
-                            <div class="sys-details-compact" id="network-list" style="min-height: 200px;">
-                                <div class="sys-row" style="justify-content: center; color: #999;">Đang tải...</div>
-                            </div>
-                        </div>
-
-                        <div class="card card-system">
-                            <div class="card-header-compact">
-                                <div class="card-icon-small" style="background: rgba(49, 130, 206, 0.15); color: #3182ce;">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                                </div>
-                                <div class="header-text-col">
-                                    <h3>Hộp thư</h3>
-                                    <div class="model-name">Tin nhắn</div>
-                                </div>
-                                <div style="margin-left: auto; display:flex; gap:5px;">
-                                    <button onclick="SmsModule.openCompose()" style="border:none; background:#ebf8ff; color:#3182ce; padding:5px 10px; border-radius:6px; cursor:pointer; font-weight:600; font-size:11px;">✎ Soạn</button>
-                                    <button onclick="SmsModule.fetchInbox(true)" style="border:none; background:#f7fafc; color:#718096; padding:5px 10px; border-radius:6px; cursor:pointer; font-weight:600; font-size:11px; border:1px solid #e2e8f0;">Xem tất cả</button>
-                                </div>
-                            </div>
-                            <div class="sys-details-compact" id="dashboard-sms-list" style="overflow-y: auto; max-height: 250px; min-height: 200px;">
-                                <div style="text-align:center; color:#999; padding:20px; font-size:12px;">Đang tải tin nhắn...</div>
-                            </div>
-                        </div>
-                    </div> </div> </div>
-        </main>
+              <div class="card card-system">
+                <div class="card-header-compact">
+                  <div
+                    class="card-icon-small"
+                    style="background: rgba(49, 130, 206, 0.15); color: #3182ce"
+                  >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path
+                        d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+                      ></path>
+                    </svg>
+                  </div>
+                  <div class="header-text-col">
+                    <h3>Hộp thư</h3>
+                    <div class="model-name">Tin nhắn</div>
+                  </div>
+                  <div style="margin-left: auto; display: flex; gap: 5px">
+                    <button
+                      onclick="SmsModule.openCompose()"
+                      style="
+                        border: none;
+                        background: #ebf8ff;
+                        color: #3182ce;
+                        padding: 5px 10px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        font-size: 11px;
+                      "
+                    >
+                      ✎ Soạn
+                    </button>
+                    <button
+                      onclick="SmsModule.fetchInbox(true)"
+                      style="
+                        border: none;
+                        background: #f7fafc;
+                        color: #718096;
+                        padding: 5px 10px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        font-size: 11px;
+                        border: 1px solid #e2e8f0;
+                      "
+                    >
+                      Xem tất cả
+                    </button>
+                  </div>
+                </div>
+                <div
+                  class="sys-details-compact"
+                  id="dashboard-sms-list"
+                  style="overflow-y: auto; max-height: 250px; min-height: 200px"
+                >
+                  <div
+                    style="
+                      text-align: center;
+                      color: #999;
+                      padding: 20px;
+                      font-size: 12px;
+                    "
+                  >
+                    Đang tải tin nhắn...
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
     <script src="js/api.js"></script>
     <script src="js/toast.js"></script>
     <script src="js/modal.js"></script>
-    <script src="js/modules/header.js"></script>      
+    <script src="js/modules/header.js"></script>
     <script src="js/modules/theme.js"></script>
-    <script src="js/modules/mobile_info.js"></script> 
-    <script src="js/modules/wifi_info.js"></script>       
-    <script src="js/modules/system_info.js"></script>  
+    <script src="js/modules/mobile_info.js"></script>
+    <script src="js/modules/wifi_info.js"></script>
+    <script src="js/modules/system_info.js"></script>
     <script src="js/modules/network_info.js"></script>
     <script src="js/modules/sms_info.js"></script>
     <script src="js/modules/settings.js"></script>
     <script src="js/dashboard.js"></script>
-<div class="footer-info" style="position: fixed; bottom: 10px; left: 0; right: 0;">
-<p>Powered by <a href="https://www.facebook.com/pham.viet.853811" target="_blank">VWRT</a><span id="app-version"></span></p>
-</div>
-</body>
+    <div
+      class="footer-info"
+      style="position: fixed; bottom: 10px; left: 0; right: 0"
+    >
+      <p>
+        Powered by
+        <a href="https://www.facebook.com/pham.viet.853811" target="_blank"
+          >VWRT</a
+        ><span id="app-version"></span>
+      </p>
+    </div>
+  </body>
 </html>
