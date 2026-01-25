@@ -1,12 +1,7 @@
 {
     "dashboard": {
-        "version": "1.0.9",
+        "version": "1.1.0",
         "url": "https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.zip",
-        "log": "- Tinh năng mới: Tinh chỉnh Modem Info hiện thị thông tin chi tiết hơn.\n- Sóng mạng di động: Loại bỏ hiện thị band s1-4 gọn gàng.\n- v1.0.9: Sửa lỗi nhỏ và tối ưu hóa giao diện."
-    },
-    "firmware": {
-        "version": "1.0.0",
-        "url": "",
-        "log": ""
+        "log": "- Hỗ trợ tốt cho mmcli.\n- Tối ưu và cải thiện."
     }
 }

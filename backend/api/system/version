@@ -1,0 +1,21 @@
+#!/usr/bin/lua
+
+local cjson = require "cjson"
+
+function read_file(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local content = f:read("*all")
+    f:close()
+    return content
+end
+
+print("Content-type: application/json\n\n")
+
+local content = read_file("/www/vwrt/version.json")
+
+if content and content ~= "" then
+    print(content)
+else
+    print('{"dashboard":{"version":"Unknown"}}')
+end
