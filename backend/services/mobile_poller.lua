@@ -6,11 +6,6 @@ local TEMP_FILE = "/tmp/vwrt_mobile_temp.json"
 
 function log(msg)
     -- Disabled logging to prevent disk filling
-    -- local f = io.open("/tmp/poller_debug.log", "a")
-    -- if f then
-    --     f:write(os.date() .. ": " .. msg .. "\n")
-    --     f:close()
-    -- end
 end
 
 function exec(cmd)
@@ -21,15 +16,11 @@ function exec(cmd)
     return content
 end
 
-
 function exec_at_tty(device, cmd)
     local command = "/www/vwrt/services/at_cmd.sh " .. device .. " '" .. cmd .. "'"
-    log("Executing TTY: " .. command)
     local out = exec(command)
-    log("TTY Result: " .. (out or "NIL"))
     return out
 end
-
 
 function read_file(path)
     local f = io.open(path, "r")
@@ -58,7 +49,6 @@ function get_net_stats(iface)
     }
 end
 
-
 function get_bands_string(bands_list)
     if not bands_list or #bands_list == 0 then return "" end
     local b_str = ""
@@ -69,23 +59,21 @@ function get_bands_string(bands_list)
     return b_str
 end
 
+-- === SIERRA / EM9191 SPECIFIC PARSER ===
 function parse_at_gstatus(output)
     if not output then return {} end
     local res = {}
     
-    log("Parsing AT Output length: " .. #output)
-
     -- Temp
     local temp = output:match("Temperature:%s*(%d+)")
-    if temp then res.mtemp = temp; log("Parsed Temp: " .. temp) end
+    if temp then res.mtemp = temp end
     
-    -- LTE Band & CA (Carrier Aggregation)
+    -- LTE Band & CA
     local lte_pcc = output:match("LTE band:.-(%S+)")
     local active_bands = {}
     
     if lte_pcc then table.insert(active_bands, lte_pcc) end
     
-    -- Parse SCC (SCC1 to SCC4 typically)
     for i = 1, 4 do
         local state = output:match("LTE SCC" .. i .. " state:%s*(%S+)")
         local band = output:match("LTE SCC" .. i .. " band:%s*(%S+)")
@@ -94,40 +82,33 @@ function parse_at_gstatus(output)
         end
     end
     
-    -- NR5G Band
+    -- NR5G Band (Sierra Output)
     local nr_band = output:match("NR5G band:%s*(%S+)")
     if nr_band and nr_band ~= "---" then
         if #active_bands > 0 then
-            res.active_mode = "5G NSA" -- LTE + 5G
+            res.active_mode = "5G NSA"
         else
             res.active_mode = "5G SA"
         end
         table.insert(active_bands, nr_band)
     elseif #active_bands > 1 then
-        res.active_mode = "LTE-A" -- CA Active
-    elseif #active_bands == 1 then
-        -- Default mode is already parsed from System mode (e.g. LTE), keep it or set explicity
-        -- res.active_mode = "LTE" 
+        res.active_mode = "LTE-A"
     end
     
-    -- Join bands with " + "
     if #active_bands > 0 then
         res.active_band = table.concat(active_bands, " + ")
-        log("Parsed Active Bands: " .. res.active_band)
     end
 
     local sys_mode = output:match("System mode:.-(%S+)")
-    -- Only override active_mode if not correctly detected as 5G/LTE-A
     if sys_mode and not res.active_mode then res.active_mode = sys_mode end
 
-    -- Signal Stats
     local rsrp = output:match("Rx0 RSRP:.-([%-%d]+)")
-    if rsrp then res.rsrp = rsrp; log("Parsed RSRP: " .. rsrp) end
+    if rsrp then res.rsrp = rsrp end
     
     local rsrq = output:match("RSRQ %(dB%):.-([%-%d%.]+)")
     if rsrq then res.rsrq = rsrq end
     
-    -- 5G Signal Stats (Prioritize if available)
+    -- 5G Stats
     local nr_rsrp = output:match("NR5G RSRP %(dBm%):%s*([%-%d]+)")
     local nr_sinr = output:match("NR5G SINR %(dB%):%s*([%-%d%.]+)")
     local nr_rsrq = output:match("NR5G RSRQ %(dB%):%s*([%-%d%.]+)")
@@ -136,23 +117,65 @@ function parse_at_gstatus(output)
         res.rsrp = nr_rsrp
         res.sinr = nr_sinr
         res.rsrq = nr_rsrq
-        -- Use 5G mode explicitly if we have 5G signal
         if not res.active_mode or not res.active_mode:find("5G") then
              res.active_mode = "5G NSA"
         end
     else
-        -- LTE SINR
         local sinr = output:match("SINR %(dB%):.-([%-%d%.]+)")
         if sinr then res.sinr = sinr end
     end
 
-    -- RSSI (PCC Rx0 RSSI)
     local rssi = output:match("Rx0 RSSI:.-([%-%d]+)")
     if rssi then res.rssi = rssi end
     
     return res
 end
 
+-- === DELL / DW5821e SPECIFIC PARSER ===
+function parse_at_dw5821e_temp(output)
+    if not output then return nil end
+    -- Format: xo_therm_buf:43
+    local temp = output:match("xo_therm_buf:(%d+)")
+    return temp
+end
+
+function parse_at_dw5821e_cainfo(output)
+    if not output then return {} end
+    local res = {}
+    local active_bands = {}
+    
+    -- PCC info: Band is LTE_B3, Band_width...
+    local pcc_band = output:match("PCC info: Band is (%S+),")
+    if pcc_band then
+        pcc_band = pcc_band:gsub("LTE_", "") -- Clean to B3
+        table.insert(active_bands, pcc_band)
+    end
+    
+    -- SCC info lookups (SCC1, SCC2...)
+    -- SCC1 info: Band is LTE_B1, Band_width...
+    for line in output:gmatch("SCC%d+ info: [^\n]+") do
+        local scc_band = line:match("Band is (%S+),")
+        if scc_band then
+            scc_band = scc_band:gsub("LTE_", "")
+            table.insert(active_bands, scc_band)
+        end
+    end
+    
+    if #active_bands > 1 then
+        res.active_mode = "LTE-A"
+    elseif #active_bands == 1 then
+        res.active_mode = "LTE"
+    end
+    
+    if #active_bands > 0 then
+        res.active_band = table.concat(active_bands, " + ")
+    end
+    
+    return res
+end
+
+
+-- === MAIN JSON PARSER ===
 function parse_mmcli_json(raw_json)
     if not raw_json or raw_json == "" then return nil end
     local ok, parsed = pcall(cjson.decode, raw_json)
@@ -166,10 +189,10 @@ function parse_mmcli_json(raw_json)
     local raw_mode = generic["access-technologies"] and generic["access-technologies"][1] or "-"
     local mode_upper = raw_mode:upper()
     
-    -- Fallback Band logic if AT command fails
     local bands = generic["current-bands"] or {}
     local band_str = get_bands_string(bands)
     local final_mode = mode_upper
+    
     if band_str ~= "" and #bands <= 5 then
         final_mode = mode_upper .. " | " .. band_str
     end
@@ -179,32 +202,18 @@ function parse_mmcli_json(raw_json)
         operator_mcc = g3pp["operator-code"] and string.sub(g3pp["operator-code"], 1, 3) or "-",
         operator_mnc = g3pp["operator-code"] and string.sub(g3pp["operator-code"], 4) or "-",
         simulation = "false", 
-        
-        mode = final_mode, -- Can be overwritten by AT parser
+        mode = final_mode, 
         signal = sig_qual.value and tostring(sig_qual.value) or "0",
-        
         imei = g3pp.imei or "-",
-        modem = generic.model or "-", -- Legacy key for Model Name
-        model = generic.model or "-", -- Keep for consistency
+        modem = generic.model or "-",
+        model = generic.model or "-",
         firmware = generic.revision or "-",
         manufacturer = generic.manufacturer or "-",
         own_number = generic["own-numbers"] and generic["own-numbers"][1] or "-",
         mtemp = "-", 
-        
-        rsrp = "-",
-        rsrq = "-",
-        sinr = "-",
-        rssi = "-",
-        
-        conn_time = "-",
-        rx = "0",
-        tx = "0",
-        csq = "0",
-        registration = "1",
-        cell_id = "-",
-        ping = "-" -- Initialize ping
+        rsrp = "-", rsrq = "-", sinr = "-", rssi = "-",
+        conn_time = "-", rx = "0", tx = "0", csq = "0", registration = "1", cell_id = "-", ping = "-"
     }
-    
     return result
 end
 
@@ -212,22 +221,13 @@ function parse_mmcli_signal(raw)
     if not raw or raw == "" then return {} end
     local status, data = pcall(cjson.decode, raw)
     if not status or not data or not data.modem or not data.modem.signal then return {} end
-    
     local s = data.modem.signal
     local res = {}
-    
-    -- Prioritize 5G -> LTE
     if s["5g"] and s["5g"].rsrp and s["5g"].rsrp ~= "--" then
-         res.rsrp = s["5g"].rsrp
-         res.rsrq = s["5g"].rsrq
-         res.sinr = s["5g"].snr
+         res.rsrp = s["5g"].rsrp; res.rsrq = s["5g"].rsrq; res.sinr = s["5g"].snr
     elseif s.lte and s.lte.rsrp and s.lte.rsrp ~= "--" then
-         res.rsrp = s.lte.rsrp
-         res.rsrq = s.lte.rsrq
-         res.sinr = s.lte.snr 
-         res.rssi = s.lte.rssi
+         res.rsrp = s.lte.rsrp; res.rsrq = s.lte.rsrq; res.sinr = s.lte.snr; res.rssi = s.lte.rssi
     end
-    
     return res
 end
 
@@ -235,17 +235,13 @@ function calculate_signal_strength(rsrp)
     if not rsrp or rsrp == "-" then return 0 end
     local r = tonumber(rsrp)
     if not r then return 0 end
-    
-    -- RSRP range: -120 (0%) to -80 (100%)
     if r >= -80 then return 100 end
     if r <= -120 then return 0 end
-    
     local percent = (r + 120) * (100 / 40)
     return math.floor(percent)
 end
 
 function main()
-    -- Enable signal polling
     exec("mmcli -m 0 --signal-setup=1")
 
     while true do
@@ -253,88 +249,83 @@ function main()
             local raw_modem = exec("mmcli -m 0 -J")
             local raw_signal = exec("mmcli -m 0 --signal-get -J")
             
-            -- Try mmcli AT first
-            local raw_at = exec("mmcli -m 0 --command='AT!GSTATUS?' 2>/dev/null")
-            
-            -- Fallback to direct TTY if mmcli AT fails or is empty, and TTY exists
-            -- Re-enabled: MM refuses to run AT command in Connected state, so we MUST use direct TTY.
-            if (not raw_at or raw_at == "") then
-                 local f = io.open("/dev/ttyUSB0", "r")
-                 if f then
-                     f:close()
-                     -- log("Attempting Fallback TTY")
-                     raw_at = exec_at_tty("/dev/ttyUSB0", "AT!GSTATUS?")
-                 end
-            end
-
             local data_modem = parse_mmcli_json(raw_modem)
             local signal_data = parse_mmcli_signal(raw_signal)
-            local at_data = parse_at_gstatus(raw_at)
             
             if not data_modem then
                 data_modem = {
-                    operator_name = "No Device",
-                    operator_mcc = "-",
-                    operator_mnc = "-",
-                    simulation = "false",
-                    mode = "No Device",
-                    signal = "0",
-                    imei = "-",
-                    modem = "No Device",
-                    model = "-",
-                    firmware = "-",
-                    manufacturer = "-",
-                    own_number = "-",
-                    mtemp = "-",
-                    rsrp = "-",
-                    rsrq = "-",
-                    sinr = "-",
-                    rssi = "-",
-                    conn_time = "-",
-                    rx = "0",
-                    tx = "0",
-                    csq = "0",
-                    registration = "0",
-                    cell_id = "-"
+                    operator_name="No Device", mode="No Device", signal="0", manufacturer="-", model="-"
                 }
             end
             
-            if data_modem then
-                -- Merge signal data from mmcli --signal-get
+            if data_modem.mode ~= "No Device" then
+                -- 1. Merge basic signal
                 if signal_data.rsrp then data_modem.rsrp = signal_data.rsrp end
                 if signal_data.rsrq then data_modem.rsrq = signal_data.rsrq end
                 if signal_data.sinr then data_modem.sinr = signal_data.sinr end
                 if signal_data.rssi then data_modem.rssi = signal_data.rssi end
 
-                -- Merge AT Data (Overwrite mmcli if available, as AT is more detailed)
-                if at_data.mtemp then data_modem.mtemp = at_data.mtemp end
-                if at_data.rsrp then data_modem.rsrp = at_data.rsrp end
-                if at_data.rsrq then data_modem.rsrq = at_data.rsrq end
-                if at_data.sinr then data_modem.sinr = at_data.sinr end
-                if at_data.rssi then data_modem.rssi = at_data.rssi end
+                -- 2. DEVICE SPECIFIC LOGIC
+                local is_sierra = (data_modem.manufacturer and data_modem.manufacturer:lower():find("sierra")) or 
+                                  (data_modem.model and (data_modem.model:find("EM9191") or data_modem.model:find("EM7455")))
                 
-                -- Override Mode with Active Band from AT (More accurate)
-                if at_data.active_band then
-                    data_modem.mode = at_data.active_mode .. " | " .. at_data.active_band
+                local is_dell = (data_modem.model and data_modem.model:find("DW5821e")) or
+                                (data_modem.manufacturer and data_modem.manufacturer:lower():find("dell"))
+
+                if is_sierra then
+                    local raw_at = exec("mmcli -m 0 --command='AT!GSTATUS?' 2>/dev/null")
+                    if (not raw_at or raw_at == "") then
+                         local f = io.open("/dev/ttyUSB0", "r")
+                         if f then f:close(); raw_at = exec_at_tty("/dev/ttyUSB0", "AT!GSTATUS?"); end
+                    end
+                    local at_data = parse_at_gstatus(raw_at)
+                    if at_data.mtemp then data_modem.mtemp = at_data.mtemp end
+                    if at_data.rsrp then data_modem.rsrp = at_data.rsrp end
+                    if at_data.active_band then data_modem.mode = at_data.active_mode .. " | " .. at_data.active_band end
+
+                elseif is_dell then
+                    -- === DELL DW5821e LOGIC ===
+                    -- Debug Log
+                    local dbg = io.open("/tmp/dw5821_debug.log", "w")
+                    
+                    -- 1. Temp
+                    local raw_temp = exec("mmcli -m 0 --command='AT+TEMP' 2>/dev/null")
+                    if dbg then dbg:write("Raw Temp: " .. (raw_temp or "nil") .. "\n") end
+                    
+                    local temp_val = parse_at_dw5821e_temp(raw_temp)
+                    if dbg then dbg:write("Parsed Temp: " .. (temp_val or "nil") .. "\n") end
+                    
+                    if temp_val then data_modem.mtemp = temp_val end
+                    
+                    -- 2. CA / Band Info
+                    local raw_ca = exec("mmcli -m 0 --command='AT^CA_INFO?' 2>/dev/null")
+                    if dbg then dbg:write("Raw CA: " .. (raw_ca or "nil") .. "\n") end
+                    
+                    local ca_data = parse_at_dw5821e_cainfo(raw_ca)
+                    if dbg then dbg:write("Parsed Band: " .. (ca_data.active_band or "nil") .. "\n") end
+                    
+                    if ca_data.active_band then
+                         local mode_prefix = ca_data.active_mode or data_modem.mode
+                         data_modem.mode = mode_prefix .. " | " .. ca_data.active_band
+                    end
+                    
+                    if dbg then dbg:close() end
                 end
-                
-                -- Fallback Signal Calculation from RSRP if mmcli reports 0
+
+                -- 3. Fallback Signal
                 if (data_modem.signal == "0" or data_modem.signal == "-") and data_modem.rsrp ~= "-" then
                     data_modem.signal = tostring(calculate_signal_strength(data_modem.rsrp))
                 end
 
-                -- Run Ping (Fast)
+                -- 4. Ping
                 local ping_cmd = "ping -c 1 -W 1 -I wwan0 8.8.8.8 2>/dev/null | grep 'time=' | awk -F'time=' '{print $2}' | awk '{print $1}'"
                 local p = io.popen(ping_cmd)
                 if p then
-                    local p_val = p:read("*a")
-                    p:close()
-                    if p_val and p_val ~= "" then
-                        data_modem.ping = p_val:gsub("\n", "")
-                    end
+                    local p_val = p:read("*a"); p:close()
+                    if p_val and p_val ~= "" then data_modem.ping = p_val:gsub("\n", "") end
                 end
                 
-                -- Get Data Usage from wwan0
+                -- 5. Data Usage
                 local net_stats = get_net_stats("wwan0")
                 data_modem.rx = net_stats.rx
                 data_modem.tx = net_stats.tx
@@ -344,21 +335,14 @@ function main()
                 os.rename(TEMP_FILE, CACHE_FILE)
             end
         end)
-
-        if not status then
-            log("Error: " .. tostring(err))
-        end
         
-        -- Auto-retry signal setup if missing
         local check_f = io.open(CACHE_FILE, "r")
         if check_f then
-            local c = check_f:read("*all")
-            check_f:close()
+            local c = check_f:read("*all"); check_f:close()
             if c and (string.find(c, '"signal":"0"') or string.find(c, '"rsrp":"-"')) then
                  exec("mmcli -m 0 --signal-setup=1")
             end
         end
-        
         exec("sleep 2")
     end
 end

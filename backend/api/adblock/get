@@ -18,10 +18,35 @@ local function get_status()
     local enabled = uci:get("adblock-fast", "config", "enabled")
     result.enabled = (enabled == "1")
     
+    -- Helper: Generate name from URL
+    local function get_name_from_url(url)
+        if not url then return "Unknown" end
+        local lower = url:lower()
+        if lower:find("stevenblack") then return "StevenBlack Unified" end
+        if lower:find("adguardteam") then return "AdGuard CNAME" end
+        if lower:find("oisd.nl") then return "OISD Big" end
+        if lower:find("adaway") then return "AdAway" end
+        if lower:find("yoyo.org") then return "Yoyo" end
+        if lower:find("winhelp2002") then return "WinHelp2002" end
+        if lower:find("cameleon") then return "Cameleon" end
+        if lower:find("nocoin") then return "NoCoin" end
+        if lower:find("youtube_ads") then return "YouTube Ads" end
+        if lower:find("tracking") then return "Tracking List" end
+        
+        -- Fallback: Last segment of URL
+        local name = url:match(".+/([^/]+)$") or url
+        return name
+    end
+
     -- Iterate through file_url sections to get lists
     uci:foreach("adblock-fast", "file_url", function(s)
+        local derived_name = s.name
+        if not derived_name or derived_name == "" then
+            derived_name = get_name_from_url(s.url)
+        end
+        
         local list = {
-            name = s.name or "Unknown",
+            name = derived_name,
             enabled = (s.enabled == "1"),
             size = s.size or "0",
             url = s.url or ""
