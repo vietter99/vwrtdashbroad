@@ -94,14 +94,16 @@ echo "[3/5] Dang thiet lap..."
 RC_FILE="/etc/rc.local"
 
 # Update RC.LOCAL for new path
+sed -i '/mobile_poller.lua/d' $RC_FILE
 sed -i '/mobile_poller.sh/d' $RC_FILE
+sed -i '/exit 0/i killall mobile_poller.lua 2>/dev/null' $RC_FILE
 sed -i '/exit 0/i killall mobile_poller.sh 2>/dev/null' $RC_FILE
-sed -i "/exit 0/i sh $INSTALL_DIR/services/mobile_poller.sh &" $RC_FILE
+sed -i "/exit 0/i lua $INSTALL_DIR/services/mobile_poller.lua &" $RC_FILE
 
 # Start the service now
-if [ -f "$INSTALL_DIR/services/mobile_poller.sh" ]; then
-    killall mobile_poller.sh 2>/dev/null
-    sh "$INSTALL_DIR/services/mobile_poller.sh" &
+if [ -f "$INSTALL_DIR/services/mobile_poller.lua" ]; then
+    killall mobile_poller.lua 2>/dev/null
+    lua "$INSTALL_DIR/services/mobile_poller.lua" &
 fi
 
 echo "[4/5] Dang cai dat chon LuCI/VWRT..."
