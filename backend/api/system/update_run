@@ -84,7 +84,13 @@ fi
 # 5. Dọn dẹp
 rm -rf $WORKDIR
 
-# 6. Reboot
+# 5. Fix RC.LOCAL (Nếu path cũ sai)
+RC_FILE="/etc/rc.local"
+sed -i '/mobile_poller.sh/d' $RC_FILE
+sed -i '/exit 0/i killall mobile_poller.sh 2>/dev/null' $RC_FILE
+sed -i "/exit 0/i sh /www/vwrt/services/mobile_poller.sh &" $RC_FILE
+
+# 6. Reboot (Optional)
 reboot
 EOF
         chmod +x /tmp/do_clean_install.sh

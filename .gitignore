@@ -1,0 +1,6 @@
+# Dev Tools
+sync_to_router.ps1
+*.log
+.vscode/
+.idea/
+*.swp
