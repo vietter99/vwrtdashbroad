@@ -285,31 +285,19 @@ function main()
 
                 elseif is_dell then
                     -- === DELL DW5821e LOGIC ===
-                    -- Debug Log
-                    local dbg = io.open("/tmp/dw5821_debug.log", "w")
-                    
                     -- 1. Temp
                     local raw_temp = exec("mmcli -m 0 --command='AT+TEMP' 2>/dev/null")
-                    if dbg then dbg:write("Raw Temp: " .. (raw_temp or "nil") .. "\n") end
-                    
                     local temp_val = parse_at_dw5821e_temp(raw_temp)
-                    if dbg then dbg:write("Parsed Temp: " .. (temp_val or "nil") .. "\n") end
-                    
                     if temp_val then data_modem.mtemp = temp_val end
                     
                     -- 2. CA / Band Info
                     local raw_ca = exec("mmcli -m 0 --command='AT^CA_INFO?' 2>/dev/null")
-                    if dbg then dbg:write("Raw CA: " .. (raw_ca or "nil") .. "\n") end
-                    
                     local ca_data = parse_at_dw5821e_cainfo(raw_ca)
-                    if dbg then dbg:write("Parsed Band: " .. (ca_data.active_band or "nil") .. "\n") end
                     
                     if ca_data.active_band then
                          local mode_prefix = ca_data.active_mode or data_modem.mode
                          data_modem.mode = mode_prefix .. " | " .. ca_data.active_band
                     end
-                    
-                    if dbg then dbg:close() end
                 end
 
                 -- 3. Fallback Signal
