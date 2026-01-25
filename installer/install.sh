@@ -53,8 +53,13 @@ if curl -k -L -o $TMP_DIR/source.tar.gz "$GITHUB_URL"; then
     # Remove installer from target if copied (unlikely with this structure but good practice)
     rm -rf $INSTALL_DIR/installer
 
-    if [ ! -f "$INSTALL_DIR/version.json" ]; then
+    # 4. Copy Version File
+    if [ -f "$SOURCE_FOLDER/version.json" ]; then
+        cp "$SOURCE_FOLDER/version.json" $INSTALL_DIR/
+        echo " -> Copied version.json"
+    elif [ ! -f "$INSTALL_DIR/version.json" ]; then
         echo '{"dashboard":{"version":"1.0.0"}}' > "$INSTALL_DIR/version.json"
+        echo " -> Created default version.json"
     fi
     
     # Apply Permissions

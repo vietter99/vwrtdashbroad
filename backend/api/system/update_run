@@ -57,6 +57,11 @@ if [ -d "$FOLDER/backend" ]; then
     mkdir -p /www/vwrt/cgi-bin /www/vwrt/services
     cp -rf "$FOLDER/backend/api/"* /www/vwrt/cgi-bin/
     cp -rf "$FOLDER/backend/services/"* /www/vwrt/services/
+    
+    # 2.4 Copy Version
+    if [ -f "$FOLDER/version.json" ]; then
+        cp "$FOLDER/version.json" /www/vwrt/
+    fi
 else
     # === CẤU TRÚC CŨ ===
     cp -rf "$FOLDER"/* /www/vwrt/
