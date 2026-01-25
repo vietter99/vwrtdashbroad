@@ -62,6 +62,11 @@ const SettingsModule = {
                     <span>Khởi động lại</span>
                 </div>
 
+                <div class="setting-item" onclick="SettingsModule.restartMobileService()">
+                    <div class="si-icon" style="color:#3182ce; background:#ebf8ff;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></div>
+                    <span>Reset Mobile Service</span>
+                </div>
+
                 <div class="setting-item" onclick="SettingsModule.showPasswordModal()">
                     <div class="si-icon" style="color:#805ad5; background:#faf5ff;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></div>
                     <span>Đổi mật khẩu</span>
@@ -230,6 +235,13 @@ const SettingsModule = {
         `;
         document.body.insertAdjacentHTML('beforeend', html);
         setTimeout(() => document.getElementById('new-pass').focus(), 100);
+    },
+
+    restartMobileService: function() {
+        this.closePopup();
+        if(confirm("Khởi động lại dịch vụ Mobile Poller (không reboot router)?")) {
+            this.sendAction('restart_mobile');
+        }
     },
 
     doChangePassword: function() {
