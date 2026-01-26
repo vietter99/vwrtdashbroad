@@ -2,9 +2,14 @@
 sync_to_router.ps1
 *.log
 .vscode/
+# Dev Tools
+sync_to_router.ps1
+*.log
+.vscode/
 .idea/
 *.swp
 .antigravity-kit
 
 # AI Agent Kit
 .agent/
+deploy_tool/
