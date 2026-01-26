@@ -4,3 +4,7 @@ sync_to_router.ps1
 .vscode/
 .idea/
 *.swp
+.antigravity-kit
+
+# AI Agent Kit
+.agent/
