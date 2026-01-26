@@ -245,7 +245,7 @@ const MobileModule = {
     },
 
     fetchTTL: function() {
-        fetch('/cgi-bin/ttl')
+        fetch('/cgi-bin/ttl/index')
             .then(r => r.json())
             .then(d => {
                 const el = document.getElementById('mob-card-ttl');
@@ -261,7 +261,7 @@ const MobileModule = {
         
         if (typeof Toast !== 'undefined') Toast.show("Đang áp dụng TTL...", "info");
 
-        fetch('/cgi-bin/ttl', {
+        fetch('/cgi-bin/ttl/index', {
             method: 'POST',
             body: JSON.stringify({ ttl: val || 0 })
         })
@@ -354,7 +354,7 @@ const MobileModule = {
         });
 
         // Fetch current
-        fetch('/cgi-bin/ttl').then(r=>r.json()).then(d => {
+        fetch('/cgi-bin/ttl/index').then(r=>r.json()).then(d => {
             const current = (d.ttl && d.ttl > 0) ? d.ttl : "";
             
             Modal.show({
@@ -391,7 +391,7 @@ const MobileModule = {
         const dashEl = document.getElementById('mob-card-ttl');
         if(dashEl) dashEl.innerText = val || "--";
 
-        fetch('/cgi-bin/ttl', {
+        fetch('/cgi-bin/ttl/index', {
             method: 'POST',
             body: JSON.stringify({ ttl: val || 0 })
         })
