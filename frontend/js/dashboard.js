@@ -34,11 +34,13 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // === UNIFIED POLLING (MASTER LOOP) ===
     let dashboardInterval = null;
+    let errorCount = 0;
 
     function fetchDashboardStats() {
         fetch('/cgi-bin/dashboard/stats')
             .then(r => r.json())
             .then(data => {
+                errorCount = 0; // Reset error count on success
                 if (typeof SystemModule !== 'undefined' && data.sys) {
                     SystemModule.render(data.sys);
                 }
@@ -46,7 +48,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     MobileModule.updateFromDashboard(data.mob);
                 }
             })
-            .catch(e => console.error("Unified Poll Error:", e));
+            .catch(e => {
+                console.error("Unified Poll Error:", e);
+                errorCount++;
+                if (errorCount === 3) {
+                    if(typeof Toast !== 'undefined') Toast.show("Mất kết nối với Router...", "error");
+                }
+            });
     }
 
     function startDashboardLoop() {

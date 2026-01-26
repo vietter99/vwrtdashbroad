@@ -40,7 +40,15 @@ const NetworkModule = {
             })
             .catch(err => {
                 const container = document.getElementById('network-list');
-                if(container && container.innerHTML === "") container.innerHTML = '<div class="sys-row">Offline</div>';
+                // Use Skeleton if error occurs or empty
+                if(container) {
+                     container.innerHTML = `
+                        <div class="sys-row" style="padding:10px;">
+                            <div class="skeleton" style="height:40px; margin-bottom:10px;"></div>
+                            <div class="skeleton" style="height:40px;"></div>
+                        </div>
+                     `;
+                }
             });
     },
 

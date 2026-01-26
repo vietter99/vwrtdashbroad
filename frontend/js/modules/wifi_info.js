@@ -33,8 +33,8 @@ const WifiModule = {
             .then(res => res.json())
             .then(data => this.render(data))
             .catch(err => {
-                const el = document.getElementById('wifi-popup-content');
-                if(el) el.innerHTML = '<div class="popup-body" style="text-align:center">Lỗi tải Wifi</div>';
+                // Keep silent on error to avoid flickering, just log it
+                console.log("Wifi fetch error (waiting for retry)...");
             });
     },
 
