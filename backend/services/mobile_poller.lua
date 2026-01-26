@@ -102,11 +102,16 @@ function parse_at_gstatus(output)
     local sys_mode = output:match("System mode:.-(%S+)")
     if sys_mode and not res.active_mode then res.active_mode = sys_mode end
 
-    local rsrp = output:match("Rx0 RSRP:.-([%-%d]+)")
-    if rsrp then res.rsrp = rsrp end
-    
-    local rsrq = output:match("RSRQ %(dB%):.-([%-%d%.]+)")
+    -- Enhanced RSRQ parsing (Try multiple formats)
+    -- Matches "RSRQ (dB): -10" or "RSRQ: -10"
+    local rsrq = output:match("RSRQ.-:.-([%-%d%.]+)")
     if rsrq then res.rsrq = rsrq end
+    
+    -- Enhanced RSSI parsing
+    -- Matches "Rx0 RSSI: -60" or "RSSI (dBm): -60" or "RSSI: -60"
+    local rssi = output:match("Rx[0M] RSSI:.-([%-%d]+)")
+    if not rssi then rssi = output:match("RSSI.-:.-([%-%d]+)") end
+    if rssi then res.rssi = rssi end
     
     -- 5G Stats
     local nr_rsrp = output:match("NR5G RSRP %(dBm%):%s*([%-%d]+)")
@@ -121,12 +126,15 @@ function parse_at_gstatus(output)
              res.active_mode = "5G NSA"
         end
     else
-        local sinr = output:match("SINR %(dB%):.-([%-%d%.]+)")
+        -- LTE SINR
+        local sinr = output:match("SINR.-:.-([%-%d%.]+)")
         if sinr then res.sinr = sinr end
+        
+        -- LTE RSRP (Fallback if not 5G)
+        local rsrp = output:match("Rx[0M] RSRP:.-([%-%d]+)")
+        if not rsrp then rsrp = output:match("RSRP.-:.-([%-%d]+)") end
+        if rsrp then res.rsrp = rsrp end
     end
-
-    local rssi = output:match("Rx0 RSSI:.-([%-%d]+)")
-    if rssi then res.rssi = rssi end
     
     return res
 end
@@ -281,6 +289,9 @@ function main()
                     local at_data = parse_at_gstatus(raw_at)
                     if at_data.mtemp then data_modem.mtemp = at_data.mtemp end
                     if at_data.rsrp then data_modem.rsrp = at_data.rsrp end
+                    if at_data.rsrq then data_modem.rsrq = at_data.rsrq end
+                    if at_data.sinr then data_modem.sinr = at_data.sinr end
+                    if at_data.rssi then data_modem.rssi = at_data.rssi end
                     if at_data.active_band then data_modem.mode = at_data.active_mode .. " | " .. at_data.active_band end
 
                 elseif is_dell then
