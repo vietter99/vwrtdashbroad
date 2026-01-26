@@ -32,6 +32,44 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // === UNIFIED POLLING (MASTER LOOP) ===
+    let dashboardInterval = null;
+
+    function fetchDashboardStats() {
+        fetch('/cgi-bin/dashboard/stats')
+            .then(r => r.json())
+            .then(data => {
+                if (typeof SystemModule !== 'undefined' && data.sys) {
+                    SystemModule.render(data.sys);
+                }
+                if (typeof MobileModule !== 'undefined' && data.mob) {
+                    MobileModule.updateFromDashboard(data.mob);
+                }
+            })
+            .catch(e => console.error("Unified Poll Error:", e));
+    }
+
+    function startDashboardLoop() {
+        if (!dashboardInterval) {
+            fetchDashboardStats();
+            dashboardInterval = setInterval(fetchDashboardStats, 3000);
+        }
+    }
+
+    function stopDashboardLoop() {
+        if (dashboardInterval) {
+            clearInterval(dashboardInterval);
+            dashboardInterval = null;
+        }
+    }
+
+    // Start Loop
+    startDashboardLoop();
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) stopDashboardLoop();
+        else startDashboardLoop();
+    });
+
     window.togglePass = function(id) {
         const input = document.getElementById(id);
         if (input) input.type = input.type === "password" ? "text" : "password";

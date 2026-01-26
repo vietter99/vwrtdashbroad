@@ -36,16 +36,16 @@ local function set_config()
     
     -- Update list enabled status
     if data.lists and type(data.lists) == "table" then
-        -- Build a set of enabled list names
+        -- Build a set of enabled list URLs
         local enabled_set = {}
-        for _, name in ipairs(data.lists) do
-            enabled_set[name] = true
+        for _, url in ipairs(data.lists) do
+            enabled_set[url] = true
         end
         
         -- Iterate through all lists and update enabled status
         uci:foreach("adblock-fast", "file_url", function(s)
-            local name = s.name or ""
-            local should_enable = enabled_set[name] and "1" or "0"
+            local url = s.url or ""
+            local should_enable = enabled_set[url] and "1" or "0"
             
             -- Get the section name (e.g. @file_url[0])
             uci:set("adblock-fast", s[".name"], "enabled", should_enable)

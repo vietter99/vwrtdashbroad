@@ -27,12 +27,12 @@ const AdBlockModule = {
             const sizeDisplay = sizeKB > 1024 ? (sizeKB / 1024).toFixed(1) + ' MB' : sizeKB + ' KB';
             return `
                 <div class="adblock-list-item" style="display:flex; align-items:center; padding:10px 12px; border-radius:8px; background:var(--card-bg, #f7fafc); margin-bottom:8px; transition: all 0.2s;">
-                    <input type="checkbox" name="adblock-list" value="${list.name}" ${list.enabled ? 'checked' : ''} style="width:18px; height:18px; margin-right:12px; accent-color:#48bb78; cursor:pointer;">
+                    <input type="checkbox" name="adblock-list" value="${list.url}" ${list.enabled ? 'checked' : ''} style="width:18px; height:18px; margin-right:12px; accent-color:#48bb78; cursor:pointer;">
                     <div style="flex:1; overflow:hidden;">
                         <div style="font-weight:600; font-size:13px; color:var(--text-primary, #2d3748); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${list.name}</div>
                         <div style="font-size:11px; color:var(--text-secondary, #718096);">${sizeDisplay}</div>
                     </div>
-                    <button onclick="AdBlockModule.deleteList('${list.name.replace(/'/g, "\\'")}')" class="adblock-delete-btn" title="Xóa" style="background:none; border:none; color:#e53e3e; font-size:16px; cursor:pointer; padding:5px 8px; opacity:0.6; transition:0.2s;">🗑</button>
+                    <button onclick="AdBlockModule.deleteList('${list.name.replace(/'/g, "\\'")}', '${list.url.replace(/'/g, "\\'")}')" class="adblock-delete-btn" title="Xóa" style="background:none; border:none; color:#e53e3e; font-size:16px; cursor:pointer; padding:5px 8px; opacity:0.6; transition:0.2s;">🗑</button>
                 </div>
             `;
         }).join('');
@@ -225,7 +225,7 @@ const AdBlockModule = {
         });
     },
     
-    deleteList: function(name) {
+    deleteList: function(name, url) {
         // Create custom confirm modal instead of native confirm()
         const overlay = document.createElement('div');
         overlay.id = 'adblock-delete-overlay';
@@ -259,7 +259,7 @@ const AdBlockModule = {
             fetch('/cgi-bin/adblock/delete', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name })
+                body: JSON.stringify({ url: url })
             })
             .then(res => res.json())
             .then(data => {
@@ -302,7 +302,7 @@ const AdBlockModule = {
         .then(data => {
             if(data.success) {
                 Toast.show("Đã lưu cấu hình AdBlock!", "success");
-                Modal.close();
+                // Modal.close(); // Keep open for better UX
             } else {
                 Toast.show("Lỗi: " + (data.error || "Không thể lưu."), "error");
             }

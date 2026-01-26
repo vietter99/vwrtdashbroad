@@ -45,9 +45,12 @@ local function get_status()
             derived_name = get_name_from_url(s.url)
         end
         
+        -- If 'enabled' option is missing, it defaults to TRUE (1). Only explicit '0' is disabled.
+        local is_enabled = (s.enabled ~= "0")
+        
         local list = {
             name = derived_name,
-            enabled = (s.enabled == "1"),
+            enabled = is_enabled,
             size = s.size or "0",
             url = s.url or ""
         }

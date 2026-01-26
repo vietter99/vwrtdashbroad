@@ -20,17 +20,17 @@ end
 local function delete_list()
     local data = parse_post_data()
     
-    if not data.name or data.name == "" then
-        print(json.stringify({ success = false, error = "Tên danh sách không được để trống." }))
+    if not data.url or data.url == "" then
+        print(json.stringify({ success = false, error = "URL danh sách không hợp lệ." }))
         return
     end
     
-    -- Find and delete the list by name
+    -- Find and delete the list by URL
     local deleted = false
     local sections_to_delete = {}
     
     uci:foreach("adblock-fast", "file_url", function(s)
-        if s.name == data.name then
+        if s.url == data.url then
             table.insert(sections_to_delete, s[".name"])
         end
     end)

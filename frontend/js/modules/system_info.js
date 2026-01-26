@@ -1,31 +1,9 @@
 const SystemModule = {
     lastCpu: 0,
-    interval: null, 
 
     init: function() {
-        this.startLoop();
-
-        document.addEventListener("visibilitychange", () => {
-            if (document.hidden) {
-                this.stopLoop(); 
-            } else {
-                this.startLoop(); 
-            }
-        });
-    },
-
-    startLoop: function() {
-        if (!this.interval) {
-            this.fetchData();
-            this.interval = setInterval(() => this.fetchData(), 5000);
-        }
-    },
-
-    stopLoop: function() {
-        if (this.interval) {
-            clearInterval(this.interval);
-            this.interval = null;
-        }
+        // Passive mode: No loop.
+        // Waiting for dashboard.js to call render()
     },
 
     formatBytes: function(bytes, decimals = 2) {
@@ -52,15 +30,6 @@ const SystemModule = {
         const h = Math.floor(seconds % (3600*24) / 3600);
         const m = Math.floor((seconds % 3600) / 60);
         return (d>0 ? `${d}d ` : "") + `${h}h ${m}m`;
-    },
-
-    fetchData: function() {
-        fetch('/cgi-bin/system/info')
-            .then(response => response.json())
-            .then(data => {
-                this.render(data);
-            })
-            .catch(err => console.log("Sysinfo Error", err));
     },
 
     render: function(data) {

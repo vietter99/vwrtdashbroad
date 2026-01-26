@@ -23,15 +23,27 @@ local NFT_FILE = "/etc/nftables.d/10-ttl-fix.nft"
 local method = os.getenv("REQUEST_METHOD")
 
 if method == "GET" then
+    -- Check VWRT config first
     local f = io.open(NFT_FILE, "r")
     local ttl = 0
     if f then
         local content = f:read("*all")
         f:close()
-        -- Try to match: counter ip ttl set <NUMBER>
         local match = content:match("counter ip ttl set (%d+)")
         if match then ttl = tonumber(match) end
     end
+    
+    -- If no VWRT config, check ROM default config
+    if ttl == 0 then
+        local f2 = io.open("/etc/nftables.d/10-custom-filter-chains.nft", "r")
+        if f2 then
+            local content = f2:read("*all")
+            f2:close()
+            local match = content:match("counter ip ttl set (%d+)")
+            if match then ttl = tonumber(match) end
+        end
+    end
+    
     send_json({ status = "success", ttl = ttl })
 
 elseif method == "POST" then

@@ -9,12 +9,37 @@ const SidebarModule = {
         if(overlay) overlay.addEventListener('click', this.close);
         if(closeBtn) closeBtn.addEventListener('click', this.close);
 
-        // Add swipe gesture support (Simple)
+        // Add swipe gesture support (Enhanced)
         let touchStartX = 0;
-        document.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, {passive: true});
+        let touchStartY = 0;
+        
+        document.addEventListener('touchstart', e => { 
+            touchStartX = e.changedTouches[0].screenX; 
+            touchStartY = e.changedTouches[0].screenY;
+        }, {passive: true});
+
         document.addEventListener('touchend', e => {
-            if (e.changedTouches[0].screenX - touchStartX > 100 && touchStartX < 50) this.open(); // Swipe Right
-            if (touchStartX - e.changedTouches[0].screenX > 50 && sidebar.classList.contains('active')) this.close(); // Swipe Left
+            const touchEndX = e.changedTouches[0].screenX;
+            const touchEndY = e.changedTouches[0].screenY;
+            
+            const diffX = touchEndX - touchStartX;
+            const diffY = touchEndY - touchStartY;
+            
+            // Check if it's a vertical scroll (ignore if Y movement > X movement)
+            if (Math.abs(diffY) > Math.abs(diffX)) return;
+
+            // Only trigger if horizontal swipe is significant (> 60px)
+            if (Math.abs(diffX) < 60) return;
+
+            // Swipe Right (Open) - Only if started from Left Edge (< 40px)
+            if (diffX > 0 && touchStartX < 40) {
+                this.open();
+            }
+            
+            // Swipe Left (Close) - Only if Sidebar is open
+            if (diffX < 0 && sidebar.classList.contains('active')) {
+                this.close();
+            }
         }, {passive: true});
     },
 
@@ -89,10 +114,7 @@ const SidebarModule = {
             return;
         }
 
-        switch(featureName) {
-            case 'ai': title = "AI Assistant"; desc = "Trợ lý ảo thông minh giúp cấu hình router."; break;
-            case 'telegram': title = "Telegram Bot"; desc = "Quản lý Router qua Telegram Bot."; break;
-        }
+
 
         if(typeof Modal !== 'undefined') {
             Modal.show({

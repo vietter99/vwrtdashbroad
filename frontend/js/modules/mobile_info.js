@@ -1,34 +1,11 @@
 const MobileModule = {
     errorCount: 0,
-    interval: null, 
 
     init: function() {
         const container = document.getElementById('mobile-popup-content');
         if (container) this.renderTemplate(container);
         
-        if (container) this.renderTemplate(container);
-        
-        this.fetchTTL(); // Init TTL value
-        this.startLoop();
-
-        document.addEventListener("visibilitychange", () => {
-            if (document.hidden) this.stopLoop();
-            else this.startLoop();
-        });
-    },
-
-    startLoop: function() {
-        if (!this.interval) {
-            this.fetchData();
-            this.interval = setInterval(() => this.fetchData(), 3000);
-        }
-    },
-
-    stopLoop: function() {
-        if (this.interval) {
-            clearInterval(this.interval);
-            this.interval = null;
-        }
+        this.fetchTTL(); // Init TTL value (Keep this separate as it's one-time)
     },
 
     processNetworkInfo: function(data) {
@@ -136,21 +113,14 @@ const MobileModule = {
         `;
     },
 
-    fetchData: function() {
-        fetch('/cgi-bin/mobile/get')
-            .then(res => res.json())
-            .then(res => {
-                if (res.status === 'success') {
-                    this.errorCount = 0;
-                    this.updateUI(res.data);
-                } else {
-                    this.handleError();
-                }
-            })
-            .catch(err => {
-                console.log("Mobile Error", err);
-                this.handleError();
-            });
+    // Unified Dashboard Loop handles fetching
+    updateFromDashboard: function(mobData) {
+        if (!mobData) {
+            this.handleError();
+            return;
+        }
+        this.errorCount = 0;
+        this.updateUI(mobData);
     },
 
     handleError: function() {

@@ -1,0 +1,165 @@
+#!/usr/bin/lua
+
+local cjson = require "cjson"
+local tmp_file_cpu = "/tmp/cpu_last_stat"
+
+function read_file(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local content = f:read("*all")
+    f:close()
+    return content
+end
+
+function write_file(path, content)
+    local f = io.open(path, "w")
+    if f then f:write(content) f:close() end
+end
+
+-- === HELPERS ===
+function sanitize_utf8(str)
+    if not str then return "" end
+    -- Remove non-printable characters (keep newline/tab)
+    return str:gsub("[%z\1-\8\11-\31\127-\255]", "") 
+end
+
+function get_cpu_usage()
+    local content = read_file("/proc/stat")
+    if not content then return 0 end
+    local line = content:match("cpu%s+(.+)")
+    if not line then return 0 end
+    local u, n, s, i, io, irq, sirq = line:match("(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)")
+    if not u then return 0 end
+    local current_total = u + n + s + i + io + irq + sirq
+    local current_idle = i + io
+    local last_data = read_file(tmp_file_cpu)
+    local last_total, last_idle = 0, 0
+    if last_data then
+        last_total, last_idle = last_data:match("(%d+)%s+(%d+)")
+        last_total = tonumber(last_total) or 0
+        last_idle = tonumber(last_idle) or 0
+    end
+    write_file(tmp_file_cpu, string.format("%d %d", current_total, current_idle))
+    if last_total == 0 then return 0 end
+    local diff_total = current_total - last_total
+    local diff_idle = current_idle - last_idle
+    if diff_total <= 0 then return 0 end
+    return math.floor(((diff_total - diff_idle) / diff_total) * 100)
+end
+
+function get_memory()
+    local content = read_file("/proc/meminfo") or ""
+    local total = tonumber(content:match("MemTotal:%s*(%d+)")) or 1
+    local available = tonumber(content:match("MemAvailable:%s*(%d+)"))
+    if not available then
+        local free = tonumber(content:match("MemFree:%s*(%d+)")) or 0
+        local buffers = tonumber(content:match("Buffers:%s*(%d+)")) or 0
+        local cached = tonumber(content:match("Cached:%s*(%d+)")) or 0
+        available = free + buffers + cached
+    end
+    local used = total - available
+    return { total = total * 1024, used = used * 1024, percent = math.floor((used / total) * 100) }
+end
+
+function get_rom()
+    local handle = io.popen("df /overlay | tail -n 1")
+    local result = handle:read("*a")
+    handle:close()
+    local size, used, avail, pcent = result:match("%S+%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%%")
+    if not size then 
+         handle = io.popen("df / | tail -n 1")
+         result = handle:read("*a")
+         handle:close()
+         size, used, avail, pcent = result:match("%S+%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%%")
+    end
+    return { total = (tonumber(size) or 0) * 1024, used = (tonumber(used) or 0) * 1024, percent = tonumber(pcent) or 0 }
+end
+
+function get_other_sys_info()
+    local up_content = read_file("/proc/uptime") or "0"
+    local uptime = tonumber(up_content:match("^(%d+)")) or 0
+    
+    local degree = 0
+    
+    -- Thermal check
+    local p = io.popen("ls /sys/class/thermal/thermal_zone*/temp 2>/dev/null")
+    if p then
+        for file in p:lines() do
+            local content = read_file(file)
+            if content then
+                local val = tonumber(content) or 0
+                if val > 1000 then val = val / 1000 end
+                if val > 0 then degree = val break end
+            end
+        end
+        p:close()
+    end
+    
+    -- Automatic LAN Interface Detection
+    local lan_iface = "br-lan" -- Default
+    local candidates = {"br-lan", "eth0", "br0", "lan0"}
+    
+    for _, iface in ipairs(candidates) do
+        local f = io.open("/sys/class/net/" .. iface .. "/statistics/rx_bytes", "r")
+        if f then
+            lan_iface = iface
+            f:close()
+            break
+        end
+    end
+    
+    -- Network traffic
+    local rx = read_file("/sys/class/net/" .. lan_iface .. "/statistics/rx_bytes")
+    local tx = read_file("/sys/class/net/" .. lan_iface .. "/statistics/tx_bytes")
+    local total_lan = (tonumber(rx) or 0) + (tonumber(tx) or 0)
+    
+    -- Model
+    local model = "OpenWrt Router"
+    local f_mod = io.open("/tmp/sysinfo/model", "r")
+    if f_mod then model = f_mod:read("*all"):gsub("\n","") f_mod:close() end
+
+    return { uptime = uptime, temp = degree, lan_total = total_lan, model = model, interface = lan_iface }
+end
+
+-- === DATA COLLECTOR ===
+
+local sys_extra = get_other_sys_info()
+local sys_data = {
+    model = sys_extra.model,
+    cpu = get_cpu_usage(),
+    ram = get_memory(),
+    rom = get_rom(),
+    uptime = sys_extra.uptime,
+    temp = sys_extra.temp,
+    lan_total = sys_extra.lan_total
+}
+
+-- Mobile Data
+local mob_data = {}
+local mob_content = read_file("/tmp/vwrt_mobile.json")
+if mob_content and mob_content ~= "" then
+    local ok, parsed = pcall(cjson.decode, mob_content)
+    if ok and parsed then 
+        mob_data = parsed 
+        -- Sanitize Mobile Strings
+        if mob_data.operator_name then mob_data.operator_name = sanitize_utf8(mob_data.operator_name) end
+        if mob_data.mode then mob_data.mode = sanitize_utf8(mob_data.mode) end
+
+        -- Fallback Temp if system temp is 0
+        if sys_data.temp == 0 and parsed.mtemp then
+             sys_data.temp = tonumber(parsed.mtemp) or 0
+        end
+    end
+end
+
+-- Sanitize System Strings
+sys_data.model = sanitize_utf8(sys_data.model)
+
+local final = {
+    sys = sys_data,
+    mob = mob_data
+}
+
+print("Content-type: application/json\n\n")
+local ok, json = pcall(cjson.encode, final)
+if ok then print(json) else print("{}") end

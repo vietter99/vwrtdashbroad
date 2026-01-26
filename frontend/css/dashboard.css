@@ -1635,3 +1635,44 @@ body.dark .custom-select {
   font-weight: normal;
   letter-spacing: 0.5px;
 }
+
+/* =========================================
+   10. SKELETON LOADING
+   ========================================= */
+.skeleton {
+  background: #e2e8f0;
+  background: linear-gradient(90deg, #edf2f7 25%, #e2e8f0 50%, #edf2f7 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 4px;
+  display: inline-block;
+  width: 100%;
+  min-height: 1em;
+  color: transparent !important;
+  user-select: none;
+}
+
+[data-theme=" dark\] .skeleton {
+ background: #2d3748;
+ background: linear-gradient(90deg, #2d3748 25%, #4a5568 50%, #2d3748 75%);
+ background-size: 200% 100%;
+}
+
+@keyframes skeleton-loading {
+ 0% {
+ background-position: 200% 0;
+ }
+ 100% {
+ background-position: -200% 0;
+ }
+}
+
+.sk-text {
+ width: 60px;
+ height: 14px;
+}
+.sk-icon {
+ width: 36px;
+ height: 36px;
+ border-radius: 10px;
+}
