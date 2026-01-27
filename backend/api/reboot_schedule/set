@@ -1,23 +1,50 @@
 #!/usr/bin/lua
--- Wifi Schedule Set API
--- Params: action (add/delete/toggle), schedule object
+-- Reboot Schedule Set API
+
+-- DEBUG LOGGING (Re-enabled)
+local function log(msg)
+    local f = io.open("/tmp/vwrt_debug.log", "a")
+    if f then
+        f:write(os.date() .. " [reboot_schedule] " .. tostring(msg) .. "\n")
+        f:close()
+    end
+end
+log("Script started")
 
 local json = require("luci.jsonc")
+local script_path = "/www/vwrt/cgi-bin/"
+package.path = script_path .. "?.lua;" .. package.path
+local csrf = require("lib.csrf")
 
 print("Content-Type: application/json")
 print("")
 
-local schedule_file = "/etc/vwrt_wifi_schedule.json"
+local schedule_file = "/etc/vwrt_reboot_schedule.json"
 local cron_file = "/etc/crontabs/root"
 
 local function parse_post_data()
     local content_length = tonumber(os.getenv("CONTENT_LENGTH") or 0)
     if content_length > 0 then
         local raw = io.read(content_length)
+        log("Raw POST data: " .. tostring(raw))
         return json.parse(raw) or {}
     end
     return {}
 end
+
+-- Parse POST data FIRST (needed for CSRF check)
+local post_data = parse_post_data()
+
+-- CSRF Check (from POST body since uhttpd strips custom headers)
+local token = csrf.get_token_from_body(post_data)
+log("Token received: " .. tostring(token))
+
+if not csrf.validate_token(token) then
+    log("CSRF Invalid")
+    print(json.stringify({ success = false, error = "CSRF Token không hợp lệ!" }))
+    os.exit()
+end
+log("CSRF Valid")
 
 local function read_schedules()
     local schedules = {}
@@ -46,12 +73,12 @@ end
 local function regenerate_cron()
     local schedules = read_schedules()
     
-    -- Read existing cron, remove vwrt_wifi entries
+    -- Read existing cron, remove vwrt_reboot entries
     local existing_entries = {}
     local f = io.open(cron_file, "r")
     if f then
         for line in f:lines() do
-            if not line:match("vwrt_wifi") then
+            if not line:match("vwrt_reboot") then
                 table.insert(existing_entries, line)
             end
         end
@@ -61,26 +88,14 @@ local function regenerate_cron()
     -- Add new entries for enabled schedules
     for _, schedule in ipairs(schedules) do
         if schedule.active then
-            local wifi_cmd = schedule.wifi or "default_MT7981_1_1"
-            
-            -- Time off entry
-            if schedule.time_off and schedule.time_off ~= "" then
-                local hour, min = schedule.time_off:match("(%d+):(%d+)")
+            -- Time entry
+            if schedule.time and schedule.time ~= "" then
+                local hour, min = schedule.time:match("(%d+):(%d+)")
                 if hour and min then
                     local days = schedule.days or "*"
-                    local cron_entry = string.format("%s %s * * %s uci set wireless.%s.disabled=1 && wifi reload # vwrt_wifi off %s",
-                        min, hour, days, wifi_cmd, schedule.id or "")
-                    table.insert(existing_entries, cron_entry)
-                end
-            end
-            
-            -- Time on entry
-            if schedule.time_on and schedule.time_on ~= "" then
-                local hour, min = schedule.time_on:match("(%d+):(%d+)")
-                if hour and min then
-                    local days = schedule.days or "*"
-                    local cron_entry = string.format("%s %s * * %s uci set wireless.%s.disabled=0 && wifi reload # vwrt_wifi on %s",
-                        min, hour, days, wifi_cmd, schedule.id or "")
+                    -- Command: /sbin/reboot
+                    local cron_entry = string.format("%s %s * * %s /sbin/reboot # vwrt_reboot %s",
+                        min, hour, days, schedule.id or "")
                     table.insert(existing_entries, cron_entry)
                 end
             end
@@ -101,23 +116,21 @@ local function regenerate_cron()
 end
 
 local function set_schedule()
-    local data = parse_post_data()
+    local data = post_data -- Use already-parsed data from above
     local action = data.action or ""
     
     if action == "add" then
         local schedules = read_schedules()
         local new_schedule = {
             id = tostring(os.time()),
-            time_off = data.time_off or "",
-            time_on = data.time_on or "",
+            time = data.time or "",
             days = data.days or "*",
-            wifi = data.wifi or "default_MT7981_1_1",
             active = true
         }
         table.insert(schedules, new_schedule)
         save_schedules(schedules)
         regenerate_cron()
-        print(json.stringify({ success = true, message = "Đã thêm lịch mới." }))
+        print(json.stringify({ success = true, message = "Đã thêm lịch khởi động lại." }))
         
     elseif action == "delete" then
         if not data.id then

@@ -4,9 +4,16 @@
 
 local json = require("luci.jsonc")
 local uci = require("luci.model.uci").cursor()
+local csrf = require("lib.csrf")
 
 print("Content-Type: application/json")
 print("")
+
+-- CSRF Check
+if not csrf.validate_token(csrf.get_token_from_request()) then
+    print(json.stringify({ success = false, error = "CSRF Token không hợp lệ!" }))
+    os.exit()
+end
 
 local function parse_post_data()
     local content_length = tonumber(os.getenv("CONTENT_LENGTH") or 0)

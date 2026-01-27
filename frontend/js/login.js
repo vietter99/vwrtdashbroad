@@ -81,7 +81,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const elVer = document.getElementById('app-version');
     
     if (elVer) {
-        fetch('/cgi-bin/get_version')
+        // Keep the fix for version path
+        fetch('/cgi-bin/system/version')
             .then(response => response.json())
             .then(data => {
                 if (data && data.dashboard && data.dashboard.version) {

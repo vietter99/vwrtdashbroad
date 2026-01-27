@@ -8,6 +8,8 @@ function log(msg)
     -- Disabled logging to prevent disk filling
 end
 
+-- SECURITY NOTE: exec() được dùng với hardcoded commands trong poller
+-- Không nhận user input nên KHÔNG CÓ command injection risk
 function exec(cmd)
     local f = io.popen(cmd)
     if not f then return nil end
@@ -17,6 +19,10 @@ function exec(cmd)
 end
 
 function exec_at_tty(device, cmd)
+    -- Sanitize AT command để chống injection (tuy không nhận từ user)
+    if not cmd or cmd == "" then return nil end
+cmd = cmd:gsub("[;&|`$()]", "")  -- Remove shell metacharacters
+    
     local command = "/www/vwrt/services/at_cmd.sh " .. device .. " '" .. cmd .. "'"
     local out = exec(command)
     return out

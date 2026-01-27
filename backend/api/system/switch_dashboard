@@ -1,0 +1,103 @@
+#!/usr/bin/lua
+-- API to switch default dashboard (uhttpd home)
+-- Add project path to package.path
+package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+
+local json = require("luci.jsonc")
+local csrf = require("lib.csrf")
+
+-- Helper log (DISABLED)
+-- local function log(msg) ... end
+
+-- Must print header FIRST
+print("Content-Type: application/json")
+print("")
+
+
+
+-- 1. Get POST Data
+local content_length = tonumber(os.getenv("CONTENT_LENGTH") or 0)
+local post_data = {}
+if content_length > 0 then
+    local raw = io.read(content_length)
+    post_data = json.parse(raw) or {}
+end
+
+-- 2. CSRF Check
+local token = csrf.get_token_from_body(post_data)
+if not csrf.validate_token(token) then
+    print(json.stringify({ success = false, error = "CSRF Token Invalid" }))
+    os.exit()
+end
+
+-- Helper: Check if Landing Page is installed
+local function is_installed()
+    local f = io.open("/www/index.html", "r")
+    if not f then return false end
+    local content = f:read("*a") or ""
+    f:close()
+    -- Check for unique string in our landing page
+    return content:find("Dashboard Selection") ~= nil
+end
+
+-- 3. Process Action
+local target = post_data.target -- 'luci' or 'vwrt' or 'reset' or 'install/uninstall'
+
+
+
+if target == "check" then
+    print(json.stringify({ success = true, installed = is_installed() }))
+
+elseif target == "luci" then
+    -- Set LuCI as main (Port 80)
+    os.execute("uci set uhttpd.main.home='/www' && uci commit uhttpd")
+    -- NO RESTART HERE. Wait for confirmation.
+    print(json.stringify({ success = true, message = "Đã lưu cấu hình LuCI." }))
+
+elseif target == "vwrt" then
+    -- Set VWRT as main (Port 80)
+    os.execute("uci set uhttpd.main.home='/www/vwrt' && uci commit uhttpd")
+    -- NO RESTART HERE. Wait for confirmation.
+    print(json.stringify({ success = true, message = "Đã lưu cấu hình VWRT." }))
+
+elseif target == "install_selector" then
+    if is_installed() then
+        print(json.stringify({ success = false, error = "Màn hình chọn đã được cài đặt rồi!" }))
+        os.exit()
+    end
+
+    -- 1. Backup existing index.html
+    os.execute("[ -f /www/index.html ] && [ ! -f /www/index.html.bak ] && mv /www/index.html /www/index.html.bak")
+    
+    -- 2. Copy landing.html to index.html
+    local cp_status = os.execute("cp /www/vwrt/landing.html /www/index.html")
+    
+    if cp_status ~= 0 then
+        print(json.stringify({ success = false, error = "Không tìm thấy file nguồn!" }))
+        os.exit()
+    end
+    
+    -- 3. Set uhttpd home to /www
+    os.execute("uci set uhttpd.main.home='/www' && uci commit uhttpd")
+    os.execute("chmod 644 /www/index.html")
+    
+    print(json.stringify({ success = true, message = "Đã cài đặt thành công." }))
+
+elseif target == "uninstall_selector" then
+    if not is_installed() then
+        print(json.stringify({ success = false, error = "Chưa cài đặt màn hình chọn!" }))
+        os.exit()
+    end
+
+    -- Restore backup
+    if os.execute("[ -f /www/index.html.bak ]") == 0 then
+        os.execute("mv /www/index.html.bak /www/index.html")
+        print(json.stringify({ success = true, message = "Đã gỡ cài đặt và khôi phục trang chủ cũ." }))
+    else
+        print(json.stringify({ success = false, error = "Không tìm thấy file backup để khôi phục!" }))
+    end
+
+else
+    print(json.stringify({ success = false, error = "Target không hợp lệ" }))
+end
+

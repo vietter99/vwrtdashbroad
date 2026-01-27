@@ -95,17 +95,15 @@ function get_other_sys_info()
         p:close()
     end
     
-    -- Automatic LAN Interface Detection
-    local lan_iface = "br-lan" -- Default
-    local candidates = {"br-lan", "eth0", "br0", "lan0"}
+    -- Data Traffic (Fixed to WWAN0/Mobile as requested)
+    local lan_iface = "wwan0" 
     
-    for _, iface in ipairs(candidates) do
-        local f = io.open("/sys/class/net/" .. iface .. "/statistics/rx_bytes", "r")
-        if f then
-            lan_iface = iface
-            f:close()
-            break
-        end
+    -- Check if wwan0 exists, otherwise fallback to br-lan
+    local f_check = io.open("/sys/class/net/wwan0/statistics/rx_bytes", "r")
+    if f_check then
+        f_check:close()
+    else
+        lan_iface = "br-lan" -- Fallback if no wwan0
     end
     
     -- Network traffic

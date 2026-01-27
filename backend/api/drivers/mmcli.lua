@@ -30,6 +30,13 @@ end
 local function get_text_from_cli(sms_path_id)
     local id = sms_path_id:match("/SMS/(%d+)")
     if not id then return nil end
+    
+    -- Chống Command Injection: validate ID is numeric only
+    local security = require "lib.security"
+    if not security.is_valid_id(id) then
+        return nil
+    end
+    
     local cmd = string.format("mmcli -s %s", id)
     local out = exec(cmd)
     local text = out:match("Content.-text:%s*([^\n]+)")
@@ -46,11 +53,26 @@ local function get_current_modem_index()
 end
 
 function M.send_sms(config, number, text)
+    -- Chống Command Injection: validate inputs
+    local security = require "lib.security"
+    
+    if not security.is_valid_phone(number) then
+        return { status = "error", message = "Invalid phone number format" }
+    end
+    
+    -- Sanitize SMS text
+    text = security.sanitize_sms_text(text)
+    if text == "" then
+        return { status = "error", message = "Invalid or empty SMS text" }
+    end
+    
     local m_idx = get_current_modem_index()
-    local safe_text = text:gsub("'", "'\\''")
-    local safe_number = number:gsub("'", "")
+    
+    -- Escape arguments properly for shell
+    local safe_text = security.escape_shell_arg(text)
+    local safe_number = security.escape_shell_arg(number)
 
-    local cmd = string.format("mmcli -m %s --messaging-create-sms=\"text='%s',number='%s',delivery-report-request=yes\"", m_idx, safe_text, safe_number)
+    local cmd = string.format("mmcli -m %s --messaging-create-sms=\"text=%s,number=%s,delivery-report-request=yes\"", m_idx, safe_text, safe_number)
     local create_out = exec(cmd)
     local sms_id = create_out:match("/SMS/(%d+)")
 

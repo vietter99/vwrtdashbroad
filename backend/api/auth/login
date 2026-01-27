@@ -1,0 +1,51 @@
+#!/usr/bin/lua
+
+local cjson = require "cjson"
+local script_path = "/www/vwrt/cgi-bin/"
+package.path = script_path .. "?.lua;" .. package.path
+
+local ubus = require "ubus"
+local rate_limit = require "lib.rate_limit"
+
+-- Read Input
+local len = tonumber(os.getenv("CONTENT_LENGTH") or 0)
+local content = io.read(len)
+local input = cjson.decode(content)
+local username = input.username or ""
+local password = input.password or ""
+
+print("Content-type: application/json\n\n")
+
+-- 1. Rate Limiting Check (5 attempts / 5 mins)
+-- Get Client IP
+local client_ip = os.getenv("REMOTE_ADDR") or "unknown"
+
+-- Check limit: 5 attempts per 300 seconds (5 mins)
+local allowed, msg = rate_limit.check_limit(client_ip, "login", 5, 300)
+
+if not allowed then
+    print(cjson.encode({ status = "error", message = "Quá nhiều lần thử đăng nhập! Vui lòng đợi 5 phút." }))
+    os.exit()
+end
+
+-- 2. Perform Login via Ubus
+local conn = ubus.connect()
+if not conn then
+    print(cjson.encode({ status = "error", message = "Lỗi kết nối hệ thống (Ubus fail)" }))
+    os.exit()
+end
+
+-- Call session login
+local result = conn:call("session", "login", { username = username, password = password })
+
+-- 3. Handle Result
+if result and result.ubus_rpc_session then
+    print(cjson.encode({ 
+        status = "success", 
+        session = result.ubus_rpc_session,
+        acls = result.acls,
+        data = result.data
+    }))
+else
+    print(cjson.encode({ status = "error", message = "Sai tài khoản hoặc mật khẩu!" }))
+end

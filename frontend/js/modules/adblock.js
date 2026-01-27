@@ -25,14 +25,20 @@ const AdBlockModule = {
         let listsHtml = lists.map((list, idx) => {
             const sizeKB = Math.round(parseInt(list.size || 0) / 1024);
             const sizeDisplay = sizeKB > 1024 ? (sizeKB / 1024).toFixed(1) + ' MB' : sizeKB + ' KB';
+            
+            // Chống XSS: escape tên danh sách
+            const safeName = window.Security ? Security.escapeHtml(list.name) : list.name;
+            const escapedName = list.name.replace(/'/g, "\\'");
+            const escapedUrl = list.url.replace(/'/g, "\\'");
+            
             return `
                 <div class="adblock-list-item" style="display:flex; align-items:center; padding:10px 12px; border-radius:8px; background:var(--card-bg, #f7fafc); margin-bottom:8px; transition: all 0.2s;">
                     <input type="checkbox" name="adblock-list" value="${list.url}" ${list.enabled ? 'checked' : ''} style="width:18px; height:18px; margin-right:12px; accent-color:#48bb78; cursor:pointer;">
                     <div style="flex:1; overflow:hidden;">
-                        <div style="font-weight:600; font-size:13px; color:var(--text-primary, #2d3748); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${list.name}</div>
+                        <div style="font-weight:600; font-size:13px; color:var(--text-primary, #2d3748); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${safeName}</div>
                         <div style="font-size:11px; color:var(--text-secondary, #718096);">${sizeDisplay}</div>
                     </div>
-                    <button onclick="AdBlockModule.deleteList('${list.name.replace(/'/g, "\\'")}', '${list.url.replace(/'/g, "\\'")}')" class="adblock-delete-btn" title="Xóa" style="background:none; border:none; color:#e53e3e; font-size:16px; cursor:pointer; padding:5px 8px; opacity:0.6; transition:0.2s;">🗑</button>
+                    <button onclick="AdBlockModule.deleteList('${escapedName}', '${escapedUrl}')" class="adblock-delete-btn" title="Xóa" style="background:none; border:none; color:#e53e3e; font-size:16px; cursor:pointer; padding:5px 8px; opacity:0.6; transition:0.2s;">🗑</button>
                 </div>
             `;
         }).join('');

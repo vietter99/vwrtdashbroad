@@ -1,0 +1,21 @@
+#!/usr/bin/lua
+print("Content-type: application/json")
+print("Cache-Control: no-cache, no-store, must-revalidate")
+print("Pragma: no-cache")
+print("Expires: 0")
+print("")
+
+local script_path = "/www/vwrt/cgi-bin/"
+package.path = script_path .. "?.lua;" .. package.path
+
+local json = require "luci.jsonc"
+local csrf = require "lib.csrf"
+
+-- Get or generate CSRF token
+local token = csrf.get_token()
+
+-- Return token to frontend
+print(json.stringify({
+    status = "success",
+    csrf_token = token
+}))

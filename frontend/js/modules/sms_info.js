@@ -70,7 +70,7 @@ const SmsModule = {
 
             fetch('/cgi-bin/sms/send', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: typeof VWRT_API !== 'undefined' ? VWRT_API.getHeaders() : { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ number: number, text: text })
             })
             .then(res => {
@@ -142,6 +142,10 @@ const SmsModule = {
             const bgIcon = isSent ? '#f7fafc' : '#ebf8ff';
             const timeShow = this.getDisplayTime(msg);
 
+            // Chống XSS: escape nội dung tin nhắn và số điện thoại
+            const safeNumber = window.Security ? Security.escapeHtml(msg.number) : msg.number;
+            const safeText = window.Security ? Security.escapeHtml(msg.text) : msg.text;
+
             html += `
                 <div class="sms-dash-item" onclick="SmsModule.fetchInbox(true)">
                     <div class="sms-dash-icon" style="background:${bgIcon}; color:${iconColor}">
@@ -149,10 +153,10 @@ const SmsModule = {
                     </div>
                     <div class="sms-dash-content">
                         <div class="sms-dash-header">
-                            <span class="sms-dash-sender">${msg.number}</span>
+                            <span class="sms-dash-sender">${safeNumber}</span>
                             <span class="sms-dash-time">${timeShow}</span>
                         </div>
-                        <div class="sms-dash-text">${msg.text}</div>
+                        <div class="sms-dash-text">${safeText}</div>
                     </div>
                 </div>
             `;
@@ -220,19 +224,24 @@ const SmsModule = {
                 
                 const timeShow = this.getDisplayTime(msg);
 
+                // Chống XSS: escape dữ liệu trước khi hiển thị
+                const safeNumber = window.Security ? Security.escapeHtml(msg.number) : msg.number;
+                const safeText = window.Security ? Security.escapeHtml(msg.text) : msg.text;
+                const safeIndex = window.Security ? Security.escapeHtml(msg.index) : msg.index;
+
                 rows += `
                     <tr style="border-bottom:1px solid #eee;">
                         <td style="text-align:center; vertical-align: top; padding-top: 15px;">
-                            <input type="checkbox" class="sms-chk" value="${msg.index}" style="width:16px; height:16px; cursor:pointer;">
+                            <input type="checkbox" class="sms-chk" value="${safeIndex}" style="width:16px; height:16px; cursor:pointer;">
                         </td>
                         <td style="padding-left:15px; vertical-align: top; padding-top: 12px;">${typeLabel}</td>
-                        <td style="font-weight:600; color:#2d3748; padding-left:5px; vertical-align: top; padding-top: 15px;">${msg.number}</td>
+                        <td style="font-weight:600; color:#2d3748; padding-left:5px; vertical-align: top; padding-top: 15px;">${safeNumber}</td>
                         
                         <td style="color:#4a5568; padding: 12px 5px;">
-                            <div onclick="this.style.whiteSpace=this.style.whiteSpace==='normal'?'nowrap':'normal'" 
+ <div onclick="this.style.whiteSpace=this.style.whiteSpace==='normal'?'nowrap':'normal'" 
                                  style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width: 100%; cursor:pointer; line-height: 1.5;" 
                                  title="Chạm để xem toàn bộ">
-                                ${msg.text}
+                                ${safeText}
                             </div>
                         </td>
                         

@@ -129,12 +129,16 @@ const WifiModule = {
             }
             const mainItem = group.items.find(i => i.band === '5GHz') || group.items[0];
             const dataStr = encodeURIComponent(JSON.stringify(mainItem));
+            
+            // Chống XSS: escape SSID và key
+            const safeSSID = window.Security ? Security.escapeHtml(group.ssid) : group.ssid;
+            const safeKey = window.Security ? Security.escapeHtml(group.key) : group.key;
 
             html += `
                 <div class="wifi-item">
                     <div class="wifi-info-row" style="margin-bottom: 2px;">
                         <span style="display:flex; align-items:center; gap:6px; font-size: 13px;">
-                            ${group.ssid} ${tagHtml}
+                            ${safeSSID} ${tagHtml}
                         </span>
                         
                         <button class="btn-icon-small" onclick="WifiModule.openEditModal('${dataStr}')" title="Cấu hình">
@@ -155,7 +159,7 @@ const WifiModule = {
                         </div>
 
                         <div class="pass-input-group">
-                            <input type="password" value="${group.key}" id="${passId}" readonly style="font-size: 12px;">
+                            <input type="password" value="${safeKey}" id="${passId}" readonly style="font-size: 12px;">
                             <button class="btn-icon-small" onclick="togglePass('${passId}')">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                             </button>
@@ -176,6 +180,10 @@ const WifiModule = {
 openEditModal: function(dataStr) {
         const w = JSON.parse(decodeURIComponent(dataStr));
         const is5G = w.band === "5GHz";
+        
+        // Chống XSS: escape SSID và key
+        const safeSSID = window.Security ? Security.escapeHtml(w.ssid) : w.ssid;
+        const safeKey = window.Security ? Security.escapeHtml(w.key) : w.key;
 
         let channelOptions = `<option value="auto" ${w.conf_channel == 'auto' ? 'selected' : ''}>Tự động (Auto)</option>`;
         
@@ -211,7 +219,7 @@ openEditModal: function(dataStr) {
                     <div style="display:grid; gap:15px;">
                         <div>
                             <label style="font-size:12px; color:#718096; display:block; margin-bottom:5px;">Tên Wifi (SSID)</label>
-                            <input type="text" id="edit-ssid" value="${w.ssid}" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px;">
+                            <input type="text" id="edit-ssid" value="${safeSSID}" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px;">
                         </div>
 
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
@@ -231,7 +239,7 @@ openEditModal: function(dataStr) {
                         
                         <div>
                             <label style="font-size:12px; color:#718096; display:block; margin-bottom:5px;">Mật khẩu (WPA2-PSK)</label>
-                            <input type="text" id="edit-key" value="${w.key}" 
+                            <input type="text" id="edit-key" value="${safeKey}" 
                                 placeholder="Để trống = Không mật khẩu" 
                                 oninput="WifiModule.validateKey()"
                                 style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px;">

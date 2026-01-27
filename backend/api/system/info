@@ -3,7 +3,7 @@
 local cjson = require "cjson"
 local tmp_file_cpu = "/tmp/cpu_last_stat"
 local cache_file = "/tmp/sysinfo_output.json" 
-local cache_ttl = 2 
+local cache_ttl = 1  -- Updated to 1s for faster refreshes 
 
 -- ==========================================
 -- CƠ CHẾ CACHE
@@ -182,11 +182,11 @@ function get_system_basic()
 end
 
 -- ==========================================
--- LẤY TỔNG TRAFFIC CỦA BR-LAN
+-- LẤY TỔNG TRAFFIC CỦA WWAN0 (MOBILE DATA)
 -- ==========================================
-function get_lan_traffic()
-    local rx = read_file("/sys/class/net/br-lan/statistics/rx_bytes")
-    local tx = read_file("/sys/class/net/br-lan/statistics/tx_bytes")
+function get_mobile_traffic()
+    local rx = read_file("/sys/class/net/wwan0/statistics/rx_bytes")
+    local tx = read_file("/sys/class/net/wwan0/statistics/tx_bytes")
     
     local total = (tonumber(rx) or 0) + (tonumber(tx) or 0)
     return total
@@ -204,7 +204,8 @@ local result = {
     rom = get_rom(),
     uptime = basic_info.uptime,
     temp = basic_info.temp,
-    lan_total = get_lan_traffic()
+    lan_total = get_mobile_traffic()  -- Giữ tên để frontend không cần sửa
+    -- mobile_test = get_mobile_traffic() -- Debug: Doi ten bien de check sync
 }
 
 local json_output = cjson.encode(result)

@@ -1,6 +1,6 @@
 #!/usr/bin/lua
--- Wifi Schedule Get API
--- Returns: { enabled, schedules: [{ id, time_off, time_on, days, wifi, active }], wifi_interfaces: [...] }
+-- Reboot Schedule Get API
+-- Returns: { enabled, schedules: [{ id, time, days, active }] }
 
 local json = require("luci.jsonc")
 local uci = require("luci.model.uci").cursor()
@@ -8,24 +8,9 @@ local uci = require("luci.model.uci").cursor()
 print("Content-Type: application/json")
 print("")
 
-local function get_wifi_interfaces()
-    local interfaces = {}
-    uci:foreach("wireless", "wifi-iface", function(s)
-        if s.mode == "ap" then
-            table.insert(interfaces, {
-                name = s[".name"],
-                ssid = s.ssid or "Unknown",
-                device = s.device or "",
-                disabled = s.disabled == "1"
-            })
-        end
-    end)
-    return interfaces
-end
-
 local function read_schedules()
     local schedules = {}
-    local schedule_file = "/etc/vwrt_wifi_schedule.json"
+    local schedule_file = "/etc/vwrt_reboot_schedule.json"
     
     local f = io.open(schedule_file, "r")
     if f then
@@ -43,12 +28,11 @@ end
 local function get_schedule()
     local result = {
         enabled = false,
-        schedules = {},
-        wifi_interfaces = get_wifi_interfaces()
+        schedules = {}
     }
     
     -- Check if scheduling is enabled (via presence of cron entries)
-    local p = io.popen("grep -c 'vwrt_wifi' /etc/crontabs/root 2>/dev/null || echo 0")
+    local p = io.popen("grep -c 'vwrt_reboot' /etc/crontabs/root 2>/dev/null || echo 0")
     if p then
         local count = tonumber(p:read("*l")) or 0
         result.enabled = count > 0

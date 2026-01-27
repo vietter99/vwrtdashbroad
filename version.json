@@ -1,7 +1,7 @@
 {
     "dashboard": {
-        "version": "1.1.1",
+        "version": "1.1.2",
         "url": "https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.zip",
-        "log": "- Thêm tính năng mới.\n- Tối ưu và cải thiện giao diện."
+        "log": "- Tối ưu và cải thiện giao diện."
     }
 }

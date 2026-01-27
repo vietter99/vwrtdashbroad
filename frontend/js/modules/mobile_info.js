@@ -233,10 +233,8 @@ const MobileModule = {
                 elPing.style.color = this.getPingColor(mobData.ping);
                 elPing.style.fontWeight = "bold";
             } else {
-                elPing.innerText = "--";
-                elPing.style.color = "var(--text-sub)";
-                elPing.style.fontWeight = "normal";
-                elPing.style.color = "var(--text-sub)";
+                elPing.innerText = "Không có mạng";
+                elPing.style.color = "#e53e3e";
                 elPing.style.fontWeight = "normal";
             }
         }

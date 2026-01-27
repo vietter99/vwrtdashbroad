@@ -1,79 +1,149 @@
+// Enhanced Modal Component with Icon Types
+// Types: warning, error, success, info, question (default)
 const Modal = {
-    init: function() {
-        if (!document.getElementById('custom-modal-overlay')) {
-            const html = `
-                <div id="custom-modal-overlay" class="modal-overlay hidden">
-                    <div class="modal-box" style="position:relative;">
-                        <button onclick="Modal.close()" style="position:absolute; top:10px; right:12px; background:none; border:none; font-size:24px; color:#aaa; cursor:pointer; padding:5px 10px;">&times;</button>
-                        <div class="modal-icon">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                        </div>
-                        <h3 id="modal-title" style="margin-top:5px;">Xác nhận</h3>
-                        <p id="modal-message">Nội dung thông báo...</p>
-                        <div class="modal-actions">
-                            <button id="btn-modal-cancel" class="btn-modal btn-secondary" style="padding:10px 20px;">Hủy bỏ</button>
-                            <button id="btn-modal-confirm" class="btn-modal btn-primary" style="padding:10px 20px;">Đồng ý</button>
-                        </div>
+    icons: {
+        warning:  '⚠️',
+        error:    '❌',
+        success:  '✅',
+        info:     'ℹ️',
+        question: '❓',
+        delete:   '🗑️',
+        reboot:   '🔄',
+        save:     '💾'
+    },
+    
+    colors: {
+        warning:  '#ed8936',
+        error:    '#e53e3e',
+        success:  '#48bb78',
+        info:     '#3182ce',
+        question: '#805ad5',
+        delete:   '#e53e3e',
+        reboot:   '#ed8936',
+        save:     '#48bb78'
+    },
+
+    // Quick confirm with icon type
+    confirm: function(options) {
+        // Normalize: có thể gọi Modal.confirm("title", "msg", callback) hoặc Modal.confirm({...})
+        if (typeof options === 'string') {
+            options = {
+                title: arguments[0],
+                message: arguments[1],
+                onConfirm: arguments[2],
+                type: arguments[3] || 'question'
+            };
+        }
+        
+        const type = options.type || 'question';
+        const icon = this.icons[type] || this.icons.question;
+        const color = this.colors[type] || this.colors.question;
+        const id = 'modal-' + Date.now();
+        
+        const html = `
+            <div class="modal-overlay active" id="${id}" style="z-index:100000;">
+                <div class="modal-box" style="max-width:340px; text-align:center; animation: modalPop 0.2s ease;">
+                    <div style="font-size:48px; margin-bottom:10px;">${icon}</div>
+                    <h3 style="margin:0 0 10px; color:var(--text-primary, #2d3748);">${options.title || 'Xác nhận'}</h3>
+                    <p style="color:var(--text-secondary, #666); margin:0 0 20px; font-size:14px;">${options.message || ''}</p>
+                    <div class="modal-actions" style="display:flex; gap:10px; justify-content:center;">
+                        <button class="btn-modal btn-secondary" onclick="document.getElementById('${id}').remove()" style="padding:10px 24px; border-radius:8px;">
+                            ${options.cancelText || 'Hủy bỏ'}
+                        </button>
+                        <button class="btn-modal" id="${id}-confirm" style="padding:10px 24px; border-radius:8px; background:${color}; color:white; border:none; cursor:pointer;">
+                            ${options.confirmText || 'Đồng ý'}
+                        </button>
                     </div>
                 </div>
-            `;
-            document.body.insertAdjacentHTML('beforeend', html);
-            document.getElementById('btn-modal-cancel').addEventListener('click', () => {
-                Modal.close();
-            });
-        }
-    },
-    show: function(options) {
-        this.init();
-        const overlay = document.getElementById('custom-modal-overlay');
-        const titleEl = document.getElementById('modal-title');
-        const msgEl = document.getElementById('modal-message');
-        const btnConfirm = document.getElementById('btn-modal-confirm');
-        const btnCancel = document.getElementById('btn-modal-cancel');
+            </div>
+            <style>
+                @keyframes modalPop {
+                    from { transform: scale(0.8); opacity: 0; }
+                    to { transform: scale(1); opacity: 1; }
+                }
+            </style>
+        `;
+        document.body.insertAdjacentHTML('beforeend', html);
         
-        titleEl.innerText = options.title || "Thông báo";
-        msgEl.innerHTML = options.content || "";
-        
-        btnConfirm.innerText = options.confirmText || "Đồng ý";
-        btnCancel.innerText = options.cancelText || "Hủy bỏ";
-        
-        if (options.showCancel === false) btnCancel.style.display = 'none';
-        else btnCancel.style.display = 'inline-block';
-
-        const iconEl = overlay.querySelector('.modal-icon');
-        if (iconEl) {
-            if (options.showIcon === false) iconEl.style.display = 'none';
-            else iconEl.style.display = 'block';
-        }
-
-        // Clear and add listener
-        const newBtn = btnConfirm.cloneNode(true);
-        btnConfirm.parentNode.replaceChild(newBtn, btnConfirm);
-        
-        newBtn.addEventListener('click', () => {
+        // Bind confirm action
+        document.getElementById(`${id}-confirm`).onclick = () => {
+            document.getElementById(id).remove();
             if (options.onConfirm) options.onConfirm();
-            this.close();
-        });
-
-        overlay.classList.remove('hidden');
-        overlay.classList.add('active');
+        };
     },
 
-    confirm: function(title, message, onConfirm) {
-        this.show({
-            title: title,
-            content: message,
-            onConfirm: onConfirm
-        });
-    },
-
-    close: function() {
-        const overlay = document.getElementById('custom-modal-overlay');
-        if (overlay) {
-            overlay.classList.remove('active');
-            setTimeout(() => {
-                overlay.classList.add('hidden');
-            }, 300);
+    // Alert (chỉ có nút OK)
+    alert: function(options) {
+        if (typeof options === 'string') {
+            options = {
+                title: arguments[0],
+                message: arguments[1],
+                type: arguments[2] || 'info'
+            };
         }
+        
+        const type = options.type || 'info';
+        const icon = this.icons[type] || this.icons.info;
+        const color = this.colors[type] || this.colors.info;
+        const id = 'modal-alert-' + Date.now();
+        
+        const html = `
+            <div class="modal-overlay active" id="${id}" style="z-index:100000;">
+                <div class="modal-box" style="max-width:340px; text-align:center; animation: modalPop 0.2s ease;">
+                    <div style="font-size:48px; margin-bottom:10px;">${icon}</div>
+                    <h3 style="margin:0 0 10px; color:var(--text-primary, #2d3748);">${options.title || 'Thông báo'}</h3>
+                    <p style="color:var(--text-secondary, #666); margin:0 0 20px; font-size:14px;">${options.message || ''}</p>
+                    <div class="modal-actions" style="display:flex; justify-content:center;">
+                        <button class="btn-modal" onclick="document.getElementById('${id}').remove()" style="padding:10px 30px; border-radius:8px; background:${color}; color:white; border:none; cursor:pointer;">
+                            OK
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', html);
+    },
+
+    // Custom content modal (giữ lại cho các trường hợp đặc biệt như form)
+    show: function(options) {
+        const id = 'modal-custom-' + Date.now();
+        const showIcon = options.showIcon !== false;
+        const icon = showIcon ? (this.icons[options.type] || '') : '';
+        
+        const html = `
+            <div class="modal-overlay active" id="${id}" style="z-index:99999;">
+                <div class="modal-box" style="position:relative; max-width:${options.maxWidth || '400px'}; animation: modalPop 0.2s ease;">
+                    <button onclick="document.getElementById('${id}').remove()" style="position:absolute; top:10px; right:12px; background:none; border:none; font-size:24px; color:#aaa; cursor:pointer;">&times;</button>
+                    ${icon ? `<div style="font-size:40px; text-align:center; margin-bottom:5px;">${icon}</div>` : ''}
+                    <h3 style="margin-top:5px; text-align:center;">${options.title || 'Thông báo'}</h3>
+                    <div id="${id}-content">${options.content || ''}</div>
+                    ${options.showCancel !== false || options.onConfirm ? `
+                    <div class="modal-actions" style="margin-top:20px; display:flex; gap:10px; justify-content:center;">
+                        ${options.showCancel !== false ? `<button class="btn-modal btn-secondary" onclick="document.getElementById('${id}').remove()">${options.cancelText || 'Hủy bỏ'}</button>` : ''}
+                        ${options.onConfirm ? `<button class="btn-modal btn-primary" id="${id}-confirm">${options.confirmText || 'Đồng ý'}</button>` : ''}
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', html);
+        
+        if (options.onConfirm) {
+            document.getElementById(`${id}-confirm`).onclick = () => {
+                options.onConfirm();
+                document.getElementById(id).remove();
+            };
+        }
+        
+        return id; // Trả về ID để có thể đóng từ bên ngoài
+    },
+
+    // Close a specific modal by ID
+    close: function(id) {
+        const el = document.getElementById(id);
+        if (el) el.remove();
     }
 };
+
+// Expose globally
+window.Modal = Modal;
