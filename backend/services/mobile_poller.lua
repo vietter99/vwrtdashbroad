@@ -49,6 +49,21 @@ function get_net_stats(iface)
     }
 end
 
+-- Get last AT port from mmcli JSON ports array (last is usually the working one for Dell)
+function get_at_port_from_json(raw_json)
+    if not raw_json then return nil end
+    local ok, parsed = pcall(cjson.decode, raw_json)
+    if not ok or not parsed or not parsed.modem or not parsed.modem.generic then return nil end
+    local ports = parsed.modem.generic.ports
+    if not ports then return nil end
+    local last_at_port = nil
+    for _, p in ipairs(ports) do
+        local port_name = p:match("(ttyUSB%d+) %(at%)")
+        if port_name then last_at_port = "/dev/" .. port_name end
+    end
+    return last_at_port
+end
+
 function get_bands_string(bands_list)
     if not bands_list or #bands_list == 0 then return "" end
     local b_str = ""
@@ -296,13 +311,16 @@ function main()
 
                 elseif is_dell then
                     -- === DELL DW5821e LOGIC ===
+                    -- Auto-detect AT port from mmcli (fallback to ttyUSB1)
+                    local at_port = get_at_port_from_json(raw_modem) or "/dev/ttyUSB1"
+                    
                     -- 1. Temp
-                    local raw_temp = exec("mmcli -m 0 --command='AT+TEMP' 2>/dev/null")
+                    local raw_temp = exec_at_tty(at_port, "AT+TEMP")
                     local temp_val = parse_at_dw5821e_temp(raw_temp)
                     if temp_val then data_modem.mtemp = temp_val end
                     
                     -- 2. CA / Band Info
-                    local raw_ca = exec("mmcli -m 0 --command='AT^CA_INFO?' 2>/dev/null")
+                    local raw_ca = exec_at_tty(at_port, "AT^CA_INFO?")
                     local ca_data = parse_at_dw5821e_cainfo(raw_ca)
                     
                     if ca_data.active_band then
