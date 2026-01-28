@@ -1,0 +1,11 @@
+#!/usr/bin/lua
+local json = require("luci.jsonc")
+local f = io.open("/etc/vwrt_autoled.json", "r")
+local content = "{}"
+if f then
+    content = f:read("*all")
+    f:close()
+end
+print("Content-Type: application/json")
+print("")
+print(content)

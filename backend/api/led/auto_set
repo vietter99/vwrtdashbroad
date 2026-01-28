@@ -1,0 +1,18 @@
+#!/usr/bin/lua
+local json = require("luci.jsonc")
+local content_length = tonumber(os.getenv("CONTENT_LENGTH") or 0)
+local raw = io.read(content_length)
+local data = json.parse(raw)
+
+local f = io.open("/etc/vwrt_autoled.json", "w")
+if f then
+    f:write(json.stringify(data))
+    f:close()
+    print("Content-Type: application/json")
+    print("")
+    print(json.stringify({ success = true }))
+else
+    print("Content-Type: application/json")
+    print("")
+    print(json.stringify({ success = false, error = "Cannot write config" }))
+end

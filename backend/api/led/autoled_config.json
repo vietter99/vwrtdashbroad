@@ -1,0 +1,8 @@
+{
+    "enabled": false,
+    "rules": [
+        { "status": "5G", "led": "", "trigger": "default-on" },
+        { "status": "4G", "led": "", "trigger": "default-on" },
+        { "status": "No Service", "led": "", "trigger": "none" }
+    ]
+}

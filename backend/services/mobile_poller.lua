@@ -260,7 +260,7 @@ function parse_mmcli_signal(raw)
     return res
 end
 
-function calculate_signal_strength(rsrp)
+local function calculate_signal_strength(rsrp)
     if not rsrp or rsrp == "-" then return 0 end
     local r = tonumber(rsrp)
     if not r then return 0 end
@@ -268,6 +268,40 @@ function calculate_signal_strength(rsrp)
     if r <= -120 then return 0 end
     local percent = (r + 120) * (100 / 40)
     return math.floor(percent)
+end
+
+local function apply_auto_led(mode, ping)
+    local config_file = "/etc/vwrt_autoled.json"
+    local f = io.open(config_file, "r")
+    if not f then return end
+    local content = f:read("*all")
+    f:close()
+    
+    local ok, config = pcall(cjson.decode, content)
+    if not ok or not config or not config.enabled then return end
+
+    local current_status = "No Service"
+    if ping ~= "-" then
+        if mode:find("5G") then
+            current_status = "5G"
+        elseif mode:find("4G") or mode:find("LTE") then
+            current_status = "4G"
+        end
+    end
+
+    for _, rule in ipairs(config.rules or {}) do
+        if rule.led and rule.led ~= "" then
+            local led_path = "/sys/class/leds/" .. rule.led
+            if rule.status == current_status then
+                -- Match: Apply trigger
+                os.execute("echo '" .. (rule.trigger or "default-on") .. "' > " .. led_path .. "/trigger")
+                os.execute("echo 1 > " .. led_path .. "/brightness")
+            else
+                -- Not match: Turn off if no other rules apply (simple logic for now)
+                -- Optional: Could be more complex to avoid conflicts
+            end
+        end
+    end
 end
 
 function main()
@@ -386,6 +420,9 @@ function main()
                 local json_str = cjson.encode(data_modem)
                 write_file(TEMP_FILE, json_str)
                 os.rename(TEMP_FILE, CACHE_FILE)
+
+                -- 6. Smart LED Logic
+                pcall(apply_auto_led, data_modem.mode, data_modem.ping)
             end
         end)
         
