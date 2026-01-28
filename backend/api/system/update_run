@@ -34,16 +34,34 @@ local function run_update()
     os.execute("mkdir -p " .. work_dir)
     
     -- Download file
-    local dl_cmd = "wget --no-check-certificate -O " .. work_dir .. "/update.tar.gz '" .. url .. "' >> " .. log_file .. " 2>&1"
-    if os.execute(dl_cmd) ~= 0 then
-        print(json.stringify({ status = "error", message = "Không tải được file cập nhật." }))
+    local is_zip = url:match("%.zip$") or url:match("/zip/")
+    local out_file = work_dir .. (is_zip and "/update.zip" or "/update.tar.gz")
+    
+    local dl_cmd = "wget --no-check-certificate -O " .. out_file .. " '" .. url .. "' >> " .. log_file .. " 2>&1"
+    local dl_ret = os.execute(dl_cmd)
+    
+    -- Check file size
+    local f_check = io.open(out_file, "r")
+    local f_size = f_check and f_check:seek("end") or 0
+    if f_check then f_check:close() end
+    
+    os.execute("echo 'Download finished. Return: " .. tostring(dl_ret) .. ", Size: " .. tostring(f_size) .. " bytes' >> " .. log_file)
+
+    if dl_ret ~= 0 or f_size < 1024 then
+        print(json.stringify({ status = "error", message = "Lỗi tải file cập nhật (Size: " .. f_size .. ")." }))
         return
     end
     
     -- Extract
-    local tar_cmd = "tar -xzf " .. work_dir .. "/update.tar.gz -C " .. work_dir .. " >> " .. log_file .. " 2>&1"
-    if os.execute(tar_cmd) ~= 0 then
-        print(json.stringify({ status = "error", message = "Lỗi giải nén file cập nhật." }))
+    local ext_cmd = ""
+    if is_zip then
+        ext_cmd = "unzip -o " .. out_file .. " -d " .. work_dir .. " >> " .. log_file .. " 2>&1"
+    else
+        ext_cmd = "tar -xzf " .. out_file .. " -C " .. work_dir .. " >> " .. log_file .. " 2>&1"
+    end
+    
+    if os.execute(ext_cmd) ~= 0 then
+        print(json.stringify({ status = "error", message = "Lỗi giải nén file cập nhật (Zip=" .. tostring(is_zip) .. "). (Xem /tmp/update_debug.log)" }))
         return
     end
     
@@ -68,6 +86,12 @@ local function run_update()
         -- Update Dashboard (Frontend + Backend APIs)
         f:write("# Update Dashboard\n")
         
+        -- Stop services
+        f:write("killall mobile_poller.lua 2>/dev/null\n")
+        
+        -- CLEAN INSTALL: Delete old files
+        f:write("rm -rf /www/vwrt/*\n")
+        
         -- Copy Frontend
         f:write("cp -rf '" .. source_folder .. "frontend/'* /www/vwrt/\n")
         
@@ -85,11 +109,9 @@ local function run_update()
         -- Fix permissions
         f:write("chmod -R 755 /www/vwrt\n")
         f:write("chmod +x /www/vwrt/cgi-bin/*\n")
-        f:write("chmod +x /www/vwrt/cgi-bin/*/*\n")
         f:write("chmod +x /www/vwrt/services/*\n")
         
         -- Restart Mobile Poller if needed
-        f:write("killall mobile_poller.lua 2>/dev/null\n")
         f:write("lua /www/vwrt/services/mobile_poller.lua >/dev/null 2>&1 &\n")
         
         -- Cleanup
