@@ -45,6 +45,10 @@ elseif action == "restart_mobile" then
     -- Wait 5s for ModemManager to get ready
     os.execute("sleep 5 && " .. cmd)
 
+elseif action == "free_ram" then
+    send_response("success", "Đã giải phóng bộ nhớ đệm (Drop Caches).")
+    os.execute("sync && echo 3 > /proc/sys/vm/drop_caches")
+
 else
     send_response("error", "Hành động không xác định")
 end

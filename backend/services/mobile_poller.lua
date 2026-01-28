@@ -271,9 +271,39 @@ function calculate_signal_strength(rsrp)
 end
 
 function main()
+    -- Restore LED Config
+    local function restore_leds() 
+        local f = io.open("/etc/vwrt_led.json", "r")
+        if f then
+            local content = f:read("*all")
+            f:close()
+            local config = cjson.decode(content)
+            if config then
+                for name, settings in pairs(config) do
+                    local led_path = "/sys/class/leds/" .. name
+                    if settings.trigger then
+                        os.execute("echo '" .. settings.trigger .. "' > " .. led_path .. "/trigger")
+                    end
+                    if settings.brightness then
+                        os.execute("echo '" .. tostring(settings.brightness) .. "' > " .. led_path .. "/brightness")
+                    end
+                end
+            end
+        end
+    end
+    pcall(restore_leds)
+
     exec("mmcli -m 0 --signal-setup=1")
 
+    local loop_count = 0
     while true do
+        -- Auto Free RAM every ~5 minutes (150 * 2s = 300s)
+        loop_count = loop_count + 1
+        if loop_count >= 150 then
+            os.execute("sync && echo 3 > /proc/sys/vm/drop_caches")
+            loop_count = 0
+        end
+
         local status, err = pcall(function()
             local raw_modem = exec("mmcli -m 0 -J")
             local raw_signal = exec("mmcli -m 0 --signal-get -J")

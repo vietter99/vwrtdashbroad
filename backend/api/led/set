@@ -52,7 +52,28 @@ local function set_led()
         end
     end
     
-    print(json.stringify({ success = true, message = "Đã cập nhật LED." }))
+    -- Save persistence
+    local config_file = "/etc/vwrt_led.json"
+    local config = {}
+    local f = io.open(config_file, "r")
+    if f then
+        local content = f:read("*all")
+        f:close()
+        config = json.parse(content) or {}
+    end
+    
+    config[data.name] = {
+        brightness = data.brightness,
+        trigger = data.trigger
+    }
+    
+    f = io.open(config_file, "w")
+    if f then
+        f:write(json.stringify(config))
+        f:close()
+    end
+    
+    print(json.stringify({ success = true, message = "Đã cập nhật và lưu cấu hình LED." }))
 end
 
 local ok, err = pcall(set_led)

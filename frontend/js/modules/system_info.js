@@ -92,5 +92,28 @@ const SystemModule = {
             const totalStr = this.formatBytes(data.rom.total);
             document.getElementById('rom-text').innerText = `${usedStr} / ${totalStr}`;
         }
+    },
+
+    freeRam: function() {
+        if(!confirm("Bạn có muốn giải phóng bộ nhớ RAM không?")) return;
+        
+        if(typeof Toast !== 'undefined') Toast.show("Đang dọn dẹp bộ nhớ...", "info");
+        
+        fetch('/cgi-bin/system/action?action=free_ram')
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    if(typeof Toast !== 'undefined') Toast.show(data.message, "success");
+                    // Refresh data after 1s
+                    setTimeout(() => {
+                        if(typeof Dashboard !== 'undefined') Dashboard.fetchSystemInfo();
+                    }, 1000);
+                } else {
+                    if(typeof Toast !== 'undefined') Toast.show(data.message || "Lỗi", "error");
+                }
+            })
+            .catch(err => {
+                if(typeof Toast !== 'undefined') Toast.show("Lỗi kết nối!", "error");
+            });
     }
 };
