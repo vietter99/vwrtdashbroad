@@ -282,23 +282,31 @@ local function apply_auto_led(mode, ping)
 
     local current_status = "No Service"
     if ping ~= "-" then
-        if mode:find("5G") then
+        if mode:find("5G") or mode:find("NR") then
             current_status = "5G"
         elseif mode:find("4G") or mode:find("LTE") then
             current_status = "4G"
         end
     end
 
+    local active_led = nil
+    for _, rule in ipairs(config.rules or {}) do
+        if rule.status == current_status and rule.led ~= "" then
+            active_led = rule.led
+        end
+    end
+
     for _, rule in ipairs(config.rules or {}) do
         if rule.led and rule.led ~= "" then
             local led_path = "/sys/class/leds/" .. rule.led
-            if rule.status == current_status then
+            if rule.led == active_led then
                 -- Match: Apply trigger
                 os.execute("echo '" .. (rule.trigger or "default-on") .. "' > " .. led_path .. "/trigger")
                 os.execute("echo 1 > " .. led_path .. "/brightness")
             else
-                -- Not match: Turn off if no other rules apply (simple logic for now)
-                -- Optional: Could be more complex to avoid conflicts
+                -- Not match: Turn off
+                os.execute("echo 'none' > " .. led_path .. "/trigger")
+                os.execute("echo 0 > " .. led_path .. "/brightness")
             end
         end
     end
@@ -404,7 +412,7 @@ function main()
                     data_modem.signal = tostring(calculate_signal_strength(data_modem.rsrp))
                 end
 
-                -- 4. Ping
+                -- 4. Ping (Restored -I wwan0 as requested)
                 local ping_cmd = "ping -c 1 -W 1 -I wwan0 8.8.8.8 2>/dev/null | grep 'time=' | awk -F'time=' '{print $2}' | awk '{print $1}'"
                 local p = io.popen(ping_cmd)
                 if p then
@@ -421,7 +429,7 @@ function main()
                 write_file(TEMP_FILE, json_str)
                 os.rename(TEMP_FILE, CACHE_FILE)
 
-                -- 6. Smart LED Logic
+                -- 6. Smart LED Logic (LED follows internet ping)
                 pcall(apply_auto_led, data_modem.mode, data_modem.ping)
             end
         end)

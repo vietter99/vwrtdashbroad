@@ -279,7 +279,7 @@ const MobileModule = {
     showModemDetails: function() {
         if (typeof Modal === 'undefined') return;
         
-        Modal.show({
+        const loadingId = Modal.show({
             title: "Thông tin Modem",
             content: `
                 <div style="text-align:center;"><div class="spinner"></div></div>
@@ -290,6 +290,7 @@ const MobileModule = {
         fetch('/cgi-bin/mobile/get')
             .then(r => r.json())
             .then(res => {
+                Modal.close(loadingId);
                 if(res.status === 'success' && res.data) {
                     const d = res.data;
                     const content = `
@@ -341,7 +342,7 @@ const MobileModule = {
         if (typeof Modal === 'undefined') return;
         
         // Show Loading first
-        Modal.show({
+        const loadingId = Modal.show({
             title: "Cấu hình TTL",
             content: `
                 <div style="text-align:center;">
@@ -353,6 +354,7 @@ const MobileModule = {
 
         // Fetch current
         fetch('/cgi-bin/ttl/index').then(r=>r.json()).then(d => {
+            Modal.close(loadingId);
             const current = (d.ttl && d.ttl > 0) ? d.ttl : "";
             
             Modal.show({
