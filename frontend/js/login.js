@@ -52,7 +52,7 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
             handleSuccess(userToTry, data.result[1].ubus_rpc_session);
         } else {
             if (isAutoDetect && userToTry === "root") {
-                console.log("Login root thất bại, đang thử admin...");
+
                 return doLogin("admin", pass).then(data2 => {
                     if (data2.result && data2.result[0] === 0 && data2.result[1]?.ubus_rpc_session) {
                         handleSuccess("admin", data2.result[1].ubus_rpc_session);

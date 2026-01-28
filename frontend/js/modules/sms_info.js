@@ -114,7 +114,7 @@ const SmsModule = {
                 } 
                 this.renderDashboardCard(messages);
             })
-            .catch(err => console.log("Lỗi tải SMS:", err));
+            .catch(err => {});
     },
 
     getDisplayTime: function(msg) {

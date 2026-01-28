@@ -34,7 +34,7 @@ const WifiModule = {
             .then(data => this.render(data))
             .catch(err => {
                 // Keep silent on error to avoid flickering, just log it
-                console.log("Wifi fetch error (waiting for retry)...");
+
             });
     },
 

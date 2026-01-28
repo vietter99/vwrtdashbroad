@@ -226,7 +226,7 @@ const RebootScheduleModule = {
             } else {
                 // CSRF Retry Logic
                 if (data.error && data.error.includes("CSRF") && retryCount < 1) {
-                    console.log("CSRF Invalid, refreshing token and retrying...");
+
                     if(typeof VWRT_API !== 'undefined') {
                         VWRT_API.csrfToken = null; // Clear bad token
                         VWRT_API.fetchCSRFToken().then(() => {

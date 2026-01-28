@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(() => {
-                console.log("Chưa có thông tin version");
+
             });
     }
 });
