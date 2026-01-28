@@ -29,16 +29,25 @@ local function get_leds()
                 brightness_file:close()
             end
             
-            -- Read current trigger
+            -- Read current trigger and available triggers
             local trigger_file = io.open(led_path .. "/" .. led_name .. "/trigger", "r")
             if trigger_file then
                 local content = trigger_file:read("*all")
                 trigger_file:close()
-                -- Find the active trigger (wrapped in [])
+                
+                -- 1. Find the active trigger (wrapped in [])
                 local active = content:match("%[([^%]]+)%]")
                 if active then
                     led.trigger = active
                 end
+                
+                -- 2. Get all available triggers (remove the [] from active one)
+                local available = {}
+                local clean_content = content:gsub("%[", ""):gsub("%]", "")
+                for t in clean_content:gmatch("%S+") do
+                    table.insert(available, t)
+                end
+                led.available_triggers = available
             end
             
             table.insert(result.leds, led)
