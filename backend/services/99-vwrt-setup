@@ -1,0 +1,21 @@
+#!/bin/sh
+
+# Set VWRT home directory
+uci set uhttpd.main.home='/www/vwrt'
+uci commit uhttpd
+
+# Create symlinks for LuCI
+ln -sf /www/luci-static /www/vwrt/luci-static
+ln -sf /www/cgi-bin/luci /www/vwrt/cgi-bin/luci
+
+# Create VWRT backup instance on Port 2222 if not exists
+if ! uci get uhttpd.vwrt >/dev/null 2>&1; then
+    uci set uhttpd.vwrt=uhttpd
+    uci add_list uhttpd.vwrt.listen_http='0.0.0.0:2222'
+    uci add_list uhttpd.vwrt.listen_http='[::]:2222'
+    uci set uhttpd.vwrt.home='/www/vwrt'
+    uci set uhttpd.vwrt.cgi_prefix='/cgi-bin'
+    uci commit uhttpd
+fi
+
+exit 0

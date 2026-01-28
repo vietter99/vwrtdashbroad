@@ -115,62 +115,6 @@ const SidebarModule = {
         }
 
 
-        if(featureName === 'switch_ui') {
-            if(typeof Modal !== 'undefined') {
-                // Check status first
-                if(typeof Toast !== 'undefined') Toast.show("Đang kiểm tra trạng thái...", "info");
-                
-                let checkPayload = { target: 'check' };
-                if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
-                    checkPayload.csrf_token = VWRT_API.csrfToken;
-                }
-
-                fetch('/cgi-bin/system/switch_dashboard', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(checkPayload)
-                })
-                .then(res => res.json())
-                .then(data => {
-                    let contentHTML = "";
-                    if(data.installed) {
-                        contentHTML = `
-                            <div style="text-align:center; padding:10px;">
-                                <div style="font-size:48px; margin-bottom:10px; color:#48bb78;">✅</div>
-                                <p style="margin-bottom:20px; color:#333; font-weight:bold;">Màn hình chọn đã được cài đặt</p>
-                                <p style="color:#666; font-size:14px;">Bạn có thể khởi động lại Router để thấy giao diện chọn.</p>
-                            </div>
-                        `;
-                    } else {
-                        contentHTML = `
-                            <div style="text-align:center; padding:10px;">
-                                <div style="font-size:48px; margin-bottom:10px;">📲</div>
-                                <p style="margin-bottom:20px; color:#333; font-weight:bold;">Cài Đặt Màn Hình Chọn</p>
-                                <p style="color:#666; margin-bottom:20px;">
-                                    Thiết lập trang chủ Router thành màn hình lựa chọn (LuCI / VWRT).
-                                </p>
-                                <button onclick="SidebarModule.doSwitch('install_selector')" class="btn-modal" style="background:#3182ce; color:white; padding:12px 24px; border-radius:8px; border:none; cursor:pointer; width:100%; font-size:16px;">
-                                    Cài Đặt Ngay
-                                </button>
-                            </div>
-                        `;
-                    }
-
-                    Modal.show({
-                        title: "Quản Lý Giao Diện",
-                        content: contentHTML,
-                        showCancel: false, // Removed redundant 'Hủy'
-                        showIcon: false,
-                        confirmText: "Đóng", // Only one close button
-                        onConfirm: () => {}
-                    });
-                })
-                .catch(() => {
-                    if(typeof Toast !== 'undefined') Toast.show("Lỗi kết nối kiểm tra", "error");
-                });
-            }
-            return;
-        }
 
         // Default: Feature not implemented
         if(typeof Modal !== 'undefined') {
@@ -187,50 +131,6 @@ const SidebarModule = {
         }
     },
 
-    doSwitch: function(target) {
-        if(typeof Toast !== 'undefined') Toast.show("Đang lưu cấu hình...", "info");
-        
-        let payload = { target: target };
-        
-        if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
-            payload.csrf_token = VWRT_API.csrfToken;
-        }
-
-        fetch('/cgi-bin/system/switch_dashboard', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(payload)
-        })
-        .then(res => res.json())
-        .then(data => {
-            if(data.success) {
-                // Show Reboot Confirmation
-                if(typeof Modal !== 'undefined') {
-                    Modal.show({
-                        title: "Cần Khởi Động Lại",
-                        content: `
-                            <div style="text-align:center;">
-                                <div style="font-size:48px; margin-bottom:10px;">🔄</div>
-                                <p>Cấu hình giao diện đã được lưu!</p>
-                                <p style="color:#666; font-size:14px;">Bạn có muốn khởi động lại Router ngay bây giờ để áp dụng thay đổi?</p>
-                            </div>
-                        `,
-                        showCancel: true,
-                        confirmText: "Khởi động lại ngay",
-                        cancelText: "Để sau",
-                        onConfirm: () => {
-                            SidebarModule.doReboot();
-                        }
-                    });
-                }
-            } else {
-                if(typeof Toast !== 'undefined') Toast.show("Lỗi: " + data.error, "error");
-            }
-        })
-        .catch(err => {
-            if(typeof Toast !== 'undefined') Toast.show("Lỗi kết nối: " + err.message, "error");
-        });
-    },
 
     doReboot: function() {
         if(typeof Toast !== 'undefined') Toast.show("Đang gửi lệnh khởi động lại...", "warning");

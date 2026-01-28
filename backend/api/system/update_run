@@ -111,6 +111,10 @@ local function run_update()
         f:write("chmod +x /www/vwrt/cgi-bin/*\n")
         f:write("chmod +x /www/vwrt/services/*\n")
         
+        -- Recreate Symlinks for LuCI
+        f:write("ln -sf /www/luci-static /www/vwrt/luci-static\n")
+        f:write("ln -sf /www/cgi-bin/luci /www/vwrt/cgi-bin/luci\n")
+        
         -- Restart Mobile Poller if needed
         f:write("lua /www/vwrt/services/mobile_poller.lua >/dev/null 2>&1 &\n")
         

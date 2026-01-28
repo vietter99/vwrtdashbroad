@@ -241,7 +241,8 @@ function parse_mmcli_json(raw_json)
         own_number = generic["own-numbers"] and generic["own-numbers"][1] or "-",
         mtemp = "-", 
         rsrp = "-", rsrq = "-", sinr = "-", rssi = "-",
-        conn_time = "-", rx = "0", tx = "0", csq = "0", registration = "1", cell_id = "-", ping = "-"
+        conn_time = "-", rx = "0", tx = "0", csq = "0", registration = "1", cell_id = "-", ping = "-",
+        state = m.state or (generic and generic.state) or "unknown"
     }
     return result
 end
@@ -431,6 +432,11 @@ function main()
 
                 -- 6. Smart LED Logic (LED follows internet ping)
                 pcall(apply_auto_led, data_modem.mode, data_modem.ping)
+                
+                -- 7. Auto Enable if disabled
+                if data_modem.state == "disabled" then
+                    exec("mmcli -m 0 -e")
+                end
             end
         end)
         

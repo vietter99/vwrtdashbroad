@@ -74,6 +74,7 @@ else
 fi
 
 echo "[2/5] Dang cau hinh Web Server..."
+# 1. Setup VWRT on Port 2222 (Backup)
 uci delete uhttpd.vwrt 2>/dev/null
 uci set uhttpd.vwrt=uhttpd
 uci add_list uhttpd.vwrt.listen_http='0.0.0.0:2222'
@@ -87,8 +88,15 @@ uci set uhttpd.vwrt.ubus_prefix='/ubus'
 uci set uhttpd.vwrt.script_timeout='60'
 uci set uhttpd.vwrt.network_timeout='30'
 
+# 2. Set VWRT as DEFAULT on Port 80
+uci set uhttpd.main.home='/www/vwrt'
+
 uci commit uhttpd
 /etc/init.d/uhttpd restart
+
+# 3. Create Symlinks for LuCI inside /www/vwrt
+ln -sf /www/luci-static /www/vwrt/luci-static
+ln -sf /www/cgi-bin/luci /www/vwrt/cgi-bin/luci
 
 echo "[3/5] Dang thiet lap..."
 RC_FILE="/etc/rc.local"
@@ -112,80 +120,12 @@ if [ -f "$INSTALL_DIR/services/mobile_poller.lua" ]; then
     lua "$INSTALL_DIR/services/mobile_poller.lua" &
 fi
 
-echo "[4/5] Dang cai dat chon LuCI/VWRT..."
+echo "[4/5] Hoan tat cau hinh he thong..."
 
-if [ -f "$INDEX_FILE" ] && [ ! -f "$BACKUP_FILE" ]; then
-    mv "$INDEX_FILE" "$BACKUP_FILE"
+# Restore index.html if we were using landing page
+if [ -f "$BACKUP_FILE" ]; then
+    mv "$BACKUP_FILE" "$INDEX_FILE"
 fi
-
-cat << 'EOF' > "$INDEX_FILE"
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <title>OpenWrt Gateway</title>
-    <style>
-        body { background: #f0f2f5; font-family: sans-serif; height: 100vh; display: flex; justify-content: center; align-items: center; flex-direction: column; margin: 0; }
-        #selection-screen { display: none; text-align: center; background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 320px; max-width: 90%; }
-        #loading-screen { display: flex; flex-direction: column; align-items: center; }
-        .btn { display: block; width: 100%; padding: 15px 0; margin-bottom: 15px; text-decoration: none; color: white; font-weight: bold; border-radius: 8px; cursor: pointer; border: none; font-size: 16px; }
-        .btn:hover { opacity: 0.9; }
-        .btn-luci { background-color: #0099cc; }
-        .btn-vwrt { background-color: #3182ce; }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3182ce; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin-bottom: 15px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        p { color: #718096; font-size: 14px; margin-top: 0; }
-        .note { font-size: 12px; color: #999; margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;}
-        @media (prefers-color-scheme: dark) {
-            body { background: #1a1a1a; }
-            #selection-screen { background: #2d2d2d; }
-            h2 { color: #fff; } p { color: #ccc; }
-        }
-    </style>
-    <script>
-        function getLuciLink() { return "/cgi-bin/luci/"; }
-        function getVwrtLink() { return "http://" + window.location.hostname + ":2222"; } 
-        function init() {
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.has('reset')) {
-                localStorage.removeItem('default_dashboard');
-                window.history.replaceState({}, document.title, "/");
-            }
-            const savedChoice = localStorage.getItem('default_dashboard');
-            if (savedChoice) {
-                document.getElementById('loading-screen').style.display = 'flex';
-                document.getElementById('txt-status').innerText = "Đang vào " + (savedChoice === 'luci' ? 'LuCI' : 'VWRT') + "...";
-                setTimeout(function() {
-                    if (savedChoice === 'luci') window.location.href = getLuciLink();
-                    else window.location.href = getVwrtLink();
-                }, 300); 
-            } else {
-                document.getElementById('loading-screen').style.display = 'none';
-                document.getElementById('selection-screen').style.display = 'block';
-            }
-        }
-        function selectDashboard(type) {
-            localStorage.setItem('default_dashboard', type);
-            if (type === 'luci') window.location.href = getLuciLink();
-            else window.location.href = getVwrtLink();
-        }
-        window.onload = init;
-    </script>
-</head>
-<body>
-    <div id="loading-screen"><div class="loader"></div><p id="txt-status">Đang tải...</p></div>
-    <div id="selection-screen">
-        <h2 style="margin-top:0; color:#333;">Dashboard Selection</h2>
-        <p style="margin-bottom:20px;">Chọn giao diện quản lý Router</p>
-        <button class="btn btn-luci" onclick="selectDashboard('luci')">LuCI</button>
-        <button class="btn btn-vwrt" onclick="selectDashboard('vwrt')">VWRT Dashboard</button>
-        <p class="note">Để chọn lại, hãy truy cập: <b>IP-Router/?reset=1</b></p>
-    </div>
-</body>
-</html>
-EOF
 
 echo "[5/5] Cap quyen va don dep..."
 chmod 644 $INDEX_FILE
