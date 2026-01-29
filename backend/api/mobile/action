@@ -35,28 +35,71 @@ end
 -- 3. Logic to Find and Activate Modem
 -- Equivalent to the Shell script logic but safer
 
+-- Helper to check if file exists
+local function file_exists(path)
+    local f = io.open(path, "r")
+    if f then f:close() return true end
+    return false
+end
+
+-- Helper to resolve symlink
+local function resolve_link(path)
+    local handle = io.popen("readlink -f " .. path)
+    local resolved = handle:read("*line")
+    handle:close()
+    return resolved
+end
+
+-- Helper to get parent directory
+local function get_parent_dir(path)
+    return path:match("(.*)/")
+end
+
+-- Helper to find USB Device Root (where idVendor exists)
+local function find_usb_root(path)
+    local curr = path
+    -- Traverse up max 6 levels to find idVendor
+    for i=1, 6 do
+        if not curr or curr == "" or curr == "/" then return nil end
+        if file_exists(curr .. "/idVendor") then
+            return curr
+        end
+        curr = get_parent_dir(curr)
+    end
+    return nil
+end
+
 local function find_modem_device()
-    -- Logic: Find cdc-wdm or ttyUSB
-    local handle = io.popen("find /sys/class/usbmisc/cdc-wdm* -maxdepth 0 2>/dev/null")
-    local dev = handle:read("*line")
+    -- Strategy 1: Look for cdc-wdm (Common for 4G/5G Modems like EM9191)
+    -- Use ls -d to avoid listing directory contents if it is a symlink to dir
+    local handle = io.popen("ls -d /sys/class/usbmisc/cdc-wdm* 2>/dev/null")
+    for line in handle:lines() do
+        local resolved = resolve_link(line)
+        if resolved then
+            local root = find_usb_root(resolved)
+            if root then 
+                handle:close()
+                return root 
+            end
+        end
+    end
     handle:close()
 
-    if not dev then
-        handle = io.popen("find /sys/class/tty/ttyUSB* -maxdepth 0 2>/dev/null")
-        dev = handle:read("*line")
-        handle:close()
+    -- Strategy 2: Look for ttyUSB (Legacy or Serial-only Modems)
+    handle = io.popen("ls -d /sys/class/tty/ttyUSB* 2>/dev/null")
+    for line in handle:lines() do
+        local resolved = resolve_link(line)
+        if resolved then
+            local root = find_usb_root(resolved)
+            if root then 
+                handle:close()
+                return root 
+            end
+        end
     end
+    handle:close()
 
-    if not dev then return nil end
-
-    -- Resolve real path to find modem path (parent with idVendor)
-    -- Simplified: Just use the device path for now as uci expects /dev/... but uci set logic was:
-    -- set network.$TARGET_IFACE.device="$MODEM_PATH"
-    -- The shell script logic was complex in finding specific parent.
-    -- For now, let's look for known device nodes in /dev/
-    
-    local dev_node = dev:gsub("/sys/class/usbmisc/", "/dev/"):gsub("/sys/class/tty/", "/dev/")
-    return dev_node
+    return nil
 end
 
 -- Get Target Interface

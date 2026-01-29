@@ -205,6 +205,16 @@ end
 
 
 -- === MAIN JSON PARSER ===
+-- Helper to find net port
+local function get_net_port(ports)
+    if not ports then return "wwan0" end -- Fallback
+    for _, p in ipairs(ports) do
+        local name = p:match("([%w%d]+)%s*%(net%)")
+        if name then return name end
+    end
+    return "wwan0"
+end
+
 function parse_mmcli_json(raw_json)
     if not raw_json or raw_json == "" then return nil end
     local ok, parsed = pcall(cjson.decode, raw_json)
@@ -226,6 +236,8 @@ function parse_mmcli_json(raw_json)
         final_mode = mode_upper .. " | " .. band_str
     end
     
+    local iface_name = get_net_port(generic.ports)
+
     local result = {
         operator_name = g3pp["operator-name"] or "-",
         operator_mcc = g3pp["operator-code"] and string.sub(g3pp["operator-code"], 1, 3) or "-",
@@ -242,7 +254,8 @@ function parse_mmcli_json(raw_json)
         mtemp = "-", 
         rsrp = "-", rsrq = "-", sinr = "-", rssi = "-",
         conn_time = "-", rx = "0", tx = "0", csq = "0", registration = "1", cell_id = "-", ping = "-",
-        state = m.state or (generic and generic.state) or "unknown"
+        state = m.state or (generic and generic.state) or "unknown",
+        iface = iface_name
     }
     return result
 end
@@ -271,7 +284,7 @@ local function calculate_signal_strength(rsrp)
     return math.floor(percent)
 end
 
-local function apply_auto_led(mode, ping)
+local function apply_auto_led(mode, ping, iface)
     local config_file = "/etc/vwrt_autoled.json"
     local f = io.open(config_file, "r")
     if not f then return end
@@ -282,7 +295,7 @@ local function apply_auto_led(mode, ping)
     if not ok or not config or not config.enabled then return end
 
     local current_status = "No Service"
-    if ping ~= "-" then
+    if ping and ping ~= "" and ping ~= "-" then
         if mode:find("5G") or mode:find("NR") then
             current_status = "5G"
         elseif mode:find("4G") or mode:find("LTE") then
@@ -297,6 +310,10 @@ local function apply_auto_led(mode, ping)
         end
     end
 
+    -- DEBUG LOG
+    os.execute("logger -t VWRT_LED 'Status: " .. current_status .. " | Ping: " .. tostring(ping) .. " | Mode: " .. tostring(mode) .. " | Iface: " .. tostring(iface) .. "'")
+
+    for _, rule in ipairs(config.rules or {}) do
         if rule.led and rule.led ~= "" then
             local led_path = "/sys/class/leds/" .. rule.led
             if rule.led == active_led then
@@ -306,8 +323,12 @@ local function apply_auto_led(mode, ping)
                 
                 if trigger == "netdev" then
                     -- Configure netdev trigger for "Blink on Data"
-                    os.execute("echo 'wwan0' > " .. led_path .. "/device_name")
-                    os.execute("echo 'link tx rx' > " .. led_path .. "/mode")
+                    if iface then
+                        os.execute("echo '" .. iface .. "' > " .. led_path .. "/device_name")
+                    end
+                    os.execute("echo 1 > " .. led_path .. "/link")
+                    os.execute("echo 1 > " .. led_path .. "/rx")
+                    os.execute("echo 1 > " .. led_path .. "/tx")
                 else
                     -- For Static ON
                     os.execute("echo 1 > " .. led_path .. "/brightness")
@@ -318,6 +339,7 @@ local function apply_auto_led(mode, ping)
                 os.execute("echo 0 > " .. led_path .. "/brightness")
             end
         end
+    end
 end
 
 function main()
@@ -384,8 +406,10 @@ function main()
                 if is_sierra then
                     local raw_at = exec("mmcli -m 0 --command='AT!GSTATUS?' 2>/dev/null")
                     if (not raw_at or raw_at == "") then
-                         local f = io.open("/dev/ttyUSB0", "r")
-                         if f then f:close(); raw_at = exec_at_tty("/dev/ttyUSB0", "AT!GSTATUS?"); end
+                         -- Try to find AT port dynamically or fallback
+                         local at_port = get_at_port_from_json(raw_modem) or "/dev/ttyUSB0"
+                         local f = io.open(at_port, "r")
+                         if f then f:close(); raw_at = exec_at_tty(at_port, "AT!GSTATUS?"); end
                     end
                     local at_data = parse_at_gstatus(raw_at)
                     if at_data.mtemp then data_modem.mtemp = at_data.mtemp end
@@ -420,16 +444,17 @@ function main()
                     data_modem.signal = tostring(calculate_signal_strength(data_modem.rsrp))
                 end
 
-                -- 4. Ping (Restored -I wwan0 as requested)
-                local ping_cmd = "ping -c 1 -W 1 -I wwan0 8.8.8.8 2>/dev/null | grep 'time=' | awk -F'time=' '{print $2}' | awk '{print $1}'"
+                -- 4. Ping (Using dynamic iface)
+                local iface = data_modem.iface or "wwan0"
+                local ping_cmd = "ping -c 1 -W 1 -I " .. iface .. " 8.8.8.8 2>/dev/null | grep 'time=' | awk -F'time=' '{print $2}' | awk '{print $1}'"
                 local p = io.popen(ping_cmd)
                 if p then
                     local p_val = p:read("*a"); p:close()
                     if p_val and p_val ~= "" then data_modem.ping = p_val:gsub("\n", "") end
                 end
                 
-                -- 5. Data Usage
-                local net_stats = get_net_stats("wwan0")
+                -- 5. Data Usage (Using dynamic iface)
+                local net_stats = get_net_stats(iface)
                 data_modem.rx = net_stats.rx
                 data_modem.tx = net_stats.tx
 
@@ -438,7 +463,7 @@ function main()
                 os.rename(TEMP_FILE, CACHE_FILE)
 
                 -- 6. Smart LED Logic (LED follows internet ping)
-                pcall(apply_auto_led, data_modem.mode, data_modem.ping)
+                pcall(apply_auto_led, data_modem.mode, data_modem.ping, data_modem.iface)
                 
                 -- 7. Auto Enable if disabled
                 if data_modem.state == "disabled" then
