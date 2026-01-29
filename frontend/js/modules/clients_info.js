@@ -260,11 +260,21 @@ const ClientsModule = {
         return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>`;
     },
 
-    formatSpeed: function(bps) {
-        if (!bps) return "0 B/s";
-        if (bps < 1024) return bps + " B/s";
-        if (bps < 1048576) return (bps / 1024).toFixed(1) + " KB/s";
-        return (bps / 1048576).toFixed(1) + " MB/s";
+    formatDuration: function(seconds) {
+        if (!seconds || seconds <= 0) return "Vừa xong";
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        if (h > 0) return `${h}h ${m}p`;
+        return `${m}p`;
+    },
+
+    formatBytes: function(bytes) {
+        if (!bytes || bytes === 0) return '0 B';
+        const k = 1024;
+        const dm = 1;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
     },
 
     renderClients: function() {
@@ -298,35 +308,35 @@ const ClientsModule = {
             }
 
             return `
-                <div class="client-item">
-                    <div class="c-icon">
+            <div class="card" onclick="ClientsModule.showManageModal('${c.mac}')" style="cursor:pointer; transition:transform 0.2s; background:var(--bg-body); padding:12px; border-radius:12px; border:1px solid transparent; margin-bottom:8px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="position:relative;">
                         ${this.getDeviceIcon(c.name)}
+                        <div style="position:absolute; bottom:-2px; right:-2px; width:10px; height:10px; border-radius:50%; background:${isWifi ? sigColor : '#38a169'}; border:2px solid var(--bg-body);"></div>
                     </div>
-                    
-                    <div class="c-info">
-                        <div class="c-name">${c.name}</div>
-                        <div class="c-meta">
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-weight:700; font-size:14px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.name}</div>
+                        <div style="font-size:11px; color:var(--text-sub); display:flex; gap:6px; margin-top:2px;">
                             <span style="font-family:monospace;">${c.ip}</span>
-                            <span style="width:1px; height:10px; background:var(--border-color);"></span>
-                            <span class="c-tag ${isWifi ? 'tag-wifi' : 'tag-lan'}">
-                                ${isWifi ? (c.type.includes('5G') ? '5GHz' : '2.4GHz') : 'LAN'}
-                            </span>
-                            ${isWifi ? '<span style="width:1px; height:10px; background:var(--border-color);"></span>' + signalIcon : ''}
+                            <span>•</span>
+                            <span>${isWifi ? c.type.replace('WiFi ', '') : 'LAN'}</span>
+                            <span>•</span>
+                            ${signalIcon}
                         </div>
                     </div>
-
-                    <div class="c-stats">
-                        <div style="font-weight:700; font-size:12px; color:var(--text-main);">${VWRT_API.formatBytes(c.total)}</div>
-                        <div class="c-speed" style="display:flex; gap:10px; justify-content:flex-end; font-family:monospace; font-size:10px;">
-                            <span style="color:#48bb78;" title="Tốc độ Tải xuống">↓ ${this.formatSpeed(c.speed_in)}</span>
-                            <span style="color:#3182ce;" title="Tốc độ Tải lên">↑ ${this.formatSpeed(c.speed_out)}</span>
+                    <div style="text-align:right; min-width:80px;">
+                        <div style="font-weight:700; font-size:14px; color:var(--text-main);">
+                            ${c.total > 0 ? this.formatBytes(c.total) : '0 B'}
+                        </div>
+                        <div style="font-size:11px; color:var(--text-sub); margin-top:2px;">
+                            ${this.formatDuration(c.connected_time)}
                         </div>
                     </div>
-
-                    <button class="btn-manage" onclick="ClientsModule.showManageModal('${c.mac}')" title="Cấu hình">
-                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                    </button>
+                    <div style="color:var(--text-sub);">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </div>
                 </div>
+            </div>
             `;
         }).join('');
     },
@@ -409,7 +419,8 @@ const ClientsModule = {
                 .then(res => {
                     if (res.status === 'success') {
                         Toast.show("Thành công! Đang tải lại danh sách...", "success");
-                        Modal.close(); // Close any open modal
+                        // Force close all modals
+                        document.querySelectorAll('.modal-overlay').forEach(e => e.remove());
                         setTimeout(() => this.fetchClients(), 4000);
                         if(this.fetchSettings) this.fetchSettings(); // Refresh settings list if open
                     } else {

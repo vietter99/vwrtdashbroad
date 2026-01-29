@@ -23,14 +23,62 @@ local function read_file(path)
     return s
 end
 
--- 1. Read DHCP Leases (for Hostnames)
+-- 1. Get DHCP Lease Time (default 12h)
+local lease_time_str = exec("uci get dhcp.lan.leasetime") or "12h"
+local function parse_lease_time(s)
+    local val = tonumber(s:match("%d+")) or 12
+    if s:match("h") then return val * 3600
+    elseif s:match("m") then return val * 60
+    elseif s:match("d") then return val * 86400
+    else return val * 3600 end -- default hours
+end
+local lease_duration = parse_lease_time(lease_time_str)
+local current_time = os.time()
+
+-- ensure accounting chain exists
+exec("iptables -N VWRT_ACCT 2>/dev/null")
+exec("iptables -C FORWARD -j VWRT_ACCT 2>/dev/null || iptables -I FORWARD -j VWRT_ACCT")
+
+-- Parse current counters from iptables-save
+-- Format: [packets:bytes] -A VWRT_ACCT -s 1.2.3.4 ...
+local acct_data = {}
+local acct_raw = exec("iptables-save -c | grep VWRT_ACCT")
+if acct_raw then
+    for line in acct_raw:gmatch("[^\r\n]+") do
+        local pkts, bytes, rule = line:match("%[(%d+):(%d+)%]%s+(.*)")
+        if bytes and rule then
+            -- Check if upload or download
+            local src_ip = rule:match("-s%s+(%d+.%d+.%d+.%d+)")
+            local dst_ip = rule:match("-d%s+(%d+.%d+.%d+.%d+)")
+            
+            if src_ip then
+                if not acct_data[src_ip] then acct_data[src_ip] = {rx=0, tx=0} end
+                acct_data[src_ip].tx = tonumber(bytes)
+            elseif dst_ip then
+                if not acct_data[dst_ip] then acct_data[dst_ip] = {rx=0, tx=0} end
+                acct_data[dst_ip].rx = tonumber(bytes)
+            end
+        end
+    end
+end
+
+-- 2. Read DHCP Leases (for Hostnames & Uptime)
 local leases = {}
 local dcontent = read_file("/tmp/dhcp.leases")
 if dcontent then
     for line in dcontent:gmatch("[^\r\n]+") do
+        -- Format: expiry mac ip name clientid
         local ts, mac, ip, name = line:match("(%d+)%s+(%S+)%s+(%S+)%s+(%S+)")
-        if mac and name then
-            leases[mac:lower()] = name
+        if mac and ts then
+            -- Estimate uptime: Duration - (Expiry - Now)
+            local expiry = tonumber(ts)
+            local connected = lease_duration - (expiry - current_time)
+            if connected < 0 then connected = 0 end
+            
+            leases[mac:lower()] = {
+                name = (name ~= "*") and name or "Unknown",
+                uptime = connected
+            }
         end
     end
 end
@@ -136,14 +184,30 @@ if acontent then
             end
             
             if should_include then
+                local info = leases[mac] or {}
+                
+                -- Traffic Accounting Sync
+                local stats = acct_data[ip]
+                if not stats and ip and ip ~= "" then
+                    -- Add rules if missing (Lazy Init)
+                    -- We check acct_data which is snapshot. If not there, we add.
+                    -- Next refresh will show stats.
+                    exec(string.format("iptables -A VWRT_ACCT -s %s -j RETURN", ip))
+                    exec(string.format("iptables -A VWRT_ACCT -d %s -j RETURN", ip))
+                end
+                
+                local rx = stats and stats.rx or 0
+                local tx = stats and stats.tx or 0
+
                 clients[mac] = {
                     ip = ip,
                     mac = mac,
-                    name = leases[mac] or "*",
+                    name = info.name or "*",
                     interface = fdb_iface ~= "" and fdb_iface or dev,
                     type = c_type,
                     signal = c_sig,
-                    rx = 0, tx = 0, total = 0
+                    connected_time = info.uptime or 0,
+                    rx = rx, tx = tx, total = rx + tx
                 }
             end
         end
@@ -151,21 +215,7 @@ if acontent then
 end
 
 
--- 6. Traffic Data from wrtbwmon (if exists)
-local usage_db = read_file("/tmp/usage.db")
-if usage_db then
-    for line in usage_db:gmatch("[^\r\n]+") do
-        local mac, ip, dev, sin, sout, rin, rout, total = line:match("([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)")
-        if mac and clients[mac:lower()] then
-            local c = clients[mac:lower()]
-            c.rx = tonumber(rin) or 0
-            c.tx = tonumber(rout) or 0
-            c.total = tonumber(total) or 0
-            c.speed_in = tonumber(sin) or 0
-            c.speed_out = tonumber(sout) or 0
-        end
-    end
-end
+
 
 local result = {}
 for _, data in pairs(clients) do

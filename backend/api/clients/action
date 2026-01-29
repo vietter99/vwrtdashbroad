@@ -87,25 +87,32 @@ local function handle_block(target_mac, do_block)
         os.execute(string.format("iptables -I VWRT_BLOCK -m mac --mac-source %s -j DROP 2>/dev/null", target_mac))
     else
         -- Remove all instances (loop safe)
-        while os.execute(string.format("iptables -D VWRT_BLOCK -m mac --mac-source %s -j DROP 2>/dev/null", target_mac)) do end
+        -- os.execute returns number in Lua 5.1, so we must compare with 0
+        while (os.execute(string.format("iptables -D VWRT_BLOCK -m mac --mac-source %s -j DROP 2>/dev/null", target_mac)) == 0) do end
     end
 
     -- 2. Wireless Driver Specific (Kick/Auth Block)
+    local should_cleanup = (not do_block) and (#new_list == 0)
+
     uci:foreach("wireless", "wifi-iface", function(s)
         local iface = s[".name"]
         local device = uci:get("wireless", iface, "device")
         local ifname = uci:get("wireless", iface, "ifname") or (device == "MT7981_1_1" and "ra0") or (device == "MT7981_1_2" and "rax0")
         if not ifname then ifname = (iface:find("5g") and "rax0" or "ra0") end
 
-        -- Only run iwpriv on interfaces that support it (ra0 usually)
-        -- For rax0, we rely on iptables blocking since driver is strict
+        -- Driver commands
         if do_block then
-             -- Try to run iwpriv, if it fails (like on 5G), iptables still saves the day
             os.execute(string.format("iwpriv %s set ACLAddEntry='%s' 2>/dev/null", ifname, target_mac))
             os.execute(string.format("iwpriv %s set AccessPolicy=2 2>/dev/null", ifname))
             os.execute(string.format("iwpriv %s set Disconnect='%s' 2>/dev/null", ifname, target_mac))
         else
-            os.execute(string.format("iwpriv %s set ACLDelEntry='%s' 2>/dev/null", ifname, target_mac))
+            if should_cleanup then
+                -- If list is empty, fully open the gates to prevent stale blocks
+                os.execute(string.format("iwpriv %s set AccessPolicy=0 2>/dev/null", ifname))
+                os.execute(string.format("iwpriv %s set ACLClearAll=1 2>/dev/null", ifname))
+            else
+                os.execute(string.format("iwpriv %s set ACLDelEntry='%s' 2>/dev/null", ifname, target_mac))
+            end
         end
     end)
     
