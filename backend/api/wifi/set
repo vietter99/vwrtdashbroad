@@ -1,6 +1,10 @@
 #!/usr/bin/lua
 
 local cjson = require "cjson"
+
+-- Add project path to package.path
+package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+
 local csrf = require "lib.csrf"
 
 local len = tonumber(os.getenv("CONTENT_LENGTH") or 0)
@@ -10,7 +14,8 @@ local input = cjson.decode(content)
 print("Content-type: application/json\n\n")
 
 -- 1. CSRF Check
-if not csrf.validate_token(csrf.get_token_from_request()) then
+local token = csrf.get_token_from_request() or csrf.get_token_from_body(input)
+if not csrf.validate_token(token) then
     print('{"status": "error", "message": "CSRF Token không hợp lệ!"}')
     os.exit()
 end

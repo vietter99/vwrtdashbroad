@@ -276,9 +276,22 @@ openEditModal: function(dataStr) {
         if(typeof Toast !== 'undefined') Toast.show("Đang lưu & Khởi động lại Wifi...", "info");
         this.closeEditModal();
 
+        // Prepare Payload with CSRF
+        const payload = { section, device, ssid, key, channel, htmode, enabled };
+        if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
+            payload.csrf_token = VWRT_API.csrfToken;
+        }
+
+        // Prepare Headers with CSRF
+        const headers = {'Content-Type': 'application/json'};
+        if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
+            headers['X-CSRF-Token'] = VWRT_API.csrfToken;
+        }
+
         fetch('/cgi-bin/wifi/set', {
             method: 'POST',
-            body: JSON.stringify({ section, device, ssid, key, channel, htmode, enabled })
+            headers: headers,
+            body: JSON.stringify(payload)
         })
         .then(res => res.json())
         .then(data => {
