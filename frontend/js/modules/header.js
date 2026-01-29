@@ -201,7 +201,18 @@ updateModemInfo: function() {
         statusDiv.style.color = 'var(--text-sub)';
         statusDiv.innerText = "Đang tìm thiết bị & Khởi động lại...";
 
-        fetch('/cgi-bin/mobile/action')
+        const payload = { action: 'restart' };
+        const headers = { 'Content-Type': 'application/json' };
+        if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
+            payload.csrf_token = VWRT_API.csrfToken;
+            headers['X-CSRF-Token'] = VWRT_API.csrfToken;
+        }
+
+        fetch('/cgi-bin/mobile/action', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(payload)
+        })
             .then(res => res.json())
             .then(data => {
                 if(data.status === 'success') {

@@ -2,6 +2,8 @@
 -- AdBlock Fast Delete List API
 -- Params: name (string)
 
+package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+
 local json = require("luci.jsonc")
 local uci = require("luci.model.uci").cursor()
 local csrf = require("lib.csrf")
@@ -9,23 +11,18 @@ local csrf = require("lib.csrf")
 print("Content-Type: application/json")
 print("")
 
+-- Parse POST data once
+local input_data = parse_post_data()
+
 -- CSRF Check
-if not csrf.validate_token(csrf.get_token_from_request()) then
+local token = csrf.get_token_from_request() or csrf.get_token_from_body(input_data)
+if not csrf.validate_token(token) then
     print(json.stringify({ success = false, error = "CSRF Token không hợp lệ!" }))
     os.exit()
 end
 
-local function parse_post_data()
-    local content_length = tonumber(os.getenv("CONTENT_LENGTH") or 0)
-    if content_length > 0 then
-        local raw = io.read(content_length)
-        return json.parse(raw) or {}
-    end
-    return {}
-end
-
 local function delete_list()
-    local data = parse_post_data()
+    local data = input_data
     
     if not data.url or data.url == "" then
         print(json.stringify({ success = false, error = "URL danh sách không hợp lệ." }))

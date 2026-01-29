@@ -206,6 +206,9 @@ openEditModal: function(dataStr) {
             modeOptions = `<option value="HT20">HT20 (Mặc định)</option>`;
         }
 
+        // SINGLETON: Close any existing modals first to avoid stacking
+        document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
+
         const modalHtml = `
             <div class="modal-overlay active" id="modal-wifi-edit" style="z-index: 99999;">
                 <div class="modal-box" style="max-width: 450px; text-align:left;">

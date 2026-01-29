@@ -134,7 +134,20 @@ const SidebarModule = {
 
     doReboot: function() {
         if(typeof Toast !== 'undefined') Toast.show("Đang gửi lệnh khởi động lại...", "warning");
-        fetch('/cgi-bin/system/action?action=reboot')
+        
+        const headers = { 'Content-Type': 'application/json' };
+        const payload = { action: 'reboot' };
+
+        if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
+            payload.csrf_token = VWRT_API.csrfToken;
+            headers['X-CSRF-Token'] = VWRT_API.csrfToken;
+        }
+
+        fetch('/cgi-bin/system/action', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(payload)
+        })
         .then(res => res.json())
         .catch(() => {}); // Ignore error as connection will drop
     }

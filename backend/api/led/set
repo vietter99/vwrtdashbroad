@@ -2,23 +2,37 @@
 -- LED Config Set API
 -- Params: name (string), brightness (0/1), trigger (string)
 
+package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+
 local json = require("luci.jsonc")
 local fs = require("nixio.fs")
 
 print("Content-Type: application/json")
 print("")
 
-local function parse_post_data()
-    local content_length = tonumber(os.getenv("CONTENT_LENGTH") or 0)
-    if content_length > 0 then
-        local raw = io.read(content_length)
+local csrf = require "lib.csrf"
+
+local function get_input()
+    local len = tonumber(os.getenv("CONTENT_LENGTH") or 0)
+    if len > 0 then
+        local raw = io.read(len)
         return json.parse(raw) or {}
     end
     return {}
 end
 
+-- Parse POST data once
+local input_data = get_input()
+
+-- CSRF Check
+local token = csrf.get_token_from_request() or csrf.get_token_from_body(input_data)
+if not csrf.validate_token(token) then
+    print(json.stringify({ success = false, error = "CSRF Token không hợp lệ!" }))
+    os.exit()
+end
+
 local function set_led()
-    local data = parse_post_data()
+    local data = input_data
     local led_path = "/sys/class/leds"
     
     if not data.name or data.name == "" then

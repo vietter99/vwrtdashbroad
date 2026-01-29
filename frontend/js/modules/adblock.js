@@ -298,11 +298,20 @@ const AdBlockModule = {
             saveBtn.disabled = true;
             saveBtn.innerHTML = '⏳ Đang lưu...';
         }
+
+        // Prepare CSRF
+        const payload = { enabled: enabled, lists: lists };
+        const headers = { 'Content-Type': 'application/json' };
+        
+        if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
+            payload.csrf_token = VWRT_API.csrfToken;
+            headers['X-CSRF-Token'] = VWRT_API.csrfToken;
+        }
         
         fetch('/cgi-bin/adblock/set', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ enabled: enabled, lists: lists })
+            headers: headers,
+            body: JSON.stringify(payload)
         })
         .then(res => res.json())
         .then(data => {

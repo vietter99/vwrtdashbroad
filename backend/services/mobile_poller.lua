@@ -297,20 +297,27 @@ local function apply_auto_led(mode, ping)
         end
     end
 
-    for _, rule in ipairs(config.rules or {}) do
         if rule.led and rule.led ~= "" then
             local led_path = "/sys/class/leds/" .. rule.led
             if rule.led == active_led then
                 -- Match: Apply trigger
-                os.execute("echo '" .. (rule.trigger or "default-on") .. "' > " .. led_path .. "/trigger")
-                os.execute("echo 1 > " .. led_path .. "/brightness")
+                local trigger = rule.trigger or "default-on"
+                os.execute("echo '" .. trigger .. "' > " .. led_path .. "/trigger")
+                
+                if trigger == "netdev" then
+                    -- Configure netdev trigger for "Blink on Data"
+                    os.execute("echo 'wwan0' > " .. led_path .. "/device_name")
+                    os.execute("echo 'link tx rx' > " .. led_path .. "/mode")
+                else
+                    -- For Static ON
+                    os.execute("echo 1 > " .. led_path .. "/brightness")
+                end
             else
                 -- Not match: Turn off
                 os.execute("echo 'none' > " .. led_path .. "/trigger")
                 os.execute("echo 0 > " .. led_path .. "/brightness")
             end
         end
-    end
 end
 
 function main()

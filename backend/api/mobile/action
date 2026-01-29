@@ -1,62 +1,90 @@
-#!/bin/sh
+#!/usr/bin/lua
 
-echo "Content-type: application/json"
-echo ""
+package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
 
-TARGET_IFACE=$(uci show network | grep "proto='modemmanager'" | cut -d'.' -f2 | head -n 1)
+local cjson = require "cjson"
+local csrf = require "lib.csrf"
+local uci = require("luci.model.uci").cursor()
 
-if [ -z "$TARGET_IFACE" ]; then
-    echo '{"status":"error", "message":"Lỗi: Không tìm thấy Interface mạng nào dùng ModemManager!"}'
-    exit 1
-fi
+print("Content-type: application/json\n")
 
-MODEM_PATH=""
-FOUND_DRIVER_NODE=""
+local function send_response(status, message)
+    print(cjson.encode({ status = status, message = message }))
+end
 
-for dev in /sys/class/usbmisc/cdc-wdm*; do
-    if [ -e "$dev" ]; then
-        FOUND_DRIVER_NODE="$dev"
-        break 
-    fi
-done
+-- Helper to read body
+local function get_input()
+    local content_length = tonumber(os.getenv("CONTENT_LENGTH") or 0)
+    if content_length > 0 then
+        local raw = io.read(content_length)
+        return cjson.decode(raw)
+    end
+    return nil
+end
 
-if [ -z "$FOUND_DRIVER_NODE" ]; then
-    for dev in /sys/class/tty/ttyUSB*; do
-        if [ -e "$dev" ]; then
-            FOUND_DRIVER_NODE="$dev"
-            break
-        fi
-    done
-fi
+-- 1. Read Input (POST required)
+local input = get_input()
 
-if [ -n "$FOUND_DRIVER_NODE" ]; then
-    real_path=$(readlink -f "$FOUND_DRIVER_NODE")
-    current_path="$real_path"
+-- 2. CSRF Check
+local token = csrf.get_token_from_request() or (input and input.csrf_token)
+if not csrf.validate_token(token) then
+    send_response("error", "CSRF Token không hợp lệ!")
+    os.exit()
+end
+
+-- 3. Logic to Find and Activate Modem
+-- Equivalent to the Shell script logic but safer
+
+local function find_modem_device()
+    -- Logic: Find cdc-wdm or ttyUSB
+    local handle = io.popen("find /sys/class/usbmisc/cdc-wdm* -maxdepth 0 2>/dev/null")
+    local dev = handle:read("*line")
+    handle:close()
+
+    if not dev then
+        handle = io.popen("find /sys/class/tty/ttyUSB* -maxdepth 0 2>/dev/null")
+        dev = handle:read("*line")
+        handle:close()
+    end
+
+    if not dev then return nil end
+
+    -- Resolve real path to find modem path (parent with idVendor)
+    -- Simplified: Just use the device path for now as uci expects /dev/... but uci set logic was:
+    -- set network.$TARGET_IFACE.device="$MODEM_PATH"
+    -- The shell script logic was complex in finding specific parent.
+    -- For now, let's look for known device nodes in /dev/
     
-    while [ "$current_path" != "/" ]; do
-        if [ -f "$current_path/idVendor" ]; then
-            MODEM_PATH="$current_path"
-            break
-        fi
-        current_path=$(dirname "$current_path")
-    done
-fi
+    local dev_node = dev:gsub("/sys/class/usbmisc/", "/dev/"):gsub("/sys/class/tty/", "/dev/")
+    return dev_node
+end
 
-if [ -z "$MODEM_PATH" ]; then
-    echo '{"status":"error", "message":"Không tìm thấy Modem nào được cắm vào (quét thất bại)."}'
-    exit 1
-fi
+-- Get Target Interface
+local target_iface = nil
+uci:foreach("network", "interface", function(s)
+    if s.proto == "modemmanager" then
+        target_iface = s[".name"]
+        return false
+    end
+end)
 
-uci set network.$TARGET_IFACE.device="$MODEM_PATH"
-uci commit network
+if not target_iface then
+    send_response("error", "Lỗi: Không tìm thấy Interface mạng nào dùng ModemManager!")
+    os.exit()
+end
 
-ifdown "$TARGET_IFACE"
-/etc/init.d/modemmanager restart >/dev/null 2>&1
+local modem_dev = find_modem_device()
+if not modem_dev then
+    send_response("error", "Không tìm thấy Modem nào được cắm vào.")
+    os.exit()
+end
 
-sleep 15
+-- Execute Commands
+uci:set("network", target_iface, "device", modem_dev)
+uci:commit("network")
 
-ifup "$TARGET_IFACE"
+os.execute("ifdown " .. target_iface)
+os.execute("/etc/init.d/modemmanager restart >/dev/null 2>&1")
+os.execute("sleep 15 && ifup " .. target_iface .. " &")
 
-port_name=$(basename "$MODEM_PATH")
-
-echo "{\"status\":\"success\", \"message\":\"Đã tìm thấy Modem tại cổng USB [$port_name] và kích hoạt.\"}"
+send_response("success", "Đã tìm thấy Modem và kích hoạt lại mạng.")

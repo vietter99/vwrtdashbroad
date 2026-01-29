@@ -6,23 +6,27 @@ package.path = script_path .. "?.lua;" .. package.path
 
 local json = require "luci.jsonc"
 
-function read_post_data()
-    local len = os.getenv("CONTENT_LENGTH")
-    if len then 
-        return io.read(tonumber(len)) 
-    else
-        return io.read("*a")
+-- Helper: Read POST data safely
+local function get_input()
+    local len = tonumber(os.getenv("CONTENT_LENGTH") or 0)
+    if len > 0 then
+        local raw = io.read(len)
+        return json.parse(raw) or {}
     end
+    return {}
 end
+
+local input_data = get_input()
 
 -- ===== CSRF PROTECTION =====
 local csrf = require "lib.csrf"
-local provided_token = csrf.get_token_from_request()
+local token = csrf.get_token_from_request() or csrf.get_token_from_body(input_data)
 
-if not csrf.validate_token(provided_token) then
+if not csrf.validate_token(token) then
     print(json.stringify({status="error", message="CSRF token không hợp lệ hoặc thiếu"}))
     os.exit()
 end
+
 
 -- ===== RATE LIMITING =====
 local rate_limit = require "lib.rate_limit"
@@ -40,13 +44,9 @@ if not allowed then
 end
 
 -- ===== INPUT VALIDATION =====
-local input = read_post_data()
-if not input or input == "" then
-    print(json.stringify({status="error", message="No input data"}))
-    os.exit()
-end
+-- input_data is already parsed JSON table
+local data = input_data
 
-local data = json.parse(input)
 if not data or not data.number or not data.text then
     print(json.stringify({status="error", message="Missing number or text"}))
     os.exit()

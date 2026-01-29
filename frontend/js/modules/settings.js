@@ -145,6 +145,9 @@ const SettingsModule = {
         
         htmlContent += `</div>`;
 
+        // SINGLETON: Clean up old modals
+        document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
+
         const modalHtml = `
             <div class="modal-overlay active" id="modal-update" style="z-index:99999;">
                 <div class="modal-box" style="max-width:400px;">
@@ -228,7 +231,20 @@ const SettingsModule = {
 
     sendAction: function(action, param = "") {
         if (typeof Toast !== 'undefined') Toast.show("Đang xử lý...", "info");
-        fetch(`/cgi-bin/system/action?action=${action}&param=${param}`)
+        
+        // Prepare Payload & Headers
+        const payload = { action: action, param: param };
+        const headers = { 'Content-Type': 'application/json' };
+        if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
+            payload.csrf_token = VWRT_API.csrfToken;
+            headers['X-CSRF-Token'] = VWRT_API.csrfToken;
+        }
+
+        fetch('/cgi-bin/system/action', {
+            method: 'POST', 
+            headers: headers,
+            body: JSON.stringify(payload)
+        })
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
@@ -242,6 +258,9 @@ const SettingsModule = {
 
     showPasswordModal: function() {
         this.closePopup();
+        // SINGLETON: Clean up old modals
+        document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
+
         const html = `
             <div class="modal-overlay active" id="modal-passwd" style="z-index:99999;">
                 <div class="modal-box" style="max-width:350px;">
@@ -301,9 +320,17 @@ const SettingsModule = {
         if(typeof Toast !== 'undefined') Toast.show("Đang đổi mật khẩu...", "info");
         document.getElementById('modal-passwd').remove();
 
+        const payload = { username: "root", password: pass };
+        const headers = { 'Content-Type': 'application/json' };
+        if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
+            payload.csrf_token = VWRT_API.csrfToken;
+            headers['X-CSRF-Token'] = VWRT_API.csrfToken;
+        }
+
         fetch('/cgi-bin/system/passwd', {
             method: 'POST',
-            body: JSON.stringify({ username: "root", password: pass })
+            headers: headers,
+            body: JSON.stringify(payload)
         })
         .then(res => res.json())
         .then(data => {

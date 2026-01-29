@@ -6,8 +6,8 @@ const SmsModule = {
     },
 
     openCompose: function() {
-        const oldModal = document.getElementById('modal-sms-compose');
-        if (oldModal) oldModal.remove();
+        // SINGLETON: Clean up old modals
+        document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
 
         const modalHtml = `
             <div class="modal-overlay active" id="modal-sms-compose" style="z-index: 1001;">
@@ -199,8 +199,8 @@ const SmsModule = {
     },
 
     renderFullTable: function(messages) {
-        const oldModal = document.getElementById('modal-sms-full');
-        if (oldModal) oldModal.remove();
+        // SINGLETON: Clean up old modals
+        document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
 
         let rows = '';
         if (!messages || messages.length === 0) {

@@ -101,6 +101,9 @@ const RebootScheduleModule = {
     },
 
     showAddForm: function() {
+        // SINGLETON: Clean up old modals
+        document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
+
         const html = `
             <div class="modal-overlay active" id="modal-add-sch" style="z-index:9999;">
                 <div class="modal-box" style="max-width:320px;">
@@ -165,6 +168,9 @@ const RebootScheduleModule = {
     },
 
     deleteSchedule: function(id) {
+        // SINGLETON: Clean up old modals
+        document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
+
         // Tạo popup xác nhận riêng (không dùng Modal chung để tránh conflict)
         const html = `
             <div class="modal-overlay active" id="modal-confirm-delete" style="z-index:10000;">

@@ -1,29 +1,43 @@
 #!/usr/bin/lua
 
-local has_cjson, cjson = pcall(require, "cjson")
+package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
 
-function send_response(status, message)
-    print("Content-type: application/json\n")
-    if has_cjson then
-        print(cjson.encode({ status = status, message = message }))
-    else
-        print(string.format('{"status":"%s", "message":"%s"}', status, message))
-    end
-end
+local cjson = require "cjson"
+local csrf = require "lib.csrf"
 
-function get_query_param(key)
-    local query = os.getenv("QUERY_STRING") or ""
-    for k, v in string.gmatch(query, "([^&=]+)=([^&=]*)") do
-        if k == key then 
-            v = string.gsub(v, "%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end)
-            return v 
-        end
+print("Content-type: application/json\n")
+
+-- Helper to read body
+local function get_input()
+    local content_length = tonumber(os.getenv("CONTENT_LENGTH") or 0)
+    if content_length > 0 then
+        local raw = io.read(content_length)
+        return cjson.decode(raw)
     end
     return nil
 end
 
-local action = get_query_param("action")
-local param = get_query_param("param")
+local function send_response(status, message)
+    print(cjson.encode({ status = status, message = message }))
+end
+
+-- 1. Read Input
+local input = get_input()
+if not input or not input.action then
+    send_response("error", "Invalid Request: Missing Action")
+    os.exit()
+end
+
+-- 2. CSRF Check
+local token = csrf.get_token_from_request() or input.csrf_token
+if not csrf.validate_token(token) then
+    send_response("error", "CSRF Token không hợp lệ!")
+    os.exit()
+end
+
+-- 3. Process Action
+local action = input.action
+local param = input.param
 
 if action == "reboot" then
     send_response("success", "Thiết bị đang khởi động lại...")

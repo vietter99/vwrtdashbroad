@@ -106,6 +106,9 @@ const Modal = {
 
     // Custom content modal (giữ lại cho các trường hợp đặc biệt như form)
     show: function(options) {
+        // SINGLETON: Close any existing modals first to avoid stacking
+        document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
+
         const id = 'modal-custom-' + Date.now();
         const showIcon = options.showIcon !== false;
         const icon = showIcon ? (this.icons[options.type] || '') : '';

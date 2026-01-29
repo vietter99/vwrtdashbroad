@@ -1,6 +1,8 @@
 #!/usr/bin/lua
 -- AdBlock Fast Set API
--- Params: enabled (bool), lists (array of enabled list names)
+-- Rewrite to fix syntax/logic errors and add debug logging
+
+package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
 
 local json = require("luci.jsonc")
 local uci = require("luci.model.uci").cursor()
@@ -9,31 +11,35 @@ local csrf = require("lib.csrf")
 print("Content-Type: application/json")
 print("")
 
--- CSRF Check
-if not csrf.validate_token(csrf.get_token_from_request()) then
-    print(json.stringify({ success = false, error = "CSRF Token không hợp lệ!" }))
-    os.exit()
-end
-
-local function urldecode(str)
-    str = str:gsub('+', ' ')
-    str = str:gsub('%%(%x%x)', function(h)
-        return string.char(tonumber(h, 16))
-    end)
-    return str
-end
-
-local function parse_post_data()
-    local content_length = tonumber(os.getenv("CONTENT_LENGTH") or 0)
-    if content_length > 0 then
-        local raw = io.read(content_length)
+local function get_input()
+    local len = tonumber(os.getenv("CONTENT_LENGTH") or 0)
+    if len > 0 then
+        local raw = io.read(len)
         return json.parse(raw) or {}
     end
     return {}
 end
 
+-- 1. Read Input once
+local input_data = get_input()
+
+-- 2. Validate CSRF
+local header_token = csrf.get_token_from_request()
+local body_token = csrf.get_token_from_body(input_data)
+local token = header_token or body_token
+
+if not csrf.validate_token(token) then
+    -- Debug Message
+    local debug_msg = string.format("Invalid Token. Header: [%s], Body: [%s], Expected: [See Server]", 
+        tostring(header_token), tostring(body_token))
+    
+    print(json.stringify({ success = false, error = "Lỗi CSRF! " .. debug_msg }))
+    os.exit()
+end
+
+-- 3. Main Logic
 local function set_config()
-    local data = parse_post_data()
+    local data = input_data
     
     -- Set global enabled status
     if data.enabled ~= nil then
@@ -43,18 +49,14 @@ local function set_config()
     
     -- Update list enabled status
     if data.lists and type(data.lists) == "table" then
-        -- Build a set of enabled list URLs
         local enabled_set = {}
         for _, url in ipairs(data.lists) do
             enabled_set[url] = true
         end
         
-        -- Iterate through all lists and update enabled status
         uci:foreach("adblock-fast", "file_url", function(s)
             local url = s.url or ""
             local should_enable = enabled_set[url] and "1" or "0"
-            
-            -- Get the section name (e.g. @file_url[0])
             uci:set("adblock-fast", s[".name"], "enabled", should_enable)
         end)
     end
@@ -62,13 +64,12 @@ local function set_config()
     -- Commit changes
     uci:commit("adblock-fast")
     
-    -- Reload/restart adblock-fast service
+    -- Reload service
     os.execute("/etc/init.d/adblock-fast reload >/dev/null 2>&1 &")
     
-    print(json.stringify({ success = true, message = "Cấu hình đã được lưu." }))
+    print(json.stringify({ success = true, message = "Đã lưu cấu hình thành công." }))
 end
 
--- Handle request
 local ok, err = pcall(set_config)
 if not ok then
     print(json.stringify({ success = false, error = tostring(err) }))

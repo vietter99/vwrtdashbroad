@@ -99,7 +99,7 @@ const LedModule = {
                         Khi bật Auto, hệ thống sẽ tự động gán bóng đèn theo loại mạng di động.
                     </div>
                     
-                    ${["5G", "4G", "No Service"].map(status => {
+                    ${["5G", "4G"].map(status => {
                         const rule = findRule(status);
                         let ledOptions = `<option value="">-- Không dùng --</option>` + leds.map(l => {
                             return `<option value="${l.name}" ${rule.led === l.name ? 'selected' : ''}>${getDisplayName(l.name)}</option>`;
@@ -108,11 +108,17 @@ const LedModule = {
                         return `
                             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; background:white; padding:10px; border-radius:8px;">
                                 <div style="font-size:13px; font-weight:600; min-width:90px;">
-                                    ${status === 'No Service' ? '🔴 Mất mạng' : (status === '5G' ? '⚡ Mạng 5G' : '📱 Mạng 4G')}
+                                    ${status === '5G' ? '⚡ Mạng 5G' : '📱 Mạng 4G'}
                                 </div>
-                                <select class="auto-led-mapping-select" data-status="${status}" style="padding:5px; font-size:12px; border-radius:5px; border:1px solid #ddd; width:160px;">
-                                    ${ledOptions}
-                                </select>
+                                <div style="display:flex; gap:5px;">
+                                    <select class="auto-led-mapping-select" data-status="${status}" style="padding:5px; font-size:12px; border-radius:5px; border:1px solid #ddd; width:130px;">
+                                        ${ledOptions}
+                                    </select>
+                                    <select class="auto-led-effect-select" data-status="${status}" style="padding:5px; font-size:12px; border-radius:5px; border:1px solid #ddd; width:100px;">
+                                        <option value="default-on" ${rule.trigger === 'default-on' ? 'selected' : ''}>Sáng tĩnh</option>
+                                        <option value="netdev" ${rule.trigger === 'netdev' ? 'selected' : ''}>Nháy data</option>
+                                    </select>
+                                </div>
                             </div>
                         `;
                     }).join('')}
@@ -187,11 +193,20 @@ const LedModule = {
                         enabled: autoEnable.checked,
                         rules: []
                     };
-                    document.querySelectorAll('.auto-led-mapping-select').forEach(sel => {
+                    const mapSelects = document.querySelectorAll('.auto-led-mapping-select');
+                    const effectSelects = document.querySelectorAll('.auto-led-effect-select');
+
+                    mapSelects.forEach((sel, index) => {
+                        const status = sel.getAttribute('data-status');
+                        const led = sel.value;
+                        // Find corresponding effect select (assuming same order)
+                        const effectSel = effectSelects[index]; 
+                        const trigger = effectSel ? effectSel.value : 'default-on';
+
                         config.rules.push({
-                            status: sel.getAttribute('data-status'),
-                            led: sel.value,
-                            trigger: 'default-on'
+                            status: status,
+                            led: led,
+                            trigger: trigger
                         });
                     });
                     LedModule.saveAutoConfig(config);
@@ -202,10 +217,19 @@ const LedModule = {
 
     saveAutoConfig: function(config) {
         if(typeof Toast !== 'undefined') Toast.show("Đang lưu cấu hình Auto...", "info");
+        
+        const payload = JSON.parse(JSON.stringify(config)); // clone
+        const headers = { 'Content-Type': 'application/json' };
+        
+        if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
+            payload.csrf_token = VWRT_API.csrfToken;
+            headers['X-CSRF-Token'] = VWRT_API.csrfToken;
+        }
+
         fetch('/cgi-bin/led/auto_set', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(config)
+            headers: headers,
+            body: JSON.stringify(payload)
         })
         .then(res => res.json())
         .then(data => {
@@ -217,10 +241,19 @@ const LedModule = {
     
     setLed: function(name, brightness, trigger) {
         if(typeof Toast !== 'undefined') Toast.show("Đang lưu...", "info");
+        
+        const payload = { name: name, brightness: brightness, trigger: trigger };
+        const headers = { 'Content-Type': 'application/json' };
+        
+        if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
+            payload.csrf_token = VWRT_API.csrfToken;
+            headers['X-CSRF-Token'] = VWRT_API.csrfToken;
+        }
+
         fetch('/cgi-bin/led/set', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name, brightness: brightness, trigger: trigger })
+            headers: headers,
+            body: JSON.stringify(payload)
         })
         .then(res => res.json())
         .then(data => {

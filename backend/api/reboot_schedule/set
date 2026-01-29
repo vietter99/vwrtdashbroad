@@ -11,9 +11,10 @@ local function log(msg)
 end
 log("Script started")
 
-local json = require("luci.jsonc")
 local script_path = "/www/vwrt/cgi-bin/"
 package.path = script_path .. "?.lua;" .. package.path
+
+local json = require("luci.jsonc")
 local csrf = require("lib.csrf")
 
 print("Content-Type: application/json")
