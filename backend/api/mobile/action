@@ -8,8 +8,8 @@ local uci = require("luci.model.uci").cursor()
 
 print("Content-type: application/json\n")
 
-local function send_response(status, message)
     print(cjson.encode({ status = status, message = message }))
+    io.flush()
 end
 
 -- Helper to read body
@@ -44,35 +44,16 @@ end
 
 -- Helper to resolve symlink
 local function resolve_link(path)
-    local handle = io.popen("readlink -f " .. path)
+    local handle = io.popen("/usr/bin/readlink -f " .. path)
     local resolved = handle:read("*line")
     handle:close()
     return resolved
 end
 
--- Helper to get parent directory
-local function get_parent_dir(path)
-    return path:match("(.*)/")
-end
-
--- Helper to find USB Device Root (where idVendor exists)
-local function find_usb_root(path)
-    local curr = path
-    -- Traverse up max 6 levels to find idVendor
-    for i=1, 6 do
-        if not curr or curr == "" or curr == "/" then return nil end
-        if file_exists(curr .. "/idVendor") then
-            return curr
-        end
-        curr = get_parent_dir(curr)
-    end
-    return nil
-end
-
+-- Helper to find modem device using absolute paths
 local function find_modem_device()
-    -- Strategy 1: Look for cdc-wdm (Common for 4G/5G Modems like EM9191)
-    -- Use ls -d to avoid listing directory contents if it is a symlink to dir
-    local handle = io.popen("ls -d /sys/class/usbmisc/cdc-wdm* 2>/dev/null")
+    -- Strategy 1: Look for cdc-wdm
+    local handle = io.popen("/bin/ls -d /sys/class/usbmisc/cdc-wdm* 2>/dev/null")
     for line in handle:lines() do
         local resolved = resolve_link(line)
         if resolved then
@@ -85,8 +66,8 @@ local function find_modem_device()
     end
     handle:close()
 
-    -- Strategy 2: Look for ttyUSB (Legacy or Serial-only Modems)
-    handle = io.popen("ls -d /sys/class/tty/ttyUSB* 2>/dev/null")
+    -- Strategy 2: Look for ttyUSB
+    handle = io.popen("/bin/ls -d /sys/class/tty/ttyUSB* 2>/dev/null")
     for line in handle:lines() do
         local resolved = resolve_link(line)
         if resolved then
