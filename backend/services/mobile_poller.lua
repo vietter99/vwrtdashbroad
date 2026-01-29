@@ -342,6 +342,69 @@ local function apply_auto_led(mode, ping, iface)
     end
 end
 
+-- === MODEM AUTO-HEALING ===
+local function file_exists(path)
+    local f = io.open(path, "r")
+    if f then f:close() return true end
+    return false
+end
+
+local function resolve_link(path)
+    local handle = io.popen("/usr/bin/readlink -f " .. path)
+    local resolved = handle:read("*line")
+    handle:close()
+    return resolved
+end
+
+local function find_usb_root(path)
+    local curr = path
+    for i=1, 6 do
+        if not curr or curr == "" or curr == "/" then return nil end
+        if file_exists(curr .. "/idVendor") then return curr end
+        curr = curr:match("(.*)/")
+    end
+    return nil
+end
+
+local function find_modem_device()
+    -- Strategy 1: cdc-wdm
+    local handle = io.popen("/bin/ls -d /sys/class/usbmisc/cdc-wdm* 2>/dev/null")
+    for line in handle:lines() do
+        local res = resolve_link(line)
+        if res then
+            local root = find_usb_root(res)
+            if root then handle:close(); return root end
+        end
+    end
+    handle:close()
+
+    -- Strategy 2: ttyUSB
+    handle = io.popen("/bin/ls -d /sys/class/tty/ttyUSB* 2>/dev/null")
+    for line in handle:lines() do
+        local res = resolve_link(line)
+        if res then
+            local root = find_usb_root(res)
+            if root then handle:close(); return root end
+        end
+    end
+    handle:close()
+    return nil
+end
+
+local function check_and_fix_modem_config()
+    local current_dev = exec("uci -q get network.5G.device"):gsub("\n", "")
+    if current_dev == "" or current_dev == "nil" then
+        local detected = find_modem_device()
+        if detected then
+            os.execute("logger -t VWRT_POLLER 'Missing device config. Auto-fixing to: " .. detected .. "'")
+            os.execute("uci set network.5G.device='" .. detected .. "' && uci commit network && /etc/init.d/network reload")
+            -- Wait for network to settle
+            os.execute("sleep 5")
+        end
+    end
+end
+-- ===========================
+
 function main()
     -- Restore LED Config
     local function restore_leds() 
@@ -364,6 +427,9 @@ function main()
         end
     end
     pcall(restore_leds)
+
+    -- Initial check and fix
+    pcall(check_and_fix_modem_config)
 
     exec("mmcli -m 0 --signal-setup=1")
 

@@ -6,10 +6,16 @@ local cjson = require "cjson"
 local csrf = require "lib.csrf"
 local uci = require("luci.model.uci").cursor()
 
-print("Content-type: application/json\n")
+os.execute("logger -t VWRT_ACTION 'Action script started'")
 
-    print(cjson.encode({ status = status, message = message }))
+print("Content-Type: application/json")
+print("") -- Extra newline to end headers
+
+local function send_response(status, message)
+    local resp = cjson.encode({ status = status, message = message })
+    print(resp)
     io.flush()
+    os.execute("logger -t VWRT_ACTION 'Sent response: " .. status .. "'")
 end
 
 -- Helper to read body
@@ -21,19 +27,6 @@ local function get_input()
     end
     return nil
 end
-
--- 1. Read Input (POST required)
-local input = get_input()
-
--- 2. CSRF Check
-local token = csrf.get_token_from_request() or (input and input.csrf_token)
-if not csrf.validate_token(token) then
-    send_response("error", "CSRF Token không hợp lệ!")
-    os.exit()
-end
-
--- 3. Logic to Find and Activate Modem
--- Equivalent to the Shell script logic but safer
 
 -- Helper to check if file exists
 local function file_exists(path)
@@ -48,6 +41,25 @@ local function resolve_link(path)
     local resolved = handle:read("*line")
     handle:close()
     return resolved
+end
+
+-- Helper to get parent directory
+local function get_parent_dir(path)
+    return path:match("(.*)/")
+end
+
+-- Helper to find USB Device Root (where idVendor exists)
+local function find_usb_root(path)
+    local curr = path
+    -- Traverse up max 6 levels to find idVendor
+    for i=1, 6 do
+        if not curr or curr == "" or curr == "/" then return nil end
+        if file_exists(curr .. "/idVendor") then
+            return curr
+        end
+        curr = get_parent_dir(curr)
+    end
+    return nil
 end
 
 -- Helper to find modem device using absolute paths
@@ -83,32 +95,52 @@ local function find_modem_device()
     return nil
 end
 
--- Get Target Interface
-local target_iface = nil
-uci:foreach("network", "interface", function(s)
-    if s.proto == "modemmanager" then
-        target_iface = s[".name"]
-        return false
+-- Wrap everything in a pcall to ensure we always return valid JSON
+local ok, err_msg = pcall(function()
+    -- 1. Read Input (POST required)
+    local input = get_input()
+
+    -- 2. CSRF Check
+    local token = (input and input.csrf_token) or csrf.get_token_from_request()
+    if not csrf.validate_token(token) then
+        send_response("error", "CSRF Token không hợp lệ!")
+        os.exit()
     end
+
+    -- 3. Logic to Find and Activate Modem
+    local target_iface = nil
+    uci:foreach("network", "interface", function(s)
+        if s.proto == "modemmanager" then
+            target_iface = s[".name"]
+            return false
+        end
+    end)
+
+    if not target_iface then
+        send_response("error", "Lỗi: Không tìm thấy Interface mạng nào dùng ModemManager!")
+        os.exit()
+    end
+
+    local modem_dev = find_modem_device()
+    if not modem_dev then
+        send_response("error", "Không tìm thấy Modem nào được cắm vào.")
+        os.exit()
+    end
+
+    -- Execute Commands
+    os.execute("logger -t VWRT_ACTION 'Activating modem at " .. modem_dev .. " for interface " .. target_iface .. "'")
+    
+    uci:set("network", target_iface, "device", modem_dev)
+    uci:commit("network")
+
+    os.execute("ifdown " .. target_iface)
+    os.execute("/etc/init.d/modemmanager restart >/dev/null 2>&1")
+    os.execute("sleep 15 && ifup " .. target_iface .. " &")
+
+    send_response("success", "Đã tìm thấy Modem và kích hoạt lại mạng.")
 end)
 
-if not target_iface then
-    send_response("error", "Lỗi: Không tìm thấy Interface mạng nào dùng ModemManager!")
-    os.exit()
+if not ok then
+    os.execute("logger -t VWRT_ACTION 'Critical Error: " .. tostring(err_msg) .. "'")
+    send_response("error", "Lỗi hệ thống: " .. tostring(err_msg))
 end
-
-local modem_dev = find_modem_device()
-if not modem_dev then
-    send_response("error", "Không tìm thấy Modem nào được cắm vào.")
-    os.exit()
-end
-
--- Execute Commands
-uci:set("network", target_iface, "device", modem_dev)
-uci:commit("network")
-
-os.execute("ifdown " .. target_iface)
-os.execute("/etc/init.d/modemmanager restart >/dev/null 2>&1")
-os.execute("sleep 15 && ifup " .. target_iface .. " &")
-
-send_response("success", "Đã tìm thấy Modem và kích hoạt lại mạng.")
