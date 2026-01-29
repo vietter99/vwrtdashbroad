@@ -138,7 +138,6 @@ updateModemInfo: function() {
                 const ipLabel = document.getElementById('h-modem-ip');
 
                 if (modemIface) {
-                    // CÓ MẠNG -> Hiện IP & Khóa nút
                     if(ipLabel) ipLabel.innerText = modemIface.ipv4;
                     
                     btn.disabled = true;
@@ -150,7 +149,6 @@ updateModemInfo: function() {
                         Đã kết nối
                     `;
                 } else {
-                    // MẤT MẠNG -> Reset IP & Mở nút
                     if(ipLabel) ipLabel.innerText = "--";
                     
                     btn.disabled = false;

@@ -1,0 +1,175 @@
+#!/usr/bin/lua
+
+local cjson = require "cjson"
+package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+
+print("Content-Type: application/json\n")
+
+-- Helper to execute command
+local function exec(cmd)
+    local f = io.popen(cmd)
+    if not f then return nil end
+    local s = f:read("*all")
+    f:close()
+    return s
+end
+
+-- Helper to read file
+local function read_file(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local s = f:read("*all")
+    f:close()
+    return s
+end
+
+-- 1. Read DHCP Leases (for Hostnames)
+local leases = {}
+local dcontent = read_file("/tmp/dhcp.leases")
+if dcontent then
+    for line in dcontent:gmatch("[^\r\n]+") do
+        local ts, mac, ip, name = line:match("(%d+)%s+(%S+)%s+(%S+)%s+(%S+)")
+        if mac and name then
+            leases[mac:lower()] = name
+        end
+    end
+end
+
+-- 2. Read ARP Table (for active IPs)
+local clients = {}
+local acontent = read_file("/proc/net/arp")
+if acontent then
+    for line in acontent:gmatch("[^\r\n]+") do
+        local ip, hw, flags, mac, mask, dev = line:match("(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)")
+        if mac and mac:find(":") and mac ~= "00:00:00:00:00:00" then
+            mac = mac:lower()
+            clients[mac] = {
+                ip = ip,
+                mac = mac,
+                name = leases[mac] or "*",
+                interface = dev,
+                type = "LAN", -- Default
+                signal = nil,
+                rx = 0, tx = 0, total = 0
+            }
+        end
+    end
+end
+
+-- 3. Read Bridge FDB to map MAC -> Interface
+local fdb = {}
+local bridge_out = exec("bridge fdb show")
+if bridge_out then
+    for line in bridge_out:gmatch("[^\r\n]+") do
+        -- 40:a5:ef:54:3f:09 dev rax0 offload master br-lan
+        local mac, dev = line:match("(%x%x:%x%x:%x%x:%x%x:%x%x:%x%x)%s+dev%s+(%S+)")
+        if mac and dev then
+            fdb[mac:lower()] = dev
+        end
+    end
+end
+
+-- 4. Read iwinfo for Active WiFi clients (The Source of Truth for WiFi)
+local active_wifi = {}
+local wifi_interfaces = {}
+
+-- Auto-detect wifi interfaces
+local ubus_wifi = exec("ubus list | grep hostapd")
+if ubus_wifi then
+    for iface in ubus_wifi:gmatch("hostapd%.(%S+)") do
+        table.insert(wifi_interfaces, iface)
+    end
+end
+-- Fallback
+if #wifi_interfaces == 0 then
+    if exec("iwinfo ra0 info 2>/dev/null") then table.insert(wifi_interfaces, "ra0") end
+    if exec("iwinfo rax0 info 2>/dev/null") then table.insert(wifi_interfaces, "rax0") end
+    if exec("iwinfo wlan0 info 2>/dev/null") then table.insert(wifi_interfaces, "wlan0") end
+end
+
+for _, iface in ipairs(wifi_interfaces) do
+    local assoc = exec("iwinfo " .. iface .. " assoclist 2>/dev/null")
+    if assoc then
+        for mac, sig in assoc:gmatch("(%x%x:%x%x:%x%x:%x%x:%x%x:%x%x)%s+([%-%d]+)%s+dBm") do
+            mac = mac:lower()
+            active_wifi[mac] = {
+                iface = iface,
+                signal = tonumber(sig),
+                noise = tonumber(assoc:match(mac:upper() .. ".-/%s+([%-%d]+)%s+dBm")),
+                snr = tonumber(assoc:match(mac:upper() .. ".-SNR%s+([%-%d]+)"))
+            }
+        end
+    end
+end
+
+-- 5. Construct Client List
+-- We iterate ARP to get IP + MAC, but filter based on FDB/WiFi status
+local clients = {}
+local acontent = read_file("/proc/net/arp")
+if acontent then
+    for line in acontent:gmatch("[^\r\n]+") do
+        local ip, hw, flags, mac, mask, dev = line:match("(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)")
+        if mac and mac:find(":") and mac ~= "00:00:00:00:00:00" then
+            mac = mac:lower()
+            local fdb_iface = fdb[mac] or ""
+            local is_wifi_port = fdb_iface:match("^ra") or fdb_iface:match("^wlan") or fdb_iface:match("^ath") or fdb_iface:match("^wl")
+            
+            local should_include = true
+            local c_type = "LAN"
+            local c_sig = nil
+            
+            -- Logic:
+            -- 1. If it's in active_wifi => It's DEFINITELY WiFi and Connected.
+            -- 2. If it's NOT in active_wifi BUT FDB says it's on a WiFi port => It's STALE (Disconnected). SKIP IT.
+            -- 3. If it's in ARP but NOT in FDB => It's a GHOST ARP entry (Stale). SKIP IT. (New Strict Rule)
+            -- 4. Otherwise (In FDB on LAN port) => Treat as LAN.
+            
+            if active_wifi[mac] then
+                c_type = active_wifi[mac].iface:find("rax") and "WiFi 5G" or (active_wifi[mac].iface:find("ra0") and "WiFi 2.4G" or "Wireless")
+                c_sig = active_wifi[mac].signal
+            elseif is_wifi_port then
+                -- Stale WiFi client remaining in ARP/FDB but gone from Hostapd
+                should_include = false
+            elseif fdb_iface == "" then
+                -- Not in FDB at all (Ghost ARP) -> Hide it
+                should_include = false
+            end
+            
+            if should_include then
+                clients[mac] = {
+                    ip = ip,
+                    mac = mac,
+                    name = leases[mac] or "*",
+                    interface = fdb_iface ~= "" and fdb_iface or dev,
+                    type = c_type,
+                    signal = c_sig,
+                    rx = 0, tx = 0, total = 0
+                }
+            end
+        end
+    end
+end
+
+
+-- 6. Traffic Data from wrtbwmon (if exists)
+local usage_db = read_file("/tmp/usage.db")
+if usage_db then
+    for line in usage_db:gmatch("[^\r\n]+") do
+        local mac, ip, dev, sin, sout, rin, rout, total = line:match("([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)")
+        if mac and clients[mac:lower()] then
+            local c = clients[mac:lower()]
+            c.rx = tonumber(rin) or 0
+            c.tx = tonumber(rout) or 0
+            c.total = tonumber(total) or 0
+            c.speed_in = tonumber(sin) or 0
+            c.speed_out = tonumber(sout) or 0
+        end
+    end
+end
+
+local result = {}
+for _, data in pairs(clients) do
+    table.insert(result, data)
+end
+
+print(cjson.encode({ status = "success", data = result }))

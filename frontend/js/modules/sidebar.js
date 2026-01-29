@@ -9,6 +9,12 @@ const SidebarModule = {
         if(overlay) overlay.addEventListener('click', this.close);
         if(closeBtn) closeBtn.addEventListener('click', this.close);
 
+        if(btn) btn.addEventListener('click', this.open);
+        if(overlay) overlay.addEventListener('click', this.close);
+        if(closeBtn) closeBtn.addEventListener('click', this.close);
+
+        // Removed auto-fetch for sidebar inline display
+
         // Add swipe gesture support (Enhanced)
         let touchStartX = 0;
         let touchStartY = 0;
@@ -107,6 +113,11 @@ const SidebarModule = {
             return;
         }
 
+        if(featureName === 'network_status') {
+            this.showNetworkStatusModal();
+            return;
+        }
+
         if(featureName === 'reboot_sch') {
             if(typeof RebootScheduleModule !== 'undefined') {
                 RebootScheduleModule.showModal();
@@ -150,6 +161,134 @@ const SidebarModule = {
         })
         .then(res => res.json())
         .catch(() => {}); // Ignore error as connection will drop
+    },
+
+    formatBytes: function(bytes, decimals = 2) {
+        if (!+bytes) return '0 B';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+    },
+
+    getIconForInterface: function(name, label) {
+        const n = (name || "").toLowerCase();
+        const l = (label || "").toLowerCase();
+        
+        // WiFi
+        if(n.includes('wlan') || n.includes('ra') || n.includes('wifi')) {
+            return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>`;
+        }
+        // Cellular
+        if(n.includes('wwan') || n.includes('modem') || n.includes('usb') || l.includes('4g') || l.includes('lte') || l.includes('5g')) {
+             // Icon: Signal Bars (Rising)
+             return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>`;
+        }
+        // Ethernet/LAN
+        if(n.includes('eth') || n.includes('lan') || n.includes('br-')) {
+            return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>`; 
+        }
+        // WAN/Global
+        if(n.includes('wan') || n.includes('pppoe')) {
+            return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>`;
+        }
+        
+        // Default
+        return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>`;
+    },
+
+    showNetworkStatusModal: function() {
+        Modal.show({
+            title: "Trạng thái mạng",
+            content: `<div id="modal-net-status" style="min-height:200px; display:flex; flex-direction:column; gap:12px;">
+                        <div style="text-align:center; color:#999; padding:20px;">Đang tải dữ liệu...</div>
+                      </div>`,
+            showCancel: false,
+            confirmText: "Đóng",
+            onConfirm: () => {
+                // Clear interval if we were auto-refreshing inside modal (optional)
+            }
+        });
+        
+        // Adjust modal width for more details
+        const mBox = document.querySelector('.modal-box');
+        if(mBox) {
+            mBox.style.maxWidth = "600px";
+            mBox.style.width = "95%";
+        }
+
+        this.fetchInterfacesForModal();
+    },
+
+    fetchInterfacesForModal: function() {
+        fetch('/cgi-bin/mobile/network')
+            .then(res => res.json())
+            .then(data => {
+                const container = document.getElementById('modal-net-status');
+                if(!container) return; // Modal closed
+
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div style="text-align:center; color:#999;">Không có kết nối nào</div>';
+                    return;
+                }
+
+                container.innerHTML = data.map(net => {
+                    const isUp = net.ipv4 && net.ipv4 !== '--';
+                    const rx = parseInt(net.rx) || 0;
+                    const tx = parseInt(net.tx) || 0;
+                    
+                    return `
+                        <div style="background:var(--bg-body); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
+                            <!-- Header: Icon + Name + MAC -->
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                                <div style="display:flex; align-items:center; gap:12px;">
+                                    <div style="width:40px; height:40px; border-radius:8px; background:${isUp ? 'rgba(72,187,120,0.1)' : 'rgba(229,62,62,0.1)'}; display:flex; align-items:center; justify-content:center; color:${isUp ? '#48bb78' : '#e53e3e'};">
+                                        ${this.getIconForInterface(net.name, net.label)}
+                                    </div>
+                                    <div style="display:flex; flex-direction:column;">
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                            <span style="font-weight:700; font-size:15px; color:var(--text-main);">${net.label || net.name}</span>
+                                            <span style="font-size:10px; padding:2px 6px; border-radius:4px; background:${isUp ? '#c6f6d5' : '#fed7d7'}; color:${isUp ? '#22543d' : '#822727'}; font-weight:600;">${isUp ? 'ONLINE' : 'OFFLINE'}</span>
+                                        </div>
+                                        <span style="font-size:12px; color:var(--text-sub); font-family:monospace;">${(net.mac || "").toUpperCase()}</span>
+                                    </div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <!-- Use name as badge -->
+                                    <span style="font-size:11px; color:var(--text-muted); background:var(--bg-card); padding:2px 5px; border-radius:4px; border:1px solid var(--border-color);">${net.name}</span>
+                                </div>
+                            </div>
+
+                            <!-- Traffic Stats -->
+                            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; margin-bottom:12px; background:rgba(255,255,255,0.03); padding:8px; border-radius:6px;">
+                                <div style="display:flex; flex-direction:column; align-items:center;">
+                                    <span style="font-size:10px; color:#68d391;">▼ RX</span>
+                                    <span style="font-size:12px; font-weight:600; color:var(--text-main);">${this.formatBytes(rx)}</span>
+                                </div>
+                                <div style="display:flex; flex-direction:column; align-items:center; border-left:1px solid rgba(255,255,255,0.1); border-right:1px solid rgba(255,255,255,0.1);">
+                                    <span style="font-size:10px; color:#63b3ed;">▲ TX</span>
+                                    <span style="font-size:12px; font-weight:600; color:var(--text-main);">${this.formatBytes(tx)}</span>
+                                </div>
+                                <div style="display:flex; flex-direction:column; align-items:center;">
+                                    <span style="font-size:10px; color:#a0aec0;">∑ Tổng</span>
+                                    <span style="font-size:12px; font-weight:600; color:var(--text-main);">${this.formatBytes(rx+tx)}</span>
+                                </div>
+                            </div>
+
+                            <!-- IP Info -->
+                            <div style="display:grid; grid-template-columns: auto 1fr; gap:10px; align-items:center; font-size:12px;">
+                                <span style="color:var(--text-sub); width:30px;">IPv4:</span>
+                                <span style="font-family:monospace; font-weight:600; color:${net.ipv4 === '--' ? '#e53e3e' : '#3182ce'};">${net.ipv4}</span>
+                                
+                                <span style="color:var(--text-sub); width:30px;">IPv6:</span>
+                                <span style="font-family:monospace; color:${net.ipv6 === '--' ? '#a0aec0' : '#805ad5'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px;">${net.ipv6}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            })
+            .catch(() => {});
     }
 };
 window.SidebarModule = SidebarModule;

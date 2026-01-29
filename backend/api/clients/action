@@ -1,0 +1,133 @@
+#!/usr/bin/lua
+
+local cjson = require "cjson"
+package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+
+local csrf = require "lib.csrf"
+local security = require "lib.security"
+local uci = require("luci.model.uci").cursor()
+
+print("Content-Type: application/json\n")
+
+-- Helper to read body
+local function get_input()
+    local content_length = tonumber(os.getenv("CONTENT_LENGTH") or 0)
+    if content_length > 0 then
+        local raw = io.read(content_length)
+        return cjson.decode(raw)
+    end
+    return nil
+end
+
+local input = get_input()
+if not input then
+    print(cjson.encode({ status = "error", message = "Invalid request" }))
+    os.exit()
+end
+
+-- CSRF Check
+local token = input.csrf_token or os.getenv("HTTP_X_CSRF_TOKEN")
+if not csrf.validate_token(token) then
+    print(cjson.encode({ status = "error", message = "CSRF Token không hợp lệ!" }))
+    os.exit()
+end
+
+local action = input.action
+local mac = input.mac and input.mac:lower()
+
+if not action or not mac then
+    print(cjson.encode({ status = "error", message = "Missing parameters" }))
+    os.exit()
+end
+
+-- Validate MAC
+if not mac:match("^%x%x:%x%x:%x%x:%x%x:%x%x:%x%x$") then
+    print(cjson.encode({ status = "error", message = "MAC Address không hợp lệ" }))
+    os.exit()
+end
+
+local function handle_block(target_mac, do_block)
+    local changed = false
+    
+    -- Ensure custom config exists
+    uci:set("vwrt", "clients", "app")
+    
+    local list = uci:get("vwrt", "clients", "blocked") or {}
+    if type(list) == "string" then list = {list} end
+    
+    local new_list = {}
+    local found = false
+    
+    for _, m in ipairs(list) do
+        if m:lower() == target_mac then
+            found = true
+            if not do_block then -- unzip: skip
+            else table.insert(new_list, m) end
+        else
+            table.insert(new_list, m)
+        end
+    end
+    
+    if do_block and not found then
+        table.insert(new_list, target_mac)
+        uci:set("vwrt", "clients", "blocked", new_list)
+        changed = true
+    elseif not do_block and found then
+        if #new_list == 0 then
+            uci:delete("vwrt", "clients", "blocked")
+        else
+            uci:set("vwrt", "clients", "blocked", new_list)
+        end
+        changed = true
+    end
+    
+    -- ALWAYS execute runtime enforcement
+    -- 1. IPTables (Universal Net Block)
+    if do_block then
+        os.execute(string.format("iptables -I VWRT_BLOCK -m mac --mac-source %s -j DROP 2>/dev/null", target_mac))
+    else
+        -- Remove all instances (loop safe)
+        while os.execute(string.format("iptables -D VWRT_BLOCK -m mac --mac-source %s -j DROP 2>/dev/null", target_mac)) do end
+    end
+
+    -- 2. Wireless Driver Specific (Kick/Auth Block)
+    uci:foreach("wireless", "wifi-iface", function(s)
+        local iface = s[".name"]
+        local device = uci:get("wireless", iface, "device")
+        local ifname = uci:get("wireless", iface, "ifname") or (device == "MT7981_1_1" and "ra0") or (device == "MT7981_1_2" and "rax0")
+        if not ifname then ifname = (iface:find("5g") and "rax0" or "ra0") end
+
+        -- Only run iwpriv on interfaces that support it (ra0 usually)
+        -- For rax0, we rely on iptables blocking since driver is strict
+        if do_block then
+             -- Try to run iwpriv, if it fails (like on 5G), iptables still saves the day
+            os.execute(string.format("iwpriv %s set ACLAddEntry='%s' 2>/dev/null", ifname, target_mac))
+            os.execute(string.format("iwpriv %s set AccessPolicy=2 2>/dev/null", ifname))
+            os.execute(string.format("iwpriv %s set Disconnect='%s' 2>/dev/null", ifname, target_mac))
+        else
+            os.execute(string.format("iwpriv %s set ACLDelEntry='%s' 2>/dev/null", ifname, target_mac))
+        end
+    end)
+    
+    if changed then
+        uci:commit("vwrt")
+        return true
+    end
+    return true -- Return true even if no list change, as runtime block was re-enforced
+end
+
+if action == "block" then
+    if handle_block(mac, true) then
+        print(cjson.encode({ status = "success", message = "Đã chặn thiết bị " .. mac }))
+    else
+        print(cjson.encode({ status = "success", message = "Thiết bị đã bị chặn từ trước" }))
+    end
+elseif action == "unblock" then
+    if handle_block(mac, false) then
+        print(cjson.encode({ status = "success", message = "Đã bỏ chặn thiết bị " .. mac }))
+    else
+        print(cjson.encode({ status = "success", message = "Thiết bị không nằm trong danh sách chặn" }))
+    end
+else
+    print(cjson.encode({ status = "error", message = "Action không hợp lệ" }))
+end

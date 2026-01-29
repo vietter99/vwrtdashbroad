@@ -65,6 +65,15 @@
 
                 <div class="nav-group">
                     <div class="nav-label">Tiện ích mạng</div>
+                    <a href="#" class="nav-link" onclick="SidebarModule.showFeature('network_status')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+                            <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                            <line x1="12" y1="20" x2="12.01" y2="20"></line>
+                        </svg>
+                        Trạng thái mạng
+                    </a>
                     <a
                         href="#"
                         class="nav-link"
@@ -133,6 +142,7 @@
                         Led Config
                     </a>
                 </div>
+
             </nav>
 
             <div class="sidebar-footer">
@@ -494,51 +504,8 @@
                             </div>
                         </div>
                         <div class="cards-track">
-                            <div class="card card-system">
-                                <div class="card-header-compact">
-                                    <div
-                                        class="card-icon-small bg-purple-light"
-                                    >
-                                        <svg
-                                            width="20"
-                                            height="20"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                        >
-                                            <circle
-                                                cx="12"
-                                                cy="12"
-                                                r="10"
-                                            ></circle>
-                                            <path d="M2 12h20"></path>
-                                            <path
-                                                d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
-                                            ></path>
-                                        </svg>
-                                    </div>
-                                    <div class="header-text-col">
-                                        <h3>Trạng thái Mạng</h3>
-                                        <div class="model-name">Interfaces</div>
-                                    </div>
-                                </div>
-                                <div
-                                    class="sys-details-compact"
-                                    id="network-list"
-                                    style="min-height: 200px"
-                                >
-                                    <div
-                                        class="sys-row"
-                                        style="
-                                            justify-content: center;
-                                            color: #999;
-                                        "
-                                    >
-                                        Đang tải...
-                                    </div>
-                                </div>
-                            </div>
+                           <!-- CONNECTED DEVICES (Replaces Interfaces) -->
+                           <div id="clients-container" style="width: 100%;"></div>
 
                             <div class="card card-system">
                                 <div class="card-header-compact">
@@ -632,6 +599,12 @@
                                     </div>
                                 </div>
                             </div>
+                            </div>
+                        </div>
+
+                        <!-- CONNECTED DEVICES CARD (NEW) -->
+                        <div class="cards-track" style="margin-top: 20px;">
+                            <div id="clients-container" style="width: 100%;"></div>
                         </div>
                     </div>
                 </div>
@@ -652,6 +625,7 @@
         <script src="js/modules/adblock.js?v=2"></script>
         <script src="js/modules/led.js?v=2"></script>
         <script src="js/modules/reboot_schedule.js?v=3"></script>
+        <script src="js/modules/clients_info.js?v=1"></script>
 
         <script src="js/modules/sidebar.js?v=2"></script>
         <script src="js/dashboard.js?v=2"></script>

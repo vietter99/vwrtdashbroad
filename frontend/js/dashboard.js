@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if(typeof SystemModule !== 'undefined') SystemModule.init();
     if(typeof NetworkModule !== 'undefined') NetworkModule.init();
+    if(typeof ClientsModule !== 'undefined') ClientsModule.init();
 
     if(typeof ThemeModule !== 'undefined') {
         ThemeModule.init(); 

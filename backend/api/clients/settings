@@ -1,0 +1,55 @@
+#!/usr/bin/lua
+
+local cjson = require "cjson"
+package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+
+local uci = require("luci.model.uci").cursor()
+
+print("Content-Type: application/json\n")
+
+local function read_file(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local s = f:read("*all")
+    f:close()
+    return s
+end
+
+local function get_blocked()
+    -- 1. Read Hostnames
+    local leases = {}
+    local dcontent = read_file("/tmp/dhcp.leases")
+    if dcontent then
+        for line in dcontent:gmatch("[^\r\n]+") do
+            local ts, mac, ip, name = line:match("(%d+)%s+(%S+)%s+(%S+)%s+(%S+)")
+            if mac and name then
+                leases[mac:lower()] = name
+            end
+        end
+    end
+
+    local blocked_list = {}
+    local seen = {}
+
+    local list = uci:get("vwrt", "clients", "blocked") or {}
+    if type(list) == "string" then list = {list} end
+
+    for _, mac in ipairs(list) do
+        local m = mac:lower()
+        if not seen[m] then
+            table.insert(blocked_list, {
+                mac = m,
+                name = leases[m] or "Unknown"
+            })
+            seen[m] = true
+        end
+    end
+    return blocked_list
+end
+
+print(cjson.encode({ 
+    status = "success", 
+    data = {
+        blocked = get_blocked()
+    }
+}))
