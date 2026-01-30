@@ -1,4 +1,4 @@
-﻿#!/usr/bin/lua
+#!/usr/bin/lua
 
 local cjson = require "cjson"
 -- Dynamic Path Resolution

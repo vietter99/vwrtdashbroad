@@ -1,4 +1,4 @@
-﻿#!/usr/bin/lua
+#!/usr/bin/lua
 -- LED Config Set API
 -- Params: name (string), brightness (0/1), trigger (string)
 

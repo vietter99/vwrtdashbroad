@@ -1,4 +1,4 @@
-﻿#!/usr/bin/lua
+#!/usr/bin/lua
 -- AdBlock Fast Set API
 -- Rewrite to fix syntax/logic errors and add debug logging
 

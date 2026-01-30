@@ -1,4 +1,4 @@
-﻿#!/usr/bin/lua
+#!/usr/bin/lua
 
 -- Dynamic Path Resolution
 local source = debug.getinfo(1).source

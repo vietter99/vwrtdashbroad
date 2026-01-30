@@ -1,3 +1,5 @@
+#!/usr/bin/lua
+
 -- Helper to detect script path and set package.path dynamically
 -- This allows the app to run from any directory
 local source = debug.getinfo(1).source

@@ -28,6 +28,10 @@ local function exec(cmd)
     if c then return c:gsub("\n", "") else return nil end
 end
 
+local function run(cmd)
+    return os.execute(cmd)
+end
+
 -- Helper to find wireless interface dynamically by band/frequency
 local function get_wireless_iface_by_band(band_type)
     -- band_type: "5G" or "2.4G"
@@ -89,7 +93,19 @@ if not mac:match("^%x%x:%x%x:%x%x:%x%x:%x%x:%x%x$") then
     os.exit()
 end
 
+local function init_firewall()
+    -- IPv4
+    run("iptables -N VWRT_BLOCK 2>/dev/null")
+    run("iptables -C FORWARD -j VWRT_BLOCK 2>/dev/null || iptables -I FORWARD -j VWRT_BLOCK")
+    -- IPv6 (Critical to prevent bypass)
+    run("ip6tables -N VWRT_BLOCK 2>/dev/null")
+    run("ip6tables -C FORWARD -j VWRT_BLOCK 2>/dev/null || ip6tables -I FORWARD -j VWRT_BLOCK")
+end
+
 local function handle_block(target_mac, do_block)
+    -- Ensure firewall structure exists
+    init_firewall()
+
     local changed = false
     
     -- Ensure custom config exists
@@ -125,86 +141,69 @@ local function handle_block(target_mac, do_block)
     end
     
     -- ALWAYS execute runtime enforcement
-    -- 1. IPTables (Universal Net Block)
+    -- 1. IPTables (Universal Net Block - IPv4 & IPv6)
     if do_block then
-        os.execute(string.format("iptables -I VWRT_BLOCK -m mac --mac-source %s -j DROP 2>/dev/null", target_mac))
+        run(string.format("iptables -I VWRT_BLOCK -m mac --mac-source %s -j DROP 2>/dev/null", target_mac))
+        run(string.format("ip6tables -I VWRT_BLOCK -m mac --mac-source %s -j DROP 2>/dev/null", target_mac))
     else
-        -- Remove all instances (loop safe)
-        -- os.execute returns number in Lua 5.1, so we must compare with 0
-        while (os.execute(string.format("iptables -D VWRT_BLOCK -m mac --mac-source %s -j DROP 2>/dev/null", target_mac)) == 0) do end
+        -- Remove rules efficiently
+        run(string.format("iptables -D VWRT_BLOCK -m mac --mac-source %s -j DROP 2>/dev/null", target_mac))
+        run(string.format("ip6tables -D VWRT_BLOCK -m mac --mac-source %s -j DROP 2>/dev/null", target_mac))
     end
 
     -- 2. Wireless Driver Specific (Kick/Auth Block)
     local should_cleanup = (not do_block) and (#new_list == 0)
+    
+    -- Detect active hostapd interfaces from ubus
+    local hostapd_ubus = exec("ubus list hostapd.*") or ""
+    local active_ifaces = {}
+    for ifname in hostapd_ubus:gmatch("hostapd%.(%S+)") do
+        table.insert(active_ifaces, ifname)
+    end
+    
+    -- Fallback: If ubus fails, try UCI traversal
+    if #active_ifaces == 0 then
+        uci:foreach("wireless", "wifi-iface", function(s)
+            local ifname = s.ifname or exec("iwinfo | grep -E 'ESSID' | cut -d ' ' -f 1") -- crude fallback
+            if ifname then table.insert(active_ifaces, ifname) end
+        end)
+    end
 
-    uci:foreach("wireless", "wifi-iface", function(s)
-        local iface = s[".name"]
-        
-        -- Try to get interface name from UCI first (standard OpenWrt)
-        local ifname = uci:get("wireless", iface, "ifname")
-        
-        -- If not in UCI, try to guess or resolve via ubus/iwinfo
-        if not ifname then
-            local device = uci:get("wireless", iface, "device")
-            local hwmode = uci:get("wireless", device, "hwmode") or ""
-            local band = uci:get("wireless", device, "band") or ""
-            
-            -- Determine connection type based on UCI config
-            local conn_type = nil
-            if hwmode:match("11a") or band:match("5g") or iface:match("5g") then
-                conn_type = "5G"
-            else
-                conn_type = "2.4G"
-            end
-
-            if conn_type == "5G" then
-                ifname = get_wireless_iface_by_band("5G")
-            elseif conn_type == "2.4G" then
-                ifname = get_wireless_iface_by_band("2.4G")
-            end
-        end
-        
-        -- Final safety check
-        if not ifname then return end
+    for _, ifname in ipairs(active_ifaces) do
         -- Driver Abstraction Layer
-        -- 1. Try iwpriv (MediaTek Proprietary - Fast & Strong)
-        if exec("which iwpriv") then
-            if do_block then
-                os.execute(string.format("iwpriv %s set ACLAddEntry='%s' 2>/dev/null", ifname, target_mac))
-                os.execute(string.format("iwpriv %s set AccessPolicy=2 2>/dev/null", ifname))
-                os.execute(string.format("iwpriv %s set Disconnect='%s' 2>/dev/null", ifname, target_mac))
+        if do_block then
+            -- A. Try UBUS (Kick + Ban for 1 hour)
+            run(string.format("ubus call hostapd.%s del_client '{\"addr\":\"%s\", \"reason\":1, \"deauth\":true, \"ban_time\":3600}' 2>/dev/null", ifname, target_mac))
+            
+            -- B. Try iwpriv (MediaTek Proprietary)
+            run(string.format("iwpriv %s set ACLAddEntry='%s' 2>/dev/null", ifname, target_mac))
+            run(string.format("iwpriv %s set AccessPolicy=2 2>/dev/null", ifname))
+            run(string.format("iwpriv %s set Disconnect='%s' 2>/dev/null", ifname, target_mac))
+            
+            -- C. Try hostapd_cli (Legacy/Standard)
+            local socket_path = "/var/run/hostapd/" .. ifname
+            run(string.format("hostapd_cli -p %s deny_mac %s 2>/dev/null", socket_path, target_mac))
+            run(string.format("hostapd_cli -p %s deauthenticate %s 2>/dev/null", socket_path, target_mac))
+        else
+            -- UNBLOCK Logic
+            run(string.format("ubus call hostapd.%s del_client '{\"addr\":\"%s\", \"ban_time\":0}' 2>/dev/null", ifname, target_mac))
+            
+            if should_cleanup then
+                run(string.format("iwpriv %s set AccessPolicy=0 2>/dev/null", ifname))
+                run(string.format("iwpriv %s set ACLClearAll=1 2>/dev/null", ifname))
             else
-                if should_cleanup then
-                    os.execute(string.format("iwpriv %s set AccessPolicy=0 2>/dev/null", ifname))
-                    os.execute(string.format("iwpriv %s set ACLClearAll=1 2>/dev/null", ifname))
-                else
-                    os.execute(string.format("iwpriv %s set ACLDelEntry='%s' 2>/dev/null", ifname, target_mac))
-                end
+                run(string.format("iwpriv %s set ACLDelEntry='%s' 2>/dev/null", ifname, target_mac))
             end
-        
-        -- 2. Try hostapd_cli (Standard OpenWrt - Clean & Portable)
-        elseif exec("which hostapd_cli") then
-             -- Note: OpenWrt hostapd sockets are usually in /var/run/hostapd/
-             local socket_path = "/var/run/hostapd/" .. ifname
-             if do_block then
-                 os.execute(string.format("hostapd_cli -p %s deny_mac %s 2>/dev/null", socket_path, target_mac))
-                 os.execute(string.format("hostapd_cli -p %s deauthenticate %s 2>/dev/null", socket_path, target_mac))
-                 os.execute(string.format("hostapd_cli -p %s disassociate %s 2>/dev/null", socket_path, target_mac))
-             else
-                 os.execute(string.format("hostapd_cli -p %s unban %s 2>/dev/null", socket_path, target_mac))
-                 -- Note: unban might not be standard in all versions, un-deny_mac isn't direct.
-                 -- Usually standard hostapd relies on reloading config or just deauth. 
-                 -- For strict standard, we might need ubus call hostapd config_set.
-                 -- But for now, this illustrates the "portable intent".
-             end
+            
+            local socket_path = "/var/run/hostapd/" .. ifname
+            run(string.format("hostapd_cli -p %s unban %s 2>/dev/null", socket_path, target_mac))
         end
-    end)
+    end
     
     if changed then
         uci:commit("vwrt")
-        return true
     end
-    return true -- Return true even if no list change, as runtime block was re-enforced
+    return true
 end
 
 if action == "block" then

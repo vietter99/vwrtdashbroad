@@ -1,4 +1,4 @@
-﻿#!/usr/bin/lua
+#!/usr/bin/lua
 -- System Update Run API
 -- Params: type ("dashboard" or "firmware"), url (string), version (string)
 
@@ -38,7 +38,7 @@ local input_data = get_input()
 -- CSRF Check
 local token = csrf.get_token_from_request() or csrf.get_token_from_body(input_data)
 if not csrf.validate_token(token) then
-    print(json.stringify({ status = "error", message = "CSRF Token khÃ´ng há»£p lá»‡!" }))
+    print(json.stringify({ status = "error", message = "CSRF Token không hợp lệ!" }))
     os.exit()
 end
 
@@ -73,7 +73,7 @@ local function run_update()
     os.execute("echo 'Download finished. Return: " .. tostring(dl_ret) .. ", Size: " .. tostring(f_size) .. " bytes' >> " .. log_file)
 
     if dl_ret ~= 0 or f_size < 1024 then
-        print(json.stringify({ status = "error", message = "Lá»—i táº£i file cáº­p nháº­t (Size: " .. f_size .. ")." }))
+        print(json.stringify({ status = "error", message = "Lỗi tải file cập nhật (Size: " .. f_size .. ")." }))
         return
     end
     
@@ -86,17 +86,29 @@ local function run_update()
     end
     
     if os.execute(ext_cmd) ~= 0 then
-        print(json.stringify({ status = "error", message = "Lá»—i giáº£i nÃ©n file cáº­p nháº­t (Zip=" .. tostring(is_zip) .. "). (Xem /tmp/update_debug.log)" }))
+        print(json.stringify({ status = "error", message = "Lỗi giải nén file cập nhật (Zip=" .. tostring(is_zip) .. "). (Xem /tmp/update_debug.log)" }))
         return
     end
     
-    -- Find source folder
-    local handle = io.popen("ls -d " .. work_dir .. "/*/ | head -n 1")
-    local source_folder = handle:read("*l")
-    handle:close()
+    -- Find source folder (Improved for both GitHub and Flat Tarball)
+    local source_folder = work_dir .. "/"
+    -- If cgi-bin or frontend doesn't exist in root, check subfolder
+    local check_cmd = "[ -d '" .. work_dir .. "/cgi-bin' ] || [ -d '" .. work_dir .. "/frontend' ]"
+    if os.execute(check_cmd) ~= 0 then
+        -- Not in root, find the first subdirectory (GitHub style)
+        local handle = io.popen("ls -d " .. work_dir .. "/*/ 2>/dev/null | head -n 1")
+        local sub = handle:read("*l")
+        handle:close()
+        if sub and sub ~= "" then
+            source_folder = sub
+        end
+    end
     
+    os.execute("echo 'Source identified: " .. source_folder .. "' >> " .. log_file)
+    
+    -- Final check
     if not source_folder or source_folder == "" then
-        print(json.stringify({ status = "error", message = "KhÃ´ng tÃ¬m tháº¥y thÆ° má»¥c mÃ£ nguá»“n." }))
+        print(json.stringify({ status = "error", message = "Không tìm thấy thư mục mã nguồn." }))
         return
     end
     
@@ -117,36 +129,36 @@ local function run_update()
         -- CLEAN INSTALL: Delete old files
         f:write("rm -rf /www/vwrt/*\n")
         
-        -- Copy Frontend
-        f:write("cp -rf '" .. source_folder .. "frontend/'* /www/vwrt/\n")
-        
-        -- Copy Backend APIs
-        f:write("mkdir -p /www/vwrt/cgi-bin\n")
-        f:write("cp -rf '" .. source_folder .. "backend/api/'* /www/vwrt/cgi-bin/\n")
-        
-        -- Copy Backend Services
-        f:write("mkdir -p /www/vwrt/services\n")
-        f:write("cp -rf '" .. source_folder .. "backend/services/'* /www/vwrt/services/\n")
-        
-        -- Copy version.json if exists
-        f:write("[ -f '" .. source_folder .. "version.json' ] && cp '" .. source_folder .. "version.json' /www/vwrt/\n")
+        -- Copy Strategy: Check for new structure first
+        f:write("if [ -d '" .. source_folder .. "cgi-bin' ]; then\n")
+        f:write("    # NEW STRUCTURE (Flattened)\n")
+        f:write("    cp -rf '" .. source_folder .. "'* /www/vwrt/\n")
+        f:write("else\n")
+        f:write("    # OLD STRUCTURE (Retro-compatibility)\n")
+        f:write("    cp -rf '" .. source_folder .. "frontend/'* /www/vwrt/\n")
+        f:write("    mkdir -p /www/vwrt/cgi-bin\n")
+        f:write("    cp -rf '" .. source_folder .. "backend/api/'* /www/vwrt/cgi-bin/\n")
+        f:write("    mkdir -p /www/vwrt/services\n")
+        f:write("    cp -rf '" .. source_folder .. "backend/services/'* /www/vwrt/services/\n")
+        f:write("    [ -f '" .. source_folder .. "version.json' ] && cp '" .. source_folder .. "version.json' /www/vwrt/\n")
+        f:write("fi\n")
         
         -- Fix permissions
         f:write("chmod -R 755 /www/vwrt\n")
-        f:write("chmod +x /www/vwrt/cgi-bin/*\n")
+        f:write("chmod +x /www/vwrt/cgi-bin/* /www/vwrt/cgi-bin/*/* 2>/dev/null\n")
         f:write("chmod +x /www/vwrt/services/*\n")
         
         -- Recreate Symlinks for LuCI
         f:write("ln -sf /www/luci-static /www/vwrt/luci-static\n")
         f:write("ln -sf /www/cgi-bin/luci /www/vwrt/cgi-bin/luci\n")
         
-        -- Restart Mobile Poller if needed
-        f:write("lua /www/vwrt/services/mobile_poller.lua >/dev/null 2>&1 &\n")
+        -- Restart Mobile Poller if exists
+        f:write("[ -f /www/vwrt/services/mobile_poller.lua ] && lua /www/vwrt/services/mobile_poller.lua >/dev/null 2>&1 &\n")
         
         -- Cleanup
         f:write("rm -rf " .. work_dir .. "\n")
         
-        -- Should we reboot? Dashboard update usually doesn't strictly require reboot, but to be safe/clean:
+        -- Reboot
         f:write("reboot\n")
         
     elseif update_type == "firmware" then
@@ -162,7 +174,7 @@ local function run_update()
     os.execute("chmod +x " .. install_script)
     os.execute("sh " .. install_script .. " >/dev/null 2>&1 &")
     
-    print(json.stringify({ status = "success", message = "Äang cáº­p nháº­t " .. update_type .. "... Thiáº¿t bá»‹ sáº½ khá»Ÿi Ä‘á»™ng láº¡i." }))
+    print(json.stringify({ status = "success", message = "Đang cập nhật " .. update_type .. "... Thiết bị sẽ khởi động lại." }))
 end
 
 local ok, err = pcall(run_update)
