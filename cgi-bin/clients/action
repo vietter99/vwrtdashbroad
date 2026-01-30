@@ -18,6 +18,12 @@ local csrf = require "lib.csrf"
 local security = require "lib.security"
 local uci = require("luci.model.uci").cursor()
 
+-- Ensure config file exists
+if not io.open("/etc/config/vwrt", "r") then
+    os.execute("touch /etc/config/vwrt")
+    uci:commit("vwrt") -- Init config
+end
+
 print("Content-Type: application/json\n")
 
 local function exec(cmd)
