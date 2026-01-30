@@ -5,11 +5,43 @@ local content = "{}"
 if f then
     content = f:read("*all")
     f:close()
-    -- Strip UTF-8 BOM if present (EF BB BF)
-    if content:sub(1,3) == "\239\187\191" then
+    -- Check for UTF-16 BOM (LE: FF FE, BE: FE FF)
+    local header = content:sub(1,2)
+    local is_le = (header == "\255\254")
+    local is_be = (header == "\254\255")
+    
+    if is_le or is_be then
+        -- Native Lua UTF-16 to UTF-8 Converter (Buffer-safe)
+        local utf8_buf = {}
+        -- Skip BOM (2 bytes)
+        for i = 3, #content, 2 do
+            local b1 = content:byte(i)
+            local b2 = content:byte(i+1)
+            if not b1 or not b2 then break end
+
+            local code
+            if is_le then
+                code = b1 + b2 * 256
+            else
+                code = b2 + b1 * 256
+            end
+
+            if code < 128 then
+                table.insert(utf8_buf, string.char(code))
+            elseif code < 2048 then
+                -- 2-byte UTF-8
+                table.insert(utf8_buf, string.char(192 + math.floor(code/64), 128 + (code % 64)))
+            elseif code < 65536 then
+                -- 3-byte UTF-8
+                table.insert(utf8_buf, string.char(224 + math.floor(code/4096), 128 + (math.floor(code/64) % 64), 128 + (code % 64)))
+            end
+        end
+        content = table.concat(utf8_buf)
+    -- Check for UTF-8 BOM (EF BB BF)
+    elseif content:sub(1,3) == "\239\187\191" then
         content = content:sub(4)
     end
 end
-print("Content-Type: application/json")
+print("Content-Type: application/json; charset=utf-8")
 print("")
 print(content)

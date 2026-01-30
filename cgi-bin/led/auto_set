@@ -54,7 +54,7 @@ if f then
     -- Note: mobile_poller.lua will turn ON the new active LED 
     -- within 2 seconds if enabled.
     
-    print("Content-Type: application/json")
+    print("Content-Type: application/json; charset=utf-8")
     print("")
     print(json.stringify({ success = true }))
 else

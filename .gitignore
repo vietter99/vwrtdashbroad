@@ -36,3 +36,4 @@ task.md
 
 deploy_tool/
 install.sh
+check_boms.py

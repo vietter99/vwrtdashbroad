@@ -18,7 +18,7 @@ end
 local json = require("luci.jsonc")
 local fs = require("nixio.fs")
 
-print("Content-Type: application/json")
+print("Content-Type: application/json; charset=utf-8")
 print("")
 
 local csrf = require "lib.csrf"
