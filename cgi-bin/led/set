@@ -38,7 +38,7 @@ local input_data = get_input()
 -- CSRF Check
 local token = csrf.get_token_from_request() or csrf.get_token_from_body(input_data)
 if not csrf.validate_token(token) then
-    print(json.stringify({ success = false, error = "CSRF Token khÃ´ng há»£p lá»‡!" }))
+    print(json.stringify({ success = false, error = "CSRF Token không hợp lệ!" }))
     os.exit()
 end
 
@@ -47,15 +47,15 @@ local function set_led()
     local led_path = "/sys/class/leds"
     
     if not data.name or data.name == "" then
-        print(json.stringify({ success = false, error = "TÃªn LED khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng." }))
-        return
-    end
+    print(json.stringify({ success = false, error = "Tên LED không được để trống." }))
+    return
+end
     
     local led_dir = led_path .. "/" .. data.name
     if not fs.stat(led_dir) then
-        print(json.stringify({ success = false, error = "LED khÃ´ng tá»“n táº¡i." }))
-        return
-    end
+    print(json.stringify({ success = false, error = "LED không tồn tại." }))
+    return
+end
     
     -- MUTUAL EXCLUSION LOGIC (Smart Grouping)
     -- If turning ON (brightness > 0), automatically turn OFF siblings in the same group.
