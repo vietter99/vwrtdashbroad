@@ -45,6 +45,7 @@ end
 local function run_update()
     local data = input_data
     local update_type = data.type or "dashboard"
+    -- Default to User's GitHub Main Branch Archive
     local url = data.url or "https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.tar.gz"
     local version = data.version or "latest"
     
@@ -143,6 +144,9 @@ local function run_update()
         f:write("    [ -f '" .. source_folder .. "version.json' ] && cp '" .. source_folder .. "version.json' /www/vwrt/\n")
         f:write("fi\n")
         
+        -- CLEANUP DEV ARTIFACTS (Important for GitHub Source updates)
+        f:write("rm -rf /www/vwrt/.editorconfig /www/vwrt/.vscode /www/vwrt/.git* /www/vwrt/deploy_tool /www/vwrt/dist\n")
+        
         -- Fix permissions
         f:write("chmod -R 755 /www/vwrt\n")
         f:write("chmod +x /www/vwrt/cgi-bin/* /www/vwrt/cgi-bin/*/* 2>/dev/null\n")
@@ -154,6 +158,11 @@ local function run_update()
         
         -- Restart Mobile Poller if exists
         f:write("[ -f /www/vwrt/services/mobile_poller.lua ] && lua /www/vwrt/services/mobile_poller.lua >/dev/null 2>&1 &\n")
+        
+        -- CONFIG: Set Dashboard as Default on Port 80
+        f:write("uci set uhttpd.main.home='/www/vwrt'\n")
+        f:write("uci commit uhttpd\n")
+        f:write("/etc/init.d/uhttpd restart\n")
         
         -- Cleanup
         f:write("rm -rf " .. work_dir .. "\n")
