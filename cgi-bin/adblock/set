@@ -19,8 +19,17 @@ local json = require("luci.jsonc")
 local uci = require("luci.model.uci").cursor()
 local csrf = require("lib.csrf")
 
-print("Content-Type: application/json")
+print("Content-Type: application/json; charset=utf-8")
 print("")
+
+local function log(msg)
+    local f = io.open("/tmp/adblock_set.log", "a")
+    if f then
+        f:write(os.date() .. " " .. tostring(msg) .. "\n")
+        f:close()
+    end
+end
+log("--- Script Start ---")
 
 local function get_input()
     local len = tonumber(os.getenv("CONTENT_LENGTH") or 0)
@@ -44,7 +53,7 @@ if not csrf.validate_token(token) then
     local debug_msg = string.format("Invalid Token. Header: [%s], Body: [%s], Expected: [See Server]", 
         tostring(header_token), tostring(body_token))
     
-    print(json.stringify({ success = false, error = "Lá»—i CSRF! " .. debug_msg }))
+    print(json.stringify({ success = false, error = "Lỗi CSRF! " .. debug_msg }))
     os.exit()
 end
 
@@ -78,11 +87,19 @@ local function set_config()
     -- Reload service
     os.execute("/etc/init.d/adblock-fast reload >/dev/null 2>&1 &")
     
-    print(json.stringify({ success = true, message = "ÄÃ£ lÆ°u cáº¥u hÃ¬nh thÃ nh cÃ´ng." }))
+    print(json.stringify({ success = true, message = "Đã lưu cấu hình thành công." }))
 end
 
+    print(json.stringify({ success = true, message = "Đã lưu cấu hình thành công." }))
+end
+
+log("Calling pcall set_config")
 local ok, err = pcall(set_config)
+log("Pcall result: " .. tostring(ok) .. ", Err: " .. tostring(err))
+
 if not ok then
-    print(json.stringify({ success = false, error = tostring(err) }))
+    local err_msg = tostring(err)
+    if err_msg == "nil" then err_msg = "Lỗi không xác định (Unknown Error)" end
+    print(json.stringify({ success = false, error = err_msg }))
 end
 

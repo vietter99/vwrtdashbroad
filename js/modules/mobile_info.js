@@ -280,7 +280,7 @@ const MobileModule = {
         if (typeof Modal === 'undefined') return;
         
         const loadingId = Modal.show({
-            title: "Thông tin Modem",
+            title: " ", // Space to avoid 'Thông báo' default
             content: `
                 <div style="text-align:center;"><div class="spinner"></div></div>
             `
@@ -293,41 +293,124 @@ const MobileModule = {
                 Modal.close(loadingId);
                 if(res.status === 'success' && res.data) {
                     const d = res.data;
+                    const isConnected = (d.state === 'connected' || d.sub_state === 'connected');
+                    
                     const content = `
-                        <div style="padding: 10px;">
-                            <div style="margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-                                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                                    <span style="color:var(--text-sub);">Số điện thoại:</span>
-                                    <span style="font-weight:bold; color:#e53e3e;">${d.own_number || '--'}</span>
+                        <style>
+                            .modal-box h3 { display: none !important; } /* Hide default title */
+                            .modal-box { padding: 0 !important; border-radius: 16px !important; overflow: visible !important; }
+                            .modal-box > button { 
+                                color: white !important; 
+                                top: 15px !important; 
+                                right: 15px !important; 
+                                z-index: 10;
+                                opacity: 0.8;
+                            }
+                            .modal-box > button:hover { opacity: 1; }
+                            
+                            .modem-info-modal { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+                            .modem-header { 
+                                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                padding: 25px 20px 20px; 
+                                border-radius: 12px 12px 0 0; 
+                                color: white;
+                                display: flex;
+                                align-items: center;
+                                gap: 15px;
+                            }
+                            .modem-icon-box {
+                                width: 50px; height: 50px;
+                                background: rgba(255,255,255,0.2);
+                                border-radius: 14px;
+                                display: flex; align-items: center; justify-content: center;
+                                backdrop-filter: blur(4px);
+                            }
+                            .modem-body { padding: 20px; }
+                            .modem-row {
+                                display: flex; justify-content: space-between; align-items: center;
+                                padding: 12px 0;
+                                border-bottom: 1px solid #f0f0f0;
+                                font-size: 14px;
+                            }
+                            .modem-label { color: #718096; }
+                            .modem-val { font-weight: 600; color: #2d3748; }
+                            .val-phone { color: #e53e3e; font-size: 15px; }
+                            .val-ip { color: #3182ce; font-size: 15px; }
+                            .val-imei { font-family: monospace; letter-spacing: 0.5px; }
+                            
+                            .sys-info-block {
+                                background: #f8fafc;
+                                border-radius: 10px;
+                                padding: 12px 15px;
+                                margin-top: 15px;
+                                border: 1px solid #edf2f7;
+                            }
+                            .sys-row {
+                                display: flex; justify-content: space-between;
+                                font-size: 13px;
+                                margin-bottom: 6px;
+                            }
+                            .sys-row:last-child { margin-bottom: 0; }
+                            .sys-label { color: #a0aec0; }
+                            .sys-val { color: #4a5568; font-weight: 600; text-align: right; }
+                            
+                            .status-btn {
+                                width: 100%;
+                                padding: 12px;
+                                margin-top: 20px;
+                                background: ${isConnected ? '#48bb78' : '#e53e3e'};
+                                border: none;
+                                border-radius: 10px;
+                                color: white;
+                                font-weight: 700;
+                                font-size: 14px;
+                                display: flex; justify-content: center; align-items: center; gap: 8px;
+                                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                            }
+                        </style>
+                        <div class="modem-info-modal">
+                            <div class="modem-header">
+                                <div class="modem-icon-box">
+                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
                                 </div>
-                                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                                    <span style="color:var(--text-sub);">IMEI:</span>
-                                    <span style="font-family:monospace; font-weight:bold;">${d.imei || '--'}</span>
-                                </div>
-                                <div style="display:flex; justify-content:space-between;">
-                                    <span style="color:var(--text-sub);">Nhà sản xuất:</span>
-                                    <span>${d.manufacturer || '--'}</span>
+                                <div>
+                                    <div style="font-size: 19px; font-weight: 700; margin-bottom: 2px;">Thông tin Modem</div>
+                                    <div style="font-size: 12px; opacity: 0.85;">Quản lý kết nối</div>
                                 </div>
                             </div>
-                            <div style="margin-bottom: 12px;">
-                                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                                    <span style="color:var(--text-sub);">Model:</span>
-                                    <span style="text-align:right;">${d.model || '--'}</span>
+                            
+                            <div class="modem-body">
+                                <div class="modem-row">
+                                    <span class="modem-label">Số điện thoại:</span>
+                                    <span class="modem-val val-phone">${d.own_number || '--'}</span>
                                 </div>
-                                <div style="display:flex; justify-content:space-between;">
-                                    <span style="color:var(--text-sub);">Firmware:</span>
-                                    <span style="text-align:right; font-family:monospace; font-size:11px;">${d.firmware || '--'}</span>
+                                <div class="modem-row">
+                                    <span class="modem-label">IP WAN:</span>
+                                    <span class="modem-val val-ip">${d.wan_ip || '--'}</span>
                                 </div>
+                                <div class="modem-row">
+                                    <span class="modem-label">IMEI:</span>
+                                    <span class="modem-val val-imei">${d.imei || '--'}</span>
+                                </div>
+                                
+                                <div class="sys-info-block">
+                                    <div class="sys-row"><span class="sys-label">Nhà mạng</span><span class="sys-val">${d.operator_name || '--'}</span></div>
+                                    <div class="sys-row"><span class="sys-label">Model</span><span class="sys-val">${d.model || '--'}</span></div>
+                                    <div class="sys-row"><span class="sys-label">Firmware</span><span class="sys-val" style="font-family:monospace">${d.firmware || '--'}</span></div>
+                                </div>
+
+                                <button class="status-btn">
+                                    ${isConnected ? '✓ Đã kết nối' : '✕ Mất kết nối'}
+                                </button>
                             </div>
                         </div>
                     `;
                     
                     Modal.show({
-                        title: "Thông tin Modem",
+                        title: " ", 
                         content: content,
                         showCancel: false,
-                        confirmText: "Đóng",
-                        onConfirm: () => {} 
+                        showConfirm: false 
                     });
                 } else {
                      Modal.show({ title: "Lỗi", content: "Không lấy được thông tin modem." });

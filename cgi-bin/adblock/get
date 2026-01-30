@@ -5,7 +5,7 @@
 local json = require("luci.jsonc")
 local uci = require("luci.model.uci").cursor()
 
-print("Content-Type: application/json")
+print("Content-Type: application/json; charset=utf-8")
 print("")
 
 local function get_status()
@@ -17,6 +17,44 @@ local function get_status()
     -- Get global enabled status
     local enabled = uci:get("adblock-fast", "config", "enabled")
     result.enabled = (enabled == "1")
+
+    -- Get detailed status
+    local handle = io.popen("logread | grep 'adblock-fast' | grep 'blocking' | tail -n 1")
+    local log_line = handle:read("*a")
+    handle:close()
+
+    local version = "Unknown"
+    local blocked_domains = "0"
+    local dns_mode = "unknown"
+
+    -- Parse log line: [STAT] adblock-fast 1.2.0-r26 is blocking 373783 domains (with dnsmasq.servers)
+    if log_line and log_line ~= "" then
+        version = log_line:match("adblock%-fast ([%d%.%-r]+) is") or version
+        blocked_domains = log_line:match("blocking (%d+) domains") or blocked_domains
+        dns_mode = log_line:match("%(with ([^%)]+)%)") or dns_mode
+    end
+    
+    -- If version not found in log, try opkg
+    if version == "Unknown" then
+        local h = io.popen("opkg list-installed adblock-fast | cut -d ' ' -f 3")
+        local v = h:read("*l")
+        h:close()
+        if v then version = v end
+    end
+
+    -- Get Force DNS Ports
+    local force_dns_ports = uci:get("adblock-fast", "config", "force_dns_port") or {}
+    -- Ensure it's a table (uci might return string if single value)
+    if type(force_dns_ports) == "string" then
+        force_dns_ports = { force_dns_ports }
+    end
+
+    result.status = {
+        version = version,
+        blocked_domains = blocked_domains,
+        dns_mode = dns_mode,
+        force_dns_ports = table.concat(force_dns_ports, " ")
+    }
     
     -- Helper: Generate name from URL
     local function get_name_from_url(url)

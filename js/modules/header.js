@@ -1,64 +1,6 @@
 const HeaderModule = {
     template: `
-        <div class="nav-item" id="nav-modem" title="Thông tin Modem 4G/5G">
-            <div class="icon-btn">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect>
-                    <line x1="12" y1="2" x2="12" y2="22"></line>
-                    <line x1="2" y1="12" x2="22" y2="12"></line>
-                    <circle cx="12" cy="12" r="4"></circle>
-                </svg>
-            </div>
-            
-            <div class="popup-box hidden" id="modem-popup-content" style="width: 280px; padding: 0; overflow: hidden; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; display: flex; align-items: center; gap: 12px; color: white;">
-                    <div style="background: rgba(255,255,255,0.2); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg>
-                    </div>
-                    <div>
-                        <h4 style="margin: 0; font-size: 15px; font-weight: 600;">Thông tin Modem</h4>
-                        <span style="font-size: 11px; opacity: 0.9;">Quản lý kết nối</span>
-                    </div>
-                </div>
 
-                <div class="popup-body" style="padding: 15px; background: var(--bg-card);">
-                    <div style="display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 15px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
-                            <span style="color: var(--text-sub); font-size: 12px;">Số điện thoại:</span>
-                            <span id="h-modem-num" style="color: #e53e3e; font-weight: 700; font-size: 13px;">--</span>
-                        </div>
-
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
-                            <span style="color: var(--text-sub); font-size: 12px;">IP WAN:</span>
-                            <span id="h-modem-ip" style="color: #3182ce; font-weight: 600; font-size: 13px; font-family: monospace;">--</span>
-                        </div>
-
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 2px;">
-                            <span style="color: var(--text-sub); font-size: 12px;">IMEI:</span>
-                            <span id="h-modem-imei" style="color: var(--text-main); font-weight: 600; font-size: 13px; font-family: monospace;">--</span>
-                        </div>
-                    </div>
-
-                    <button onclick="HeaderModule.toggleExtra()" style="width: 100%; padding: 5px; background: #edf2f7; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 11px; color: #4a5568; cursor: pointer; margin-bottom: 10px;">
-                        Thông tin hệ thống ▼
-                    </button>
-                    
-                    <div id="modem-extra-details" class="hidden" style="font-size: 11px; color: var(--text-main); background: rgba(0,0,0,0.03); padding: 8px; border-radius: 6px; margin-bottom: 15px; border: 1px dashed var(--border-color);">
-                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Nhà SX:</span><span id="h-extra-manuf">--</span></div>
-                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Model:</span><span id="h-extra-model" style="text-align:right; max-width:140px;">--</span></div>
-
-                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Firmware:</span><span id="h-extra-fw" style="text-align:right; max-width:140px; word-break:break-all;">--</span></div>
-                    </div>
-
-                    <button id="btn-active-net" onclick="HeaderModule.triggerModemAction()" 
-                        style="width: 100%; padding: 10px; background: #3182ce; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-                        Kích hoạt mạng
-                    </button>
-                    <div id="modem-action-status" style="text-align: center; font-size: 11px; margin-top: 8px; min-height: 16px; color: var(--text-sub);"></div>
-                </div>
-            </div>
-        </div>
 
         <div class="nav-item" id="nav-wifi" title="Wifi"><div class="icon-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg><span class="badge" id="wifi-badge" style="display:none; background:#3182ce; border-color:#3182ce;">0</span></div><div class="popup-box hidden" id="wifi-popup-content"><div class="popup-body" style="text-align:center; padding: 20px; color: #999;">Đang tải dữ liệu Wifi...</div></div></div>      
         <div class="nav-item" id="btn-theme-toggle" title="Giao diện"><div class="icon-btn"></div></div>

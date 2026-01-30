@@ -19,8 +19,17 @@ local json = require("luci.jsonc")
 local uci = require("luci.model.uci").cursor()
 local csrf = require("lib.csrf")
 
-print("Content-Type: application/json")
+print("Content-Type: application/json; charset=utf-8")
 print("")
+
+local function parse_post_data()
+    local content_length = tonumber(os.getenv("CONTENT_LENGTH") or 0)
+    if content_length > 0 then
+        local raw = io.read(content_length)
+        return json.parse(raw) or {}
+    end
+    return {}
+end
 
 -- Parse POST data once
 local input_data = parse_post_data()
@@ -28,7 +37,7 @@ local input_data = parse_post_data()
 -- CSRF Check
 local token = csrf.get_token_from_request() or csrf.get_token_from_body(input_data)
 if not csrf.validate_token(token) then
-    print(json.stringify({ success = false, error = "CSRF Token khÃ´ng há»£p lá»‡!" }))
+    print(json.stringify({ success = false, error = "CSRF Token không hợp lệ!" }))
     os.exit()
 end
 
@@ -36,12 +45,12 @@ local function add_list()
     local data = input_data
     
     if not data.name or data.name == "" then
-        print(json.stringify({ success = false, error = "TÃªn danh sÃ¡ch khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng." }))
+        print(json.stringify({ success = false, error = "Tên danh sách không được để trống." }))
         return
     end
     
     if not data.url or data.url == "" then
-        print(json.stringify({ success = false, error = "URL khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng." }))
+        print(json.stringify({ success = false, error = "URL không được để trống." }))
         return
     end
     
@@ -55,25 +64,35 @@ local function add_list()
     end)
     
     if exists then
-        print(json.stringify({ success = false, error = "Danh sÃ¡ch vá»›i tÃªn nÃ y Ä‘Ã£ tá»“n táº¡i." }))
+        print(json.stringify({ success = false, error = "Danh sách với tên này đã tồn tại." }))
         return
     end
     
     -- Add new list section
     local section_name = uci:add("adblock-fast", "file_url")
+    if not section_name then
+         print(json.stringify({ success = false, error = "Không thể tạo cấu hình mới (uci:add fail)." }))
+         return
+    end
+
     uci:set("adblock-fast", section_name, "name", data.name)
     uci:set("adblock-fast", section_name, "url", data.url)
     uci:set("adblock-fast", section_name, "action", "block")
     uci:set("adblock-fast", section_name, "enabled", "0")
     uci:set("adblock-fast", section_name, "size", "0")
     
-    uci:commit("adblock-fast")
+    local c_ok, c_err = uci:commit("adblock-fast")
+    if not c_ok then
+         print(json.stringify({ success = false, error = "Không thể lưu cấu hình: " .. tostring(c_err) }))
+         return
+    end
     
-    print(json.stringify({ success = true, message = "ÄÃ£ thÃªm danh sÃ¡ch má»›i." }))
+    print(json.stringify({ success = true, message = "Đã thêm danh sách mới." }))
 end
 
 local ok, err = pcall(add_list)
 if not ok then
-    print(json.stringify({ success = false, error = tostring(err) }))
+    local err_msg = tostring(err)
+    if err_msg == "nil" then err_msg = "Lỗi không xác định (Unknown Error)" end
+    print(json.stringify({ success = false, error = err_msg }))
 end
-

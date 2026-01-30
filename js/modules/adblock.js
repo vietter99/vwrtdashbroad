@@ -45,6 +45,13 @@ const AdBlockModule = {
         
         const content = `
             <div style="text-align:left;">
+                <!-- Status Info -->
+                <div style="background:#edf2f7; padding:12px; border-radius:8px; margin-bottom:15px; font-size:13px; color:#4a5568; line-height:1.6;">
+                    <div style="font-weight:600; color:#2d3748;">Version ${data.status?.version || 'Unknown'} - ${enabled ? '<span style="color:#48bb78">Active</span>' : '<span style="color:#e53e3e">Inactive</span>'}.</div>
+                    <div>Blocking <span style="font-weight:600">${data.status?.blocked_domains || 0}</span> domains (with ${data.status?.dns_mode || 'unknown'}).</div>
+                    <div>Force DNS ports: <span style="font-family:monospace; background:#cbd5e0; padding:2px 6px; border-radius:4px; font-size:12px;">${data.status?.force_dns_ports || '53 853'}</span>.</div>
+                </div>
+
                 <!-- Global Toggle -->
                 <div style="display:flex; align-items:center; justify-content:space-between; padding:15px; background:linear-gradient(135deg, rgba(72,187,120,0.1), rgba(56,161,105,0.15)); border-radius:12px; margin-bottom:20px;">
                     <div>
@@ -203,10 +210,19 @@ const AdBlockModule = {
             confirmBtn.innerHTML = '⏳ Đang thêm...';
         }
         
+        // Prepare Payload with CSRF
+        const payload = { name: name, url: url };
+        const headers = { 'Content-Type': 'application/json' };
+        
+        if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
+            payload.csrf_token = VWRT_API.csrfToken;
+            headers['X-CSRF-Token'] = VWRT_API.csrfToken;
+        }
+
         fetch('/cgi-bin/adblock/add', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name, url: url })
+            headers: headers,
+            body: JSON.stringify(payload)
         })
         .then(res => res.json())
         .then(data => {
@@ -262,10 +278,19 @@ const AdBlockModule = {
             confirmBtn.disabled = true;
             confirmBtn.innerHTML = '⏳ Đang xóa...';
             
+            // Prepare Payload with CSRF
+            const payload = { url: url };
+            const headers = { 'Content-Type': 'application/json' };
+            
+            if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
+                payload.csrf_token = VWRT_API.csrfToken;
+                headers['X-CSRF-Token'] = VWRT_API.csrfToken;
+            }
+
             fetch('/cgi-bin/adblock/delete', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: url })
+                headers: headers,
+                body: JSON.stringify(payload)
             })
             .then(res => res.json())
             .then(data => {

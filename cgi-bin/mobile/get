@@ -23,6 +23,14 @@ function get_data()
         end
     end
 
+    -- Fix: Get WAN IP Address
+    local wan_iface = data.iface or "wwan0"
+    local handle = io.popen("ip -4 addr show " .. wan_iface .. " | grep -oP '(?<=inet\\s)\\d+(\\.\\d+){3}'")
+    local wan_ip = handle:read("*l")
+    handle:close()
+    
+    data.wan_ip = wan_ip or "Unknown"
+
     if not data.operator_name then
         data.operator_name = "Loading..."
         data.signal = "0"
