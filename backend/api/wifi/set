@@ -1,9 +1,20 @@
-#!/usr/bin/lua
+﻿#!/usr/bin/lua
 
 local cjson = require "cjson"
 
 -- Add project path to package.path
-package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+-- Dynamic Path Resolution
+local source = debug.getinfo(1).source
+local script_path = source:match("@?(.*[\\/])")
+if script_path then
+    local cgi_root = script_path:match("(.*cgi%-bin/)")
+    if cgi_root then
+        package.path = cgi_root .. "?.lua;" .. package.path
+    end
+end
+if not package.path:find("/www/vwrt/cgi-bin") then
+    package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+end
 
 local csrf = require "lib.csrf"
 
@@ -16,12 +27,12 @@ print("Content-type: application/json\n\n")
 -- 1. CSRF Check
 local token = csrf.get_token_from_request() or csrf.get_token_from_body(input)
 if not csrf.validate_token(token) then
-    print('{"status": "error", "message": "CSRF Token không hợp lệ!"}')
+    print('{"status": "error", "message": "CSRF Token khÃ´ng há»£p lá»‡!"}')
     os.exit()
 end
 
 if not input.section or not input.device then
-    print('{"status": "error", "message": "Thiếu thông tin thiết bị"}')
+    print('{"status": "error", "message": "Thiáº¿u thÃ´ng tin thiáº¿t bá»‹"}')
     os.exit()
 end
 
@@ -47,7 +58,7 @@ os.execute("uci set wireless." .. iface_sec .. ".disabled=" .. disabled)
 
 if key_val and #key_val > 0 then
     if #key_val < 8 then
-        print('{"status": "error", "message": "Mật khẩu Wifi phải từ 8 ký tự trở lên!"}')
+        print('{"status": "error", "message": "Máº­t kháº©u Wifi pháº£i tá»« 8 kÃ½ tá»± trá»Ÿ lÃªn!"}')
         os.exit()
     end
     os.execute("uci set wireless." .. iface_sec .. ".encryption='psk-mixed'")
@@ -59,7 +70,7 @@ end
 
 os.execute("uci commit wireless")
 
-print('{"status": "success", "message": "Đã lưu! Wifi sẽ khởi động lại sau 1 giây."}')
+print('{"status": "success", "message": "ÄÃ£ lÆ°u! Wifi sáº½ khá»Ÿi Ä‘á»™ng láº¡i sau 1 giÃ¢y."}')
 io.flush()
 
 os.execute("(sleep 1; wifi reload) >/dev/null 2>&1 &")

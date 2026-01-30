@@ -1,7 +1,18 @@
-#!/usr/bin/lua
+﻿#!/usr/bin/lua
 
 local cjson = require "cjson"
-package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+-- Dynamic Path Resolution
+local source = debug.getinfo(1).source
+local script_path = source:match("@?(.*[\\/])")
+if script_path then
+    local cgi_root = script_path:match("(.*cgi%-bin/)")
+    if cgi_root then
+        package.path = cgi_root .. "?.lua;" .. package.path
+    end
+end
+if not package.path:find("/www/vwrt/cgi-bin") then
+    package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+end
 
 local uci = require("luci.model.uci").cursor()
 
@@ -53,3 +64,4 @@ print(cjson.encode({
         blocked = get_blocked()
     }
 }))
+

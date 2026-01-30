@@ -1,7 +1,18 @@
-#!/usr/bin/lua
+﻿#!/usr/bin/lua
 
 local cjson = require "cjson"
-package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+-- Dynamic Path Resolution
+local source = debug.getinfo(1).source
+local script_path = source:match("@?(.*[\\/])")
+if script_path then
+    local cgi_root = script_path:match("(.*cgi%-bin/)")
+    if cgi_root then
+        package.path = cgi_root .. "?.lua;" .. package.path
+    end
+end
+if not package.path:find("/www/vwrt/cgi-bin") then
+    package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+end
 
 print("Content-Type: application/json\n")
 
@@ -23,9 +34,18 @@ local function read_file(path)
     return s
 end
 
--- 1. Get DHCP Lease Time (default 12h)
-local lease_time_str = exec("uci get dhcp.lan.leasetime") or "12h"
+-- 1. Get DHCP Lease Time (Dynamic Logic)
+local lease_time_str = "12h" -- Default
+-- Find the DHCP section responsible for 'lan' interface
+local dhcp_sections = exec("uci show dhcp | grep .interface='lan'")
+if dhcp_sections then
+    -- Extract section name e.g. dhcp.lan
+    local section = dhcp_sections:match("^(dhcp%.%S+)%.interface='lan'") or "dhcp.lan"
+    lease_time_str = exec("uci get " .. section .. ".leasetime") or "12h"
+end
+
 local function parse_lease_time(s)
+    if not s then return 12 * 3600 end
     local val = tonumber(s:match("%d+")) or 12
     if s:match("h") then return val * 3600
     elseif s:match("m") then return val * 60
@@ -121,18 +141,28 @@ end
 local active_wifi = {}
 local wifi_interfaces = {}
 
--- Auto-detect wifi interfaces
+-- Auto-detect wifi interfaces using iwinfo mechanisms
+-- This is robust across different drivers (ath10k, mt76, etc.)
 local ubus_wifi = exec("ubus list | grep hostapd")
 if ubus_wifi then
     for iface in ubus_wifi:gmatch("hostapd%.(%S+)") do
         table.insert(wifi_interfaces, iface)
     end
 end
--- Fallback
+-- Fallback: Scan /sys/class/net for wireless interfaces containing 'wlan', 'ra', 'ath'
 if #wifi_interfaces == 0 then
-    if exec("iwinfo ra0 info 2>/dev/null") then table.insert(wifi_interfaces, "ra0") end
-    if exec("iwinfo rax0 info 2>/dev/null") then table.insert(wifi_interfaces, "rax0") end
-    if exec("iwinfo wlan0 info 2>/dev/null") then table.insert(wifi_interfaces, "wlan0") end
+    local sys_net = exec("ls /sys/class/net")
+    if sys_net then
+        for iface in sys_net:gmatch("%S+") do
+            -- Common wireless prefixes
+            if iface:match("^ra") or iface:match("^wlan") or iface:match("^ath") or iface:match("^wl") then
+                -- Verify it is actually wireless
+                if exec("iwinfo " .. iface .. " info 2>/dev/null") then
+                    table.insert(wifi_interfaces, iface)
+                end
+            end
+        end
+    end
 end
 
 for _, iface in ipairs(wifi_interfaces) do
@@ -173,7 +203,12 @@ if acontent then
             -- 4. Otherwise (In FDB on LAN port) => Treat as LAN.
             
             if active_wifi[mac] then
-                c_type = active_wifi[mac].iface:find("rax") and "WiFi 5G" or (active_wifi[mac].iface:find("ra0") and "WiFi 2.4G" or "Wireless")
+                local iface_info = exec("iwinfo " .. active_wifi[mac].iface .. " info 2>/dev/null") or ""
+                -- Detect band based on frequency or channel
+                -- "Channel: 36 (5.180 GHz)" or "Frequency: 2.412 GHz"
+                local is_5g = iface_info:find("5%.%d+ GHz") or iface_info:find("Channel: %d+ %([3-9]%d") or iface_info:find("Channel: %d+ %(1[0-9]%d")
+                
+                c_type = is_5g and "WiFi 5G" or "WiFi 2.4G"
                 c_sig = active_wifi[mac].signal
             elseif is_wifi_port then
                 -- Stale WiFi client remaining in ARP/FDB but gone from Hostapd
@@ -223,3 +258,4 @@ for _, data in pairs(clients) do
 end
 
 print(cjson.encode({ status = "success", data = result }))
+

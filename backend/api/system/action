@@ -1,6 +1,17 @@
-#!/usr/bin/lua
+﻿#!/usr/bin/lua
 
-package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+-- Dynamic Path Resolution
+local source = debug.getinfo(1).source
+local script_path = source:match("@?(.*[\\/])")
+if script_path then
+    local cgi_root = script_path:match("(.*cgi%-bin/)")
+    if cgi_root then
+        package.path = cgi_root .. "?.lua;" .. package.path
+    end
+end
+if not package.path:find("/www/vwrt/cgi-bin") then
+    package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+end
 
 local cjson = require "cjson"
 local csrf = require "lib.csrf"
@@ -31,7 +42,7 @@ end
 -- 2. CSRF Check
 local token = csrf.get_token_from_request() or input.csrf_token
 if not csrf.validate_token(token) then
-    send_response("error", "CSRF Token không hợp lệ!")
+    send_response("error", "CSRF Token khÃ´ng há»£p lá»‡!")
     os.exit()
 end
 
@@ -40,15 +51,15 @@ local action = input.action
 local param = input.param
 
 if action == "reboot" then
-    send_response("success", "Thiết bị đang khởi động lại...")
+    send_response("success", "Thiáº¿t bá»‹ Ä‘ang khá»Ÿi Ä‘á»™ng láº¡i...")
     os.execute("sleep 2 && reboot >/dev/null 2>&1 &")
 
 elseif action == "reset" then
-    send_response("success", "Đang khôi phục cài đặt gốc...")
+    send_response("success", "Äang khÃ´i phá»¥c cÃ i Ä‘áº·t gá»‘c...")
     os.execute("sleep 2 && firstboot -y && reboot >/dev/null 2>&1 &")
 
 elseif action == "restart_mobile" then
-    send_response("success", "Đang khởi động lại dịch vụ Mobile...")
+    send_response("success", "Äang khá»Ÿi Ä‘á»™ng láº¡i dá»‹ch vá»¥ Mobile...")
     
     -- Restart ModemManager to fix AT port issues
     os.execute("/etc/init.d/modemmanager restart >/dev/null 2>&1")
@@ -60,9 +71,9 @@ elseif action == "restart_mobile" then
     os.execute("sleep 5 && " .. cmd)
 
 elseif action == "free_ram" then
-    send_response("success", "Đã giải phóng bộ nhớ đệm (Drop Caches).")
+    send_response("success", "ÄÃ£ giáº£i phÃ³ng bá»™ nhá»› Ä‘á»‡m (Drop Caches).")
     os.execute("sync && echo 3 > /proc/sys/vm/drop_caches")
 
 else
-    send_response("error", "Hành động không xác định")
+    send_response("error", "HÃ nh Ä‘á»™ng khÃ´ng xÃ¡c Ä‘á»‹nh")
 end

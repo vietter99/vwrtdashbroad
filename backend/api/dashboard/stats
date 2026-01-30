@@ -1,4 +1,19 @@
-#!/usr/bin/lua
+-- Helper to detect script path and set package.path dynamically
+-- This allows the app to run from any directory
+local source = debug.getinfo(1).source
+local script_path = source:match("@?(.*[\\/])")
+if script_path then
+    -- Assuming structure is .../cgi-bin/api/module/script
+    -- We want to add .../cgi-bin/ to package.path
+    local cgi_root = script_path:match("(.*cgi%-bin/)")
+    if cgi_root then
+        package.path = cgi_root .. "?.lua;" .. package.path
+    end
+end
+-- Legacy fallback
+if not package.path:find("/www/vwrt/cgi-bin") then
+    package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+end
 
 local cjson = require "cjson"
 local tmp_file_cpu = "/tmp/cpu_last_stat"
@@ -95,15 +110,36 @@ function get_other_sys_info()
         p:close()
     end
     
-    -- Data Traffic (Fixed to WWAN0/Mobile as requested)
-    local lan_iface = "wwan0" 
+    -- Data Traffic (Dynamic Interface Detection)
+    local lan_iface = nil
+
+    -- 1. Try to get WAN interface first (usually interesting for traffic)
+    -- Or if user wants to track specific interface, could be configured.
+    -- Default behavior: Find main LAN bridge or WAN interface.
     
-    -- Check if wwan0 exists, otherwise fallback to br-lan
-    local f_check = io.open("/sys/class/net/wwan0/statistics/rx_bytes", "r")
-    if f_check then
-        f_check:close()
-    else
-        lan_iface = "br-lan" -- Fallback if no wwan0
+    -- Try standard OpenWrt 'lan' logical interface device
+    local uci_lan = io.popen("uci get network.lan.device 2>/dev/null")
+    if uci_lan then
+        local dev = uci_lan:read("*all")
+        if dev and dev ~= "" then lan_iface = dev:gsub("\n", "") end
+        uci_lan:close()
+    end
+
+    -- If UCI failed, try to find bridge via brctl
+    if not lan_iface then
+        local brctl = io.popen("brctl show | grep '\\bbr-' | cut -f1 2>/dev/null")
+        if brctl then
+            local dev = brctl:read("*line") -- read first line
+            if dev and dev ~= "" then lan_iface = dev:match("%S+") end
+            brctl:close()
+        end
+    end
+    
+    -- If still failed, try common names
+    if not lan_iface then
+        if io.open("/sys/class/net/br-lan") then lan_iface = "br-lan"
+        elseif io.open("/sys/class/net/eth0") then lan_iface = "eth0" 
+        else lan_iface = "lo" end -- Safe fallback
     end
     
     -- Network traffic

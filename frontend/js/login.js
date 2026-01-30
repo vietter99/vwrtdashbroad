@@ -30,7 +30,8 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
         Toast.show(`Đăng nhập thành công (${user})!`, "success");
         btn.innerText = "Đang chuyển trang...";
         setTimeout(() => {
-            window.location.href = "dashboard.html";
+            // Load Dashboard with cache busting
+            window.location.href = "dashboard.html?v=" + new Date().getTime();
         }, 1000);
     };
 

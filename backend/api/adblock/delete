@@ -1,8 +1,19 @@
-#!/usr/bin/lua
+﻿#!/usr/bin/lua
 -- AdBlock Fast Delete List API
 -- Params: name (string)
 
-package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+-- Dynamic Path Resolution
+local source = debug.getinfo(1).source
+local script_path = source:match("@?(.*[\\/])")
+if script_path then
+    local cgi_root = script_path:match("(.*cgi%-bin/)")
+    if cgi_root then
+        package.path = cgi_root .. "?.lua;" .. package.path
+    end
+end
+if not package.path:find("/www/vwrt/cgi-bin") then
+    package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+end
 
 local json = require("luci.jsonc")
 local uci = require("luci.model.uci").cursor()
@@ -17,7 +28,7 @@ local input_data = parse_post_data()
 -- CSRF Check
 local token = csrf.get_token_from_request() or csrf.get_token_from_body(input_data)
 if not csrf.validate_token(token) then
-    print(json.stringify({ success = false, error = "CSRF Token không hợp lệ!" }))
+    print(json.stringify({ success = false, error = "CSRF Token khÃ´ng há»£p lá»‡!" }))
     os.exit()
 end
 
@@ -25,7 +36,7 @@ local function delete_list()
     local data = input_data
     
     if not data.url or data.url == "" then
-        print(json.stringify({ success = false, error = "URL danh sách không hợp lệ." }))
+        print(json.stringify({ success = false, error = "URL danh sÃ¡ch khÃ´ng há»£p lá»‡." }))
         return
     end
     
@@ -40,7 +51,7 @@ local function delete_list()
     end)
     
     if #sections_to_delete == 0 then
-        print(json.stringify({ success = false, error = "Không tìm thấy danh sách với tên này." }))
+        print(json.stringify({ success = false, error = "KhÃ´ng tÃ¬m tháº¥y danh sÃ¡ch vá»›i tÃªn nÃ y." }))
         return
     end
     
@@ -51,9 +62,9 @@ local function delete_list()
     
     if deleted then
         uci:commit("adblock-fast")
-        print(json.stringify({ success = true, message = "Đã xóa danh sách." }))
+        print(json.stringify({ success = true, message = "ÄÃ£ xÃ³a danh sÃ¡ch." }))
     else
-        print(json.stringify({ success = false, error = "Không thể xóa danh sách." }))
+        print(json.stringify({ success = false, error = "KhÃ´ng thá»ƒ xÃ³a danh sÃ¡ch." }))
     end
 end
 
@@ -61,3 +72,4 @@ local ok, err = pcall(delete_list)
 if not ok then
     print(json.stringify({ success = false, error = tostring(err) }))
 end
+

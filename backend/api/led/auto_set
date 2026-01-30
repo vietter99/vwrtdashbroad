@@ -4,10 +4,56 @@ local content_length = tonumber(os.getenv("CONTENT_LENGTH") or 0)
 local raw = io.read(content_length)
 local data = json.parse(raw)
 
+-- Helper to turn off an LED
+local function turn_off_led(name)
+    if not name or name == "" then return end
+    local led_path = "/sys/class/leds/" .. name
+    
+    -- IMPORTANT: Disable trigger first, to stop it from overriding brightness
+    os.execute("echo none > " .. led_path .. "/trigger")
+    os.execute("echo 0 > " .. led_path .. "/brightness")
+    
+    -- Also clear persistence in UCI
+    local uci = require("luci.model.uci").cursor()
+    local uci_name = name:gsub("[:%-]", "_")
+    local section_name = "led_" .. uci_name
+    
+    -- Force UCI update even if it looks same, to ensure commit triggers reload if needed
+    uci:set("system", section_name, "led") 
+    uci:set("system", section_name, "trigger", "none")
+    uci:set("system", section_name, "default", "0")
+    uci:commit("system")
+end
+
+-- 1. Read OLD config to find what needs to be cleaned up
+local old_config = {}
+local f_read = io.open("/etc/vwrt_autoled.json", "r")
+if f_read then
+    local content = f_read:read("*all")
+    f_read:close()
+    old_config = json.parse(content) or {}
+end
+
+-- 2. Save NEW config
 local f = io.open("/etc/vwrt_autoled.json", "w")
 if f then
     f:write(json.stringify(data))
     f:close()
+    
+    -- 3. Cleanup Logic (Aggressive)
+    -- Turn OFF all LEDs that were in the OLD rules
+    -- This ensures we don't leave any "Ghost" LEDs on when switching to "Not Used"
+    if old_config.rules then
+        for _, r in ipairs(old_config.rules) do
+            if r.led and r.led ~= "" then
+                turn_off_led(r.led)
+            end
+        end
+    end
+    
+    -- Note: mobile_poller.lua will turn ON the new active LED 
+    -- within 2 seconds if enabled.
+    
     print("Content-Type: application/json")
     print("")
     print(json.stringify({ success = true }))

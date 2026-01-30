@@ -1,8 +1,19 @@
-#!/usr/bin/lua
+﻿#!/usr/bin/lua
 -- LED Config Set API
 -- Params: name (string), brightness (0/1), trigger (string)
 
-package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+-- Dynamic Path Resolution
+local source = debug.getinfo(1).source
+local script_path = source:match("@?(.*[\\/])")
+if script_path then
+    local cgi_root = script_path:match("(.*cgi%-bin/)")
+    if cgi_root then
+        package.path = cgi_root .. "?.lua;" .. package.path
+    end
+end
+if not package.path:find("/www/vwrt/cgi-bin") then
+    package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+end
 
 local json = require("luci.jsonc")
 local fs = require("nixio.fs")
@@ -27,7 +38,7 @@ local input_data = get_input()
 -- CSRF Check
 local token = csrf.get_token_from_request() or csrf.get_token_from_body(input_data)
 if not csrf.validate_token(token) then
-    print(json.stringify({ success = false, error = "CSRF Token không hợp lệ!" }))
+    print(json.stringify({ success = false, error = "CSRF Token khÃ´ng há»£p lá»‡!" }))
     os.exit()
 end
 
@@ -36,16 +47,55 @@ local function set_led()
     local led_path = "/sys/class/leds"
     
     if not data.name or data.name == "" then
-        print(json.stringify({ success = false, error = "Tên LED không được để trống." }))
+        print(json.stringify({ success = false, error = "TÃªn LED khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng." }))
         return
     end
     
     local led_dir = led_path .. "/" .. data.name
     if not fs.stat(led_dir) then
-        print(json.stringify({ success = false, error = "LED không tồn tại." }))
+        print(json.stringify({ success = false, error = "LED khÃ´ng tá»“n táº¡i." }))
         return
     end
     
+    -- MUTUAL EXCLUSION LOGIC (Smart Grouping)
+    -- If turning ON (brightness > 0), automatically turn OFF siblings in the same group.
+    -- Group is defined by "prefix:suffix", e.g. "wt:4g:blue" -> Group "wt:4g"
+    if tonumber(data.brightness) > 0 then
+        local parts = {}
+        for part in data.name:gmatch("[^:]+") do table.insert(parts, part) end
+        
+        -- Only apply if name has at least 3 parts (vendor:func:color)
+        if #parts >= 3 then
+            -- Reconstruct group prefix (everything except the last color part)
+            local group_prefix = table.concat(parts, ":", 1, #parts - 1)
+            
+            -- Scan all LEDs to find siblings
+            local p = io.popen("ls " .. led_path)
+            if p then
+                for sibling in p:lines() do
+                     -- If sibling starts with same prefix but is DIFFERENT LED
+                     if sibling:match("^" .. group_prefix .. ":") and sibling ~= data.name then
+                         -- Turn OFF sibling hardware
+                         local s_dir = led_path .. "/" .. sibling
+                         os.execute("echo 0 > " .. s_dir .. "/brightness")
+                         os.execute("echo none > " .. s_dir .. "/trigger")
+                         
+                         -- Turn OFF sibling persistence (UCI)
+                         local s_uci_name = sibling:gsub("[:%-]", "_")
+                         local s_section = "led_" .. s_uci_name
+                         -- We set it to 'none' in UCI so it stays off
+                         local uci_s = require("luci.model.uci").cursor()
+                         uci_s:set("system", s_section, "trigger", "none")
+                         uci_s:set("system", s_section, "default", "0")
+                         uci_s:commit("system")
+                     end
+                end
+                p:close()
+            end
+        end
+    end
+    
+    -- Apply to hardware immediately
     -- Set trigger if provided
     if data.trigger then
         local trigger_file = led_dir .. "/trigger"
@@ -66,31 +116,38 @@ local function set_led()
         end
     end
     
-    -- Save persistence
-    local config_file = "/etc/vwrt_led.json"
-    local config = {}
-    local f = io.open(config_file, "r")
-    if f then
-        local content = f:read("*all")
-        f:close()
-        config = json.parse(content) or {}
+    -- SYSTEM PERSISTENCE (UCI)
+    -- This ensures the setting survives reboots AND hotplug events
+    local uci_name = data.name:gsub("[:%-]", "_") -- Sanitize name for UCI section
+    
+    local uci = require("luci.model.uci").cursor()
+    
+    -- 1. Check if section exists or create it
+    -- We look for a 'led' section with name equal to our custom name
+    local section_name = "led_" .. uci_name
+    
+    uci:set("system", section_name, "led")
+    uci:set("system", section_name, "name", data.name) -- logical name
+    uci:set("system", section_name, "sysfs", data.name) -- hardware path name
+    uci:set("system", section_name, "trigger", data.trigger or "none")
+    uci:set("system", section_name, "default", tostring(data.brightness or 0))
+
+    -- If turning off, ensure we don't have lingering triggers
+    if (tonumber(data.brightness) == 0) and (data.trigger == "none" or not data.trigger) then
+         uci:set("system", section_name, "trigger", "none")
+         uci:set("system", section_name, "default", "0")
     end
     
-    config[data.name] = {
-        brightness = data.brightness,
-        trigger = data.trigger
-    }
+    uci:commit("system")
     
-    f = io.open(config_file, "w")
-    if f then
-        f:write(json.stringify(config))
-        f:close()
-    end
+    -- Optional: We don't reload system led service here to avoid flickering everything
+    -- The hardware write above is enough for now, UCI is for next boot/reload
     
-    print(json.stringify({ success = true, message = "Đã cập nhật và lưu cấu hình LED." }))
+    print(json.stringify({ success = true, message = "ÄÃ£ lÆ°u cáº¥u hÃ¬nh (UCI System)." }))
 end
 
 local ok, err = pcall(set_led)
 if not ok then
     print(json.stringify({ success = false, error = tostring(err) }))
 end
+

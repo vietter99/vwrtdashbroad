@@ -1,8 +1,19 @@
-#!/usr/bin/lua
+﻿#!/usr/bin/lua
 -- System Update Run API
 -- Params: type ("dashboard" or "firmware"), url (string), version (string)
 
-package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+-- Dynamic Path Resolution
+local source = debug.getinfo(1).source
+local script_path = source:match("@?(.*[\\/])")
+if script_path then
+    local cgi_root = script_path:match("(.*cgi%-bin/)")
+    if cgi_root then
+        package.path = cgi_root .. "?.lua;" .. package.path
+    end
+end
+if not package.path:find("/www/vwrt/cgi-bin") then
+    package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+end
 
 local json = require("luci.jsonc")
 
@@ -27,7 +38,7 @@ local input_data = get_input()
 -- CSRF Check
 local token = csrf.get_token_from_request() or csrf.get_token_from_body(input_data)
 if not csrf.validate_token(token) then
-    print(json.stringify({ status = "error", message = "CSRF Token không hợp lệ!" }))
+    print(json.stringify({ status = "error", message = "CSRF Token khÃ´ng há»£p lá»‡!" }))
     os.exit()
 end
 
@@ -62,7 +73,7 @@ local function run_update()
     os.execute("echo 'Download finished. Return: " .. tostring(dl_ret) .. ", Size: " .. tostring(f_size) .. " bytes' >> " .. log_file)
 
     if dl_ret ~= 0 or f_size < 1024 then
-        print(json.stringify({ status = "error", message = "Lỗi tải file cập nhật (Size: " .. f_size .. ")." }))
+        print(json.stringify({ status = "error", message = "Lá»—i táº£i file cáº­p nháº­t (Size: " .. f_size .. ")." }))
         return
     end
     
@@ -75,7 +86,7 @@ local function run_update()
     end
     
     if os.execute(ext_cmd) ~= 0 then
-        print(json.stringify({ status = "error", message = "Lỗi giải nén file cập nhật (Zip=" .. tostring(is_zip) .. "). (Xem /tmp/update_debug.log)" }))
+        print(json.stringify({ status = "error", message = "Lá»—i giáº£i nÃ©n file cáº­p nháº­t (Zip=" .. tostring(is_zip) .. "). (Xem /tmp/update_debug.log)" }))
         return
     end
     
@@ -85,7 +96,7 @@ local function run_update()
     handle:close()
     
     if not source_folder or source_folder == "" then
-        print(json.stringify({ status = "error", message = "Không tìm thấy thư mục mã nguồn." }))
+        print(json.stringify({ status = "error", message = "KhÃ´ng tÃ¬m tháº¥y thÆ° má»¥c mÃ£ nguá»“n." }))
         return
     end
     
@@ -151,7 +162,7 @@ local function run_update()
     os.execute("chmod +x " .. install_script)
     os.execute("sh " .. install_script .. " >/dev/null 2>&1 &")
     
-    print(json.stringify({ status = "success", message = "Đang cập nhật " .. update_type .. "... Thiết bị sẽ khởi động lại." }))
+    print(json.stringify({ status = "success", message = "Äang cáº­p nháº­t " .. update_type .. "... Thiáº¿t bá»‹ sáº½ khá»Ÿi Ä‘á»™ng láº¡i." }))
 end
 
 local ok, err = pcall(run_update)

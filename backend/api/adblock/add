@@ -1,8 +1,19 @@
-#!/usr/bin/lua
+﻿#!/usr/bin/lua
 -- AdBlock Fast Add List API
 -- Params: name (string), url (string)
 
-package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+-- Dynamic Path Resolution
+local source = debug.getinfo(1).source
+local script_path = source:match("@?(.*[\\/])")
+if script_path then
+    local cgi_root = script_path:match("(.*cgi%-bin/)")
+    if cgi_root then
+        package.path = cgi_root .. "?.lua;" .. package.path
+    end
+end
+if not package.path:find("/www/vwrt/cgi-bin") then
+    package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+end
 
 local json = require("luci.jsonc")
 local uci = require("luci.model.uci").cursor()
@@ -17,7 +28,7 @@ local input_data = parse_post_data()
 -- CSRF Check
 local token = csrf.get_token_from_request() or csrf.get_token_from_body(input_data)
 if not csrf.validate_token(token) then
-    print(json.stringify({ success = false, error = "CSRF Token không hợp lệ!" }))
+    print(json.stringify({ success = false, error = "CSRF Token khÃ´ng há»£p lá»‡!" }))
     os.exit()
 end
 
@@ -25,12 +36,12 @@ local function add_list()
     local data = input_data
     
     if not data.name or data.name == "" then
-        print(json.stringify({ success = false, error = "Tên danh sách không được để trống." }))
+        print(json.stringify({ success = false, error = "TÃªn danh sÃ¡ch khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng." }))
         return
     end
     
     if not data.url or data.url == "" then
-        print(json.stringify({ success = false, error = "URL không được để trống." }))
+        print(json.stringify({ success = false, error = "URL khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng." }))
         return
     end
     
@@ -44,7 +55,7 @@ local function add_list()
     end)
     
     if exists then
-        print(json.stringify({ success = false, error = "Danh sách với tên này đã tồn tại." }))
+        print(json.stringify({ success = false, error = "Danh sÃ¡ch vá»›i tÃªn nÃ y Ä‘Ã£ tá»“n táº¡i." }))
         return
     end
     
@@ -58,10 +69,11 @@ local function add_list()
     
     uci:commit("adblock-fast")
     
-    print(json.stringify({ success = true, message = "Đã thêm danh sách mới." }))
+    print(json.stringify({ success = true, message = "ÄÃ£ thÃªm danh sÃ¡ch má»›i." }))
 end
 
 local ok, err = pcall(add_list)
 if not ok then
     print(json.stringify({ success = false, error = tostring(err) }))
 end
+

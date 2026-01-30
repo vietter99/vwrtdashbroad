@@ -1,17 +1,9 @@
 // LED Config Module - Custom UI
 const LedModule = {
-    nameMap: {
-        'wt:4g:blue': '4G - Xanh dương',
-        'wt:4g:green': '4G - Xanh lá',
-        'wt:4g:yellow': '4G - Vàng',
-        'wt:5g:blue': '5G - Xanh dương',
-        'wt:5g:yellow': '5G - Vàng',
-        'wt:power:blue': 'Đèn Nguồn',
-        'wt:wifi:blue': 'Đèn WiFi',
-        'power': 'Nguồn',
-        'wifi': 'WiFi'
-    },
-
+    // Dynamic name mapping will be handled by backend or fallback to raw system names
+    nameMap: {}, 
+    
+    // Standard Linux triggers (likely to be consistent across OpenWrt)
     triggerMap: {
         'none': 'Tắt hoàn toàn',
         'default-on': 'Bật liên tục',
@@ -22,7 +14,10 @@ const LedModule = {
         'mmc0': 'Theo ổ cứng/Thẻ nhớ',
         'phy0rx': 'WiFi nhận dữ liệu',
         'phy0tx': 'WiFi gửi dữ liệu',
-        'phy0assoc': 'WiFi có kết nối'
+        'phy0assoc': 'WiFi có kết nối',
+        // Fallback for others
+        'activity': 'Hoạt động',
+        'link': 'Liên kết'
     },
 
     showModal: function() {
@@ -48,10 +43,26 @@ const LedModule = {
         const auto = autoConfig || { enabled: false, rules: [] };
         
         const getDisplayName = (name) => {
-            for (let key in LedModule.nameMap) {
-                if (name.toLowerCase().includes(key.toLowerCase())) return LedModule.nameMap[key];
-            }
-            return name;
+            // 1. Try custom map if exists
+            if (LedModule.nameMap[name]) return LedModule.nameMap[name];
+            
+            // 2. Prettify common system names
+            let display = name;
+            
+            // Replace separators
+            display = display.replace(/[-_:.@]/g, ' ');
+            
+            // Capitalize first letters
+            display = display.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+            
+            // Highlight specifics
+            if(display.toLowerCase().includes('wifi')) display = "📡 " + display;
+            else if(display.toLowerCase().includes('power')) display = "⚡ " + display;
+            else if(display.toLowerCase().includes('wan')) display = "🌐 " + display;
+            else if(display.toLowerCase().includes('exclude')) display = "❌ " + display;
+            else display = "💡 " + display;
+
+            return display;
         };
 
         const getTriggerName = (t) => LedModule.triggerMap[t] || t;
