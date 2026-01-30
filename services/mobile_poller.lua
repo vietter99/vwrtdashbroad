@@ -98,7 +98,8 @@ function parse_at_gstatus(output)
     for i = 1, 4 do
         local state = output:match("LTE SCC" .. i .. " state:%s*(%S+)")
         local band = output:match("LTE SCC" .. i .. " band:%s*(%S+)")
-        if state and state ~= "INACTIVE" and band then
+        -- Include SCC even if INACTIVE to show LTE-A capability
+        if state and band and band ~= "---" then
             table.insert(active_bands, band)
         end
     end
@@ -156,6 +157,10 @@ function parse_at_gstatus(output)
         if not rsrp then rsrp = output:match("RSRP.-:.-([%-%d]+)") end
         if rsrp then res.rsrp = rsrp end
     end
+    
+    -- Cell ID
+    local cellid = output:match("Cell ID:%s*(%x+) %(%d+%)")
+    if cellid then res.cell_id = cellid end
     
     return res
 end
@@ -483,6 +488,7 @@ function main()
                     if at_data.rsrq then data_modem.rsrq = at_data.rsrq end
                     if at_data.sinr then data_modem.sinr = at_data.sinr end
                     if at_data.rssi then data_modem.rssi = at_data.rssi end
+                    if at_data.cell_id then data_modem.cell_id = at_data.cell_id end
                     if at_data.active_band then data_modem.mode = at_data.active_mode .. " | " .. at_data.active_band end
 
                 elseif is_dell then
