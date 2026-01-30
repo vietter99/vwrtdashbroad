@@ -130,19 +130,9 @@ local function run_update()
         -- CLEAN INSTALL: Delete old files
         f:write("rm -rf /www/vwrt/*\n")
         
-        -- Copy Strategy: Check for new structure first
-        f:write("if [ -d '" .. source_folder .. "cgi-bin' ]; then\n")
-        f:write("    # NEW STRUCTURE (Flattened)\n")
-        f:write("    cp -rf '" .. source_folder .. "'* /www/vwrt/\n")
-        f:write("else\n")
-        f:write("    # OLD STRUCTURE (Retro-compatibility)\n")
-        f:write("    cp -rf '" .. source_folder .. "frontend/'* /www/vwrt/\n")
-        f:write("    mkdir -p /www/vwrt/cgi-bin\n")
-        f:write("    cp -rf '" .. source_folder .. "backend/api/'* /www/vwrt/cgi-bin/\n")
-        f:write("    mkdir -p /www/vwrt/services\n")
-        f:write("    cp -rf '" .. source_folder .. "backend/services/'* /www/vwrt/services/\n")
-        f:write("    [ -f '" .. source_folder .. "version.json' ] && cp '" .. source_folder .. "version.json' /www/vwrt/\n")
-        f:write("fi\n")
+        -- Copy Strategy: Flattened Structure (Standard)
+        -- We already identified the correct source_folder above, so just copy.
+        f:write("cp -rf '" .. source_folder .. "'* /www/vwrt/\n")
         
         -- CLEANUP DEV ARTIFACTS (Important for GitHub Source updates)
         f:write("rm -rf /www/vwrt/.editorconfig /www/vwrt/.vscode /www/vwrt/.git* /www/vwrt/deploy_tool /www/vwrt/dist\n")
