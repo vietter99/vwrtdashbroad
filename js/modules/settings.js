@@ -202,9 +202,19 @@ const SettingsModule = {
     executeUpdateFetch: function(type, url, ver) {
         if(typeof Toast !== 'undefined') Toast.show("Đang tải và cài đặt...", "info");
 
+        // Prepare Payload & Headers
+        const payload = { type: type, url: url, version: ver };
+        const headers = { 'Content-Type': 'application/json' };
+        
+        if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
+            payload.csrf_token = VWRT_API.csrfToken;
+            headers['X-CSRF-Token'] = VWRT_API.csrfToken;
+        }
+
         fetch('/cgi-bin/system/update_run', {
             method: 'POST',
-            body: JSON.stringify({ type: type, url: url, version: ver })
+            headers: headers,
+            body: JSON.stringify(payload)
         })
         .then(res => res.json())
         .then(data => {
