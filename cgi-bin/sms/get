@@ -26,12 +26,10 @@ local driver_lib = require "drivers.mmcli"
 
 local action = get_query_param("action")
 
+
 if action then
     -- Actions moved to sms/action for CSRF protection
     print(json.stringify({ status = "error", message = "Use POST /cgi-bin/sms/action" }))
-else
-
-
 else
     local result = driver_lib.get_sms(config)
     print(json.stringify({ 

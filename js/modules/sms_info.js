@@ -284,9 +284,8 @@ const SmsModule = {
                     </div>
                     <div class="sms-manage-bar" style="padding: 10px 15px; background: #f8f9fa; border-bottom: 1px solid #e2e8f0; display:flex; flex-wrap: wrap; align-items:center; gap:10px;">
                         <div style="display:flex; gap:8px;">
-                            <button onclick="SmsModule.deleteSelected()" style="background: #e53e3e; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size:12px; font-weight:600; cursor:pointer; display:flex; flex-direction:column; align-items:center; min-width:60px;">
-                                <span style="font-size:14px; margin-bottom:2px;">🗑</span>
-                                <span>Xóa</span>
+                            <button onclick="SmsModule.deleteSelected()" style="background: #e53e3e; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size:16px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; min-width:42px;">
+                                <span>🗑</span>
                             </button>
                         </div>
                         
