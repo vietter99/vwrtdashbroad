@@ -382,23 +382,62 @@
                             >
                                 <div class="card-header-compact">
                                     <!-- Clickable area: ONLY the Globe Icon -->
-                                    <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                                        <div 
-                                            class="card-icon-small bg-green-light" 
-                                            onclick="MobileModule.showModemDetails()" 
-                                            style="margin: 0; cursor: pointer;"
+                                    <div
+                                        style="
+                                            display: flex;
+                                            align-items: center;
+                                            gap: 12px;
+                                            flex: 1;
+                                        "
+                                    >
+                                        <div
+                                            class="card-icon-small bg-green-light"
+                                            onclick="
+                                                MobileModule.showModemDetails()
+                                            "
+                                            style="margin: 0; cursor: pointer"
                                             title="Xem chi tiết modem"
                                         >
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <circle cx="12" cy="12" r="10"></circle>
-                                                <line x1="2" y1="12" x2="22" y2="12"></line>
-                                                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                                            <svg
+                                                width="20"
+                                                height="20"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                            >
+                                                <circle
+                                                    cx="12"
+                                                    cy="12"
+                                                    r="10"
+                                                ></circle>
+                                                <line
+                                                    x1="2"
+                                                    y1="12"
+                                                    x2="22"
+                                                    y2="12"
+                                                ></line>
+                                                <path
+                                                    d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+                                                ></path>
                                             </svg>
                                         </div>
-                                        <div class="header-text-col" style="margin: 0;">
-                                            <h3 style="margin: 0;">Nhà mạng</h3>
-                                            <div class="model-name" id="mob-card-operator">
-                                                <div class="skeleton" style="width: 80px; height: 18px;"></div>
+                                        <div
+                                            class="header-text-col"
+                                            style="margin: 0"
+                                        >
+                                            <h3 style="margin: 0">Nhà mạng</h3>
+                                            <div
+                                                class="model-name"
+                                                id="mob-card-operator"
+                                            >
+                                                <div
+                                                    class="skeleton"
+                                                    style="
+                                                        width: 80px;
+                                                        height: 18px;
+                                                    "
+                                                ></div>
                                             </div>
                                         </div>
                                     </div>
@@ -419,7 +458,7 @@
                                         <div class="sys-row-mini">
                                             <span class="sys-label"
                                                 >Tín hiệu</span
-                                             ><span
+                                            ><span
                                                 class="sys-val-mini"
                                                 id="mob-card-signal-text"
                                                 >0%</span
@@ -526,29 +565,81 @@
                         </div>
 
                         <div class="cards-track">
-                             <!-- CONNECTED DEVICES (Row 2 Left) -->
-                            <div id="clients-container" style="display: contents;">
+                            <!-- CONNECTED DEVICES (Row 2 Left) -->
+                            <div
+                                id="clients-container"
+                                style="display: contents"
+                            >
                                 <!-- SKELETON CLIENTS CARD (Placeholder) -->
                                 <div class="card">
                                     <div class="card-header-compact">
-                                        <div class="card-icon-small" style="background: rgba(237, 137, 54, 0.15); color: #ed8936;">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                                <circle cx="9" cy="7" r="4"></circle>
-                                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                        <div
+                                            class="card-icon-small"
+                                            style="
+                                                background: rgba(
+                                                    237,
+                                                    137,
+                                                    54,
+                                                    0.15
+                                                );
+                                                color: #ed8936;
+                                            "
+                                        >
+                                            <svg
+                                                width="20"
+                                                height="20"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                            >
+                                                <path
+                                                    d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+                                                ></path>
+                                                <circle
+                                                    cx="9"
+                                                    cy="7"
+                                                    r="4"
+                                                ></circle>
+                                                <path
+                                                    d="M23 21v-2a4 4 0 0 0-3-3.87"
+                                                ></path>
+                                                <path
+                                                    d="M16 3.13a4 4 0 0 1 0 7.75"
+                                                ></path>
                                             </svg>
                                         </div>
                                         <div class="header-text-col">
                                             <h3>Quản lý</h3>
                                             <div class="model-name">
-                                                <div class="skeleton" style="width: 80px; height: 16px;"></div>
+                                                <div
+                                                    class="skeleton"
+                                                    style="
+                                                        width: 80px;
+                                                        height: 16px;
+                                                    "
+                                                ></div>
                                             </div>
                                         </div>
                                     </div>
-                                    <div style="padding: 10px;">
-                                        <div class="skeleton" style="width: 100%; height: 50px; border-radius: 10px; margin-bottom: 8px;"></div>
-                                        <div class="skeleton" style="width: 100%; height: 50px; border-radius: 10px;"></div>
+                                    <div style="padding: 10px">
+                                        <div
+                                            class="skeleton"
+                                            style="
+                                                width: 100%;
+                                                height: 50px;
+                                                border-radius: 10px;
+                                                margin-bottom: 8px;
+                                            "
+                                        ></div>
+                                        <div
+                                            class="skeleton"
+                                            style="
+                                                width: 100%;
+                                                height: 50px;
+                                                border-radius: 10px;
+                                            "
+                                        ></div>
                                     </div>
                                 </div>
                             </div>
@@ -644,10 +735,10 @@
                                         Đang tải tin nhắn...
                                     </div>
                                 </div>
-                                </div>
                             </div>
                         </div>
                     </div>
+                </div>
             </main>
         </div>
         <script src="js/api.js?v=2"></script>
@@ -662,7 +753,7 @@
         <script src="js/modules/network_info.js?v=2"></script>
         <script src="js/modules/sms_info.js?v=2"></script>
         <script src="js/modules/settings.js?v=2"></script>
-        <script src="js/modules/adblock.js?v=5"></script>
+        <script src="js/modules/adblock.js?v=6"></script>
         <script src="js/modules/led.js?v=2"></script>
         <script src="js/modules/reboot_schedule.js?v=3"></script>
         <script src="js/modules/clients_info.js?v=4"></script>

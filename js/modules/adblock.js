@@ -1,39 +1,45 @@
 // AdBlock Fast Module - Custom UI with Add/Delete features
 const AdBlockModule = {
-    showModal: function() {
+    showModal: function () {
         // Fetch current config
-        fetch('/cgi-bin/adblock/get')
-            .then(res => res.json())
-            .then(data => {
-                if(data.error) {
+        fetch("/cgi-bin/adblock/get")
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.error) {
                     Toast.show("Lỗi: " + data.error, "error");
                     return;
                 }
                 this.renderModal(data);
             })
-            .catch(err => {
+            .catch((err) => {
                 Toast.show("Không thể tải cấu hình AdBlock.", "error");
                 console.error(err);
             });
     },
 
-    renderModal: function(data) {
+    renderModal: function (data) {
         const enabled = data.enabled;
         const lists = data.lists || [];
         const status = data.status || {};
-        
-        let listsHtml = lists.map((list) => {
-            const sizeKB = Math.round(parseInt(list.size || 0) / 1024);
-            const sizeDisplay = sizeKB > 1024 ? (sizeKB / 1024).toFixed(1) + ' MB' : sizeKB + ' KB';
-            const safeName = window.Security ? Security.escapeHtml(list.name) : list.name;
-            const escapedName = list.name.replace(/'/g, "\\'");
-            const escapedUrl = list.url.replace(/'/g, "\\'");
 
-            return `
+        let listsHtml = lists
+            .map((list) => {
+                const sizeKB = Math.round(parseInt(list.size || 0) / 1024);
+                const sizeDisplay =
+                    sizeKB > 1024
+                        ? (sizeKB / 1024).toFixed(1) + " MB"
+                        : sizeKB + " KB";
+                const safeName = window.Security
+                    ? Security.escapeHtml(list.name)
+                    : list.name;
+                const escapedName = list.name.replace(/'/g, "\\'");
+                const escapedUrl = list.url.replace(/'/g, "\\'");
+
+                return `
                 <div class="adblock-list-row" style="display:flex; align-items:center; padding:12px; border-radius:12px; background:var(--bg-card); border:1px solid var(--border-color); margin-bottom:10px; transition:0.2s;">
                     <div style="margin-right:12px; display:flex; align-items:center;">
                         <label class="custom-checkbox">
-                            <input type="checkbox" name="adblock-list" value="${list.url}" ${list.enabled ? 'checked' : ''}>
+                            <input type="checkbox" name="adblock-list" value="${list.url}" ${list.enabled ? "checked" : ""}>
                             <span class="checkmark"></span>
                         </label>
                     </div>
@@ -46,16 +52,17 @@ const AdBlockModule = {
                     </button>
                 </div>
             `;
-        }).join('');
-        
+            })
+            .join("");
+
         const content = `
             <div class="adblock-modern-container">
                 
                 <!-- Status Row -->
                 <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:16px; padding:15px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow);">
                     <div>
-                        <div style="font-size:11px; color:var(--text-sub); opacity:0.8; font-weight:700;">VERSION ${status.version || '1.2.x'}</div>
-                        <div style="font-size:16px; font-weight:800; color:var(--text-main);">${enabled ? 'ĐANG HOẠT ĐỘNG' : 'ĐANG TẮT'}</div>
+                        <div style="font-size:11px; color:var(--text-sub); opacity:0.8; font-weight:700;">VERSION ${status.version || "1.2.x"}</div>
+                        <div style="font-size:16px; font-weight:800; color:var(--text-main);">${enabled ? "ĐANG HOẠT ĐỘNG" : "ĐANG TẮT"}</div>
                     </div>
                     <div style="text-align:right;">
                         <div style="font-size:18px; font-weight:900; color:var(--ad-accent, #6366f1);">${(parseInt(status.blocked_domains || 0) / 1000).toFixed(1)}k</div>
@@ -67,7 +74,7 @@ const AdBlockModule = {
                 <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:16px; padding:12px 15px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow);">
                     <span style="font-weight:700; font-size:14px; color:var(--text-main);">Bật chặn quảng cáo</span>
                     <label class="modern-switch">
-                        <input type="checkbox" id="adblock-enabled" ${enabled ? 'checked' : ''}>
+                        <input type="checkbox" id="adblock-enabled" ${enabled ? "checked" : ""}>
                         <span class="modern-slider"></span>
                     </label>
                 </div>
@@ -121,96 +128,103 @@ const AdBlockModule = {
                 .modern-switch input:checked + .modern-slider:before { transform: translateX(20px); }
             </style>
         `;
-        
-        if(typeof Modal !== 'undefined') {
+
+        if (typeof Modal !== "undefined") {
             const modalId = Modal.show({
                 title: "Chặn quảng cáo",
                 content: content,
                 showCancel: false,
                 showIcon: false,
-                onConfirm: null 
+                onConfirm: null,
             });
-            
+
             // Hardened UI adjustments (Runs after a short delay to ensure DOM and CSS are ready)
             setTimeout(() => {
                 const overlay = document.getElementById(modalId);
-                if(!overlay) return;
-                
-                const box = overlay.querySelector('.modal-box');
-                if(box) {
+                if (!overlay) return;
+
+                const box = overlay.querySelector(".modal-box");
+                if (box) {
                     // Force box styling to match the modern theme
                     Object.assign(box.style, {
-                        position: 'relative',
-                        background: 'var(--bg-card)',
-                        borderRadius: '24px',
-                        padding: '45px 25px 25px 25px', // Increased top padding to give X button its own space
-                        border: '1px solid var(--border-color)',
-                        boxShadow: 'var(--shadow)',
-                        color: 'var(--text-main)',
-                        maxWidth: '440px',
-                        width: '95%',
-                        overflow: 'visible'
+                        position: "relative",
+                        background: "var(--bg-card)",
+                        borderRadius: "24px",
+                        padding: "45px 25px 25px 25px", // Increased top padding to give X button its own space
+                        border: "1px solid var(--border-color)",
+                        boxShadow: "var(--shadow)",
+                        color: "var(--text-main)",
+                        maxWidth: "440px",
+                        width: "95%",
+                        overflow: "visible",
                     });
 
                     // 1. Hide the old ugly close button
-                    const oldBtn = box.querySelector('button');
-                    if(oldBtn && oldBtn.innerText.includes('×')) {
-                        oldBtn.style.setProperty('display', 'none', 'important');
+                    const oldBtn = box.querySelector("button");
+                    if (oldBtn && oldBtn.innerText.includes("×")) {
+                        oldBtn.style.setProperty(
+                            "display",
+                            "none",
+                            "important",
+                        );
                     }
-                    
+
                     // 2. Hide title and actions if they exist
-                    const h3 = box.querySelector('h3'); if(h3) h3.style.display = 'none';
-                    const actions = box.querySelector('.modal-actions'); if(actions) actions.style.display = 'none';
+                    const h3 = box.querySelector("h3");
+                    if (h3) h3.style.display = "none";
+                    const actions = box.querySelector(".modal-actions");
+                    if (actions) actions.style.display = "none";
 
                     // 3. Create a beautiful NEW close button
-                    const closeBtn = document.createElement('div');
-                    closeBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>';
+                    const closeBtn = document.createElement("div");
+                    closeBtn.innerHTML =
+                        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>';
                     Object.assign(closeBtn.style, {
-                        position: 'absolute',
-                        top: '12px',
-                        right: '12px',
-                        width: '32px',
-                        height: '32px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        color: 'var(--text-sub)',
-                        borderRadius: '50%',
-                        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                        zIndex: '99999',
-                        background: 'transparent'
+                        position: "absolute",
+                        top: "12px",
+                        right: "12px",
+                        width: "32px",
+                        height: "32px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        color: "var(--text-sub)",
+                        borderRadius: "50%",
+                        transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                        zIndex: "99999",
+                        background: "transparent",
                     });
-                    
-                    closeBtn.onmouseenter = () => { 
-                        closeBtn.style.background = 'var(--border-color)';
-                        closeBtn.style.color = 'var(--text-main)';
-                        closeBtn.style.transform = 'rotate(90deg) scale(1.1)';
+
+                    closeBtn.onmouseenter = () => {
+                        closeBtn.style.background = "var(--border-color)";
+                        closeBtn.style.color = "var(--text-main)";
+                        closeBtn.style.transform = "rotate(90deg) scale(1.1)";
                     };
-                    closeBtn.onmouseleave = () => { 
-                        closeBtn.style.background = 'transparent'; 
-                        closeBtn.style.color = 'var(--text-sub)';
-                        closeBtn.style.transform = 'rotate(0deg) scale(1)';
+                    closeBtn.onmouseleave = () => {
+                        closeBtn.style.background = "transparent";
+                        closeBtn.style.color = "var(--text-sub)";
+                        closeBtn.style.transform = "rotate(0deg) scale(1)";
                     };
                     closeBtn.onclick = () => overlay.remove();
-                    
+
                     box.appendChild(closeBtn);
                 }
             }, 100);
-            
+
             // Attach app logic handlers
             setTimeout(() => {
-                const saveBtn = document.getElementById('adblock-save-btn');
-                if(saveBtn) {
-                    saveBtn.addEventListener('click', (e) => {
+                const saveBtn = document.getElementById("adblock-save-btn");
+                if (saveBtn) {
+                    saveBtn.addEventListener("click", (e) => {
                         e.stopPropagation();
                         this.saveConfig();
                     });
                 }
-                
-                const addBtn = document.getElementById('adblock-add-btn');
-                if(addBtn) {
-                    addBtn.addEventListener('click', (e) => {
+
+                const addBtn = document.getElementById("adblock-add-btn");
+                if (addBtn) {
+                    addBtn.addEventListener("click", (e) => {
                         e.stopPropagation();
                         this.showAddModal();
                     });
@@ -218,150 +232,200 @@ const AdBlockModule = {
             }, 100);
         }
     },
-    
-    showAddModal: function() {
-        const addContent = `
-            <div style="text-align:left;">
-                <div style="margin-bottom:15px;">
-                    <label style="display:block; font-weight:600; font-size:13px; color:var(--text-secondary, #718096); margin-bottom:6px;">Tên danh sách</label>
-                    <input type="text" id="adblock-new-name" placeholder="VD: My Custom List" style="width:100%; padding:10px 12px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; box-sizing:border-box;">
-                </div>
-                <div style="margin-bottom:20px;">
-                    <label style="display:block; font-weight:600; font-size:13px; color:var(--text-secondary, #718096); margin-bottom:6px;">URL danh sách</label>
-                    <input type="text" id="adblock-new-url" placeholder="https://example.com/blocklist.txt" style="width:100%; padding:10px 12px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; box-sizing:border-box;">
-                </div>
-                <div style="display:flex; gap:10px;">
-                    <button id="adblock-add-cancel" style="flex:1; padding:12px; background:#e2e8f0; color:#4a5568; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Hủy</button>
-                    <button id="adblock-add-confirm" style="flex:1; padding:12px; background:#3182ce; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Thêm</button>
-                </div>
-            </div>
+
+    showAddModal: function () {
+        const overlay = document.createElement("div");
+        overlay.id = "adblock-add-overlay";
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 999999;
+            opacity: 0; transition: opacity 0.3s ease;
         `;
-        
-        // Create a sub-modal overlay
-        const overlay = document.createElement('div');
-        overlay.id = 'adblock-add-overlay';
-        overlay.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:99999;';
-        
-        const box = document.createElement('div');
-        box.style.cssText = 'background:var(--modal-bg, var(--card-bg)); border-radius:24px; padding:24px; max-width:400px; width:90%; box-shadow:0 30px 60px rgba(0,0,0,0.2); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); border:1px solid var(--border-color); color:var(--text-primary);';
+
+        const box = document.createElement("div");
+        box.style.cssText = `
+            background: var(--bg-card, #ffffff);
+            border-radius: 24px;
+            padding: 30px;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color, #e2e8f0);
+            color: var(--text-main, #2d3748);
+            position: relative;
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        `;
+
         box.innerHTML = `
-            <style>@keyframes popIn { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }</style>
-            <h3 style="margin:0 0 20px 0; font-size:20px; font-weight:800; text-align:center;">Thêm danh sách mới</h3>
-            ${addContent}
+            <h3 style="margin: 0 0 25px 0; font-size: 20px; font-weight: 800; text-align: center; background: linear-gradient(135deg, var(--accent-color), #63b3ed); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Thêm danh sách mới</h3>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-weight: 700; font-size: 11px; color: var(--text-sub); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Tên danh sách</label>
+                <input type="text" id="adblock-new-name" class="premium-input" placeholder="VD: Hagezi Pro" autocomplete="off">
+            </div>
+            
+            <div style="margin-bottom: 30px;">
+                <label style="display: block; font-weight: 700; font-size: 11px; color: var(--text-sub); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">URL danh sách</label>
+                <input type="text" id="adblock-new-url" class="premium-input" placeholder="https://example.com/list.txt" autocomplete="off">
+            </div>
+
+            <div style="display: flex; gap: 15px;">
+                <button id="adblock-add-cancel" class="premium-btn btn-secondary">Hủy bỏ</button>
+                <button id="adblock-add-confirm" class="premium-btn btn-primary">Thêm ngay</button>
+            </div>
+
             <style>
-                .modern-input { width:100%; padding:14px; background:rgba(0,0,0,0.03); border:1px solid var(--border-color); border-radius:12px; color:var(--text-primary); font-size:14px; outline:none; transition:0.2s; }
-                .modern-input:focus { border-color: #6366f1; background:rgba(0,0,0,0.05); }
-                .modern-btn-sec { flex:1; padding:12px; background:rgba(0,0,0,0.05); color:var(--text-secondary); border:1px solid var(--border-color); border-radius:12px; font-weight:700; cursor:pointer; }
-                .modern-btn-pri { flex:1; padding:12px; background:#6366f1; color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
+                .premium-input {
+                    width: 100%; padding: 14px 16px;
+                    background: var(--bg-body, #f7fafc);
+                    border: 1px solid var(--border-color, #e2e8f0);
+                    border-radius: 12px;
+                    color: var(--text-main);
+                    font-size: 14px;
+                    outline: none; transition: all 0.3s ease;
+                }
+                .premium-input:focus {
+                    border-color: var(--accent-color);
+                    background: var(--bg-card);
+                    box-shadow: 0 0 0 4px rgba(66, 153, 225, 0.15);
+                }
+                .premium-btn {
+                    flex: 1; padding: 14px;
+                    border: none; border-radius: 12px;
+                    font-weight: 700; font-size: 15px;
+                    cursor: pointer; transition: all 0.3s ease;
+                    display: flex; align-items: center; justify-content: center;
+                }
+                .btn-secondary {
+                    background: var(--bg-body, #edf2f7);
+                    color: var(--text-sub, #718096);
+                }
+                .btn-secondary:hover {
+                    background: var(--border-color);
+                    color: var(--text-main);
+                }
+                .btn-primary {
+                    background: var(--accent-color, #3182ce);
+                    color: white;
+                    box-shadow: 0 8px 20px rgba(49, 130, 206, 0.3);
+                }
+                .btn-primary:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 12px 25px rgba(49, 130, 206, 0.4);
+                    filter: brightness(1.1);
+                }
+                .btn-primary:active { transform: translateY(0); }
             </style>
         `;
-        
-        // Update addContent to use modern classes
-        const modernizedAddContent = `
-            <div style="text-align:left;">
-                <div style="margin-bottom:20px;">
-                    <label style="display:block; font-weight:700; font-size:11px; color:var(--text-secondary); opacity:0.6; margin-bottom:8px; text-transform:uppercase; letter-spacing:1px;">Tên danh sách</label>
-                    <input type="text" id="adblock-new-name" class="modern-input" placeholder="VD: Hagezi Pro">
-                </div>
-                <div style="margin-bottom:30px;">
-                    <label style="display:block; font-weight:700; font-size:11px; color:var(--text-secondary); opacity:0.6; margin-bottom:8px; text-transform:uppercase; letter-spacing:1px;">URL danh sách</label>
-                    <input type="text" id="adblock-new-url" class="modern-input" placeholder="https://...">
-                </div>
-                <div style="display:flex; gap:12px;">
-                    <button id="adblock-add-cancel" class="modern-btn-sec">Hủy bỏ</button>
-                    <button id="adblock-add-confirm" class="modern-btn-pri">Thêm ngay</button>
-                </div>
-            </div>
-        `;
-        box.innerHTML = box.innerHTML.replace(addContent, modernizedAddContent);
-        
+
         overlay.appendChild(box);
         document.body.appendChild(overlay);
-        
-        // Close when clicking overlay background (not the box)
-        overlay.addEventListener('click', (e) => {
-            if(e.target === overlay) {
-                overlay.remove();
-            }
+
+        // Entrance animation
+        requestAnimationFrame(() => {
+            overlay.style.opacity = "1";
+            box.style.transform = "scale(1)";
         });
-        
-        // Prevent box clicks from bubbling to overlay
-        box.addEventListener('click', (e) => {
+
+        const closeFunc = () => {
+            overlay.style.opacity = "0";
+            box.style.transform = "scale(0.9)";
+            setTimeout(() => overlay.remove(), 300);
+        };
+
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) closeFunc();
+        });
+
+        box.addEventListener("click", (e) => {
             e.stopPropagation();
         });
-        
-        // Attach handlers
-        document.getElementById('adblock-add-cancel').addEventListener('click', (e) => {
+
+        document.getElementById("adblock-add-cancel").addEventListener("click", (e) => {
             e.stopPropagation();
-            overlay.remove();
+            closeFunc();
         });
-        
-        document.getElementById('adblock-add-confirm').addEventListener('click', (e) => {
+
+        document.getElementById("adblock-add-confirm").addEventListener("click", (e) => {
             e.stopPropagation();
-            const name = document.getElementById('adblock-new-name').value.trim();
-            const url = document.getElementById('adblock-new-url').value.trim();
-            
-            if(!name || !url) {
-                Toast.show("Vui lòng nhập đầy đủ thông tin.", "error");
-                return;
-            }
-            
-            this.addList(name, url, overlay);
-        });
+                const name = document
+                    .getElementById("adblock-new-name")
+                    .value.trim();
+                const url = document
+                    .getElementById("adblock-new-url")
+                    .value.trim();
+
+                if (!name || !url) {
+                    Toast.show("Vui lòng nhập đầy đủ thông tin.", "error");
+                    return;
+                }
+
+                this.addList(name, url, overlay);
+            });
     },
-    
-    addList: function(name, url, overlay) {
-        const confirmBtn = document.getElementById('adblock-add-confirm');
-        if(confirmBtn) {
+
+    addList: function (name, url, overlay) {
+        const confirmBtn = document.getElementById("adblock-add-confirm");
+        if (confirmBtn) {
             confirmBtn.disabled = true;
-            confirmBtn.innerHTML = '⏳ Đang thêm...';
-        }
-        
-        // Prepare Payload with CSRF
-        const payload = { name: name, url: url };
-        const headers = { 'Content-Type': 'application/json' };
-        
-        if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
-            payload.csrf_token = VWRT_API.csrfToken;
-            headers['X-CSRF-Token'] = VWRT_API.csrfToken;
+            confirmBtn.innerHTML = "⏳ Đang thêm...";
         }
 
-        fetch('/cgi-bin/adblock/add', {
-            method: 'POST',
+        // Prepare Payload with CSRF
+        const payload = { name: name, url: url };
+        const headers = { "Content-Type": "application/json" };
+
+        if (typeof VWRT_API !== "undefined" && VWRT_API.csrfToken) {
+            payload.csrf_token = VWRT_API.csrfToken;
+            headers["X-CSRF-Token"] = VWRT_API.csrfToken;
+        }
+
+        fetch("/cgi-bin/adblock/add", {
+            method: "POST",
             headers: headers,
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
         })
-        .then(res => res.json())
-        .then(data => {
-            if(data.success) {
-                Toast.show("Đã thêm danh sách mới!", "success");
-                overlay.remove();
-                Modal.close();
-                this.showModal(); // Refresh the main modal
-            } else {
-                Toast.show("Lỗi: " + (data.error || "Không thể thêm."), "error");
-            }
-        })
-        .catch(err => {
-            Toast.show("Lỗi kết nối API.", "error");
-            console.error(err);
-        })
-        .finally(() => {
-            if(confirmBtn) {
-                confirmBtn.disabled = false;
-                confirmBtn.innerHTML = 'Thêm';
-            }
-        });
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.success) {
+                    Toast.show("Đã thêm danh sách mới!", "success");
+                    overlay.remove();
+                    Modal.close();
+                    this.showModal(); // Refresh the main modal
+                } else {
+                    Toast.show(
+                        "Lỗi: " + (data.error || "Không thể thêm."),
+                        "error",
+                    );
+                }
+            })
+            .catch((err) => {
+                Toast.show("Lỗi kết nối API.", "error");
+                console.error(err);
+            })
+            .finally(() => {
+                if (confirmBtn) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = "Thêm";
+                }
+            });
     },
-    
-    deleteList: function(name, url) {
+
+    deleteList: function (name, url) {
         // Create custom confirm modal instead of native confirm()
-        const overlay = document.createElement('div');
-        overlay.id = 'adblock-delete-overlay';
-        overlay.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:99999;';
-        
-        const box = document.createElement('div');
-        box.style.cssText = 'background:var(--card-bg, white); border-radius:16px; padding:24px; max-width:350px; width:90%; box-shadow:0 20px 40px rgba(0,0,0,0.3); text-align:center; animation: popIn 0.2s ease-out;';
+        const overlay = document.createElement("div");
+        overlay.id = "adblock-delete-overlay";
+        overlay.style.cssText =
+            "position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:99999;";
+
+        const box = document.createElement("div");
+        box.style.cssText =
+            "background:var(--card-bg, white); border-radius:16px; padding:24px; max-width:350px; width:90%; box-shadow:0 20px 40px rgba(0,0,0,0.3); text-align:center; animation: popIn 0.2s ease-out;";
         box.innerHTML = `
             <style>@keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }</style>
             <div style="font-size:40px; margin-bottom:15px;">⚠️</div>
@@ -372,99 +436,113 @@ const AdBlockModule = {
                 <button id="adblock-delete-confirm" style="flex:1; padding:12px; background:#e53e3e; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Xóa</button>
             </div>
         `;
-        
+
         overlay.appendChild(box);
         document.body.appendChild(overlay);
-        
-        document.getElementById('adblock-delete-cancel').addEventListener('click', () => {
-            overlay.remove();
-        });
-        
-        document.getElementById('adblock-delete-confirm').addEventListener('click', () => {
-            const confirmBtn = document.getElementById('adblock-delete-confirm');
-            confirmBtn.disabled = true;
-            confirmBtn.innerHTML = '⏳ Đang xóa...';
-            
-            // Prepare Payload with CSRF
-            const payload = { url: url };
-            const headers = { 'Content-Type': 'application/json' };
-            
-            if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
-                payload.csrf_token = VWRT_API.csrfToken;
-                headers['X-CSRF-Token'] = VWRT_API.csrfToken;
-            }
 
-            fetch('/cgi-bin/adblock/delete', {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify(payload)
-            })
-            .then(res => res.json())
-            .then(data => {
+        document
+            .getElementById("adblock-delete-cancel")
+            .addEventListener("click", () => {
                 overlay.remove();
-                if(data.success) {
-                    Toast.show("Đã xóa danh sách!", "success");
-                    Modal.close();
-                    this.showModal(); // Refresh the modal
-                } else {
-                    Toast.show("Lỗi: " + (data.error || "Không thể xóa."), "error");
-                }
-            })
-            .catch(err => {
-                overlay.remove();
-                Toast.show("Lỗi kết nối API.", "error");
-                console.error(err);
             });
-        });
+
+        document
+            .getElementById("adblock-delete-confirm")
+            .addEventListener("click", () => {
+                const confirmBtn = document.getElementById(
+                    "adblock-delete-confirm",
+                );
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = "⏳ Đang xóa...";
+
+                // Prepare Payload with CSRF
+                const payload = { url: url };
+                const headers = { "Content-Type": "application/json" };
+
+                if (typeof VWRT_API !== "undefined" && VWRT_API.csrfToken) {
+                    payload.csrf_token = VWRT_API.csrfToken;
+                    headers["X-CSRF-Token"] = VWRT_API.csrfToken;
+                }
+
+                fetch("/cgi-bin/adblock/delete", {
+                    method: "POST",
+                    headers: headers,
+                    body: JSON.stringify(payload),
+                })
+                    .then((res) => res.json())
+                    .then((data) => {
+                        overlay.remove();
+                        if (data.success) {
+                            Toast.show("Đã xóa danh sách!", "success");
+                            Modal.close();
+                            this.showModal(); // Refresh the modal
+                        } else {
+                            Toast.show(
+                                "Lỗi: " + (data.error || "Không thể xóa."),
+                                "error",
+                            );
+                        }
+                    })
+                    .catch((err) => {
+                        overlay.remove();
+                        Toast.show("Lỗi kết nối API.", "error");
+                        console.error(err);
+                    });
+            });
     },
-    
-    saveConfig: function() {
-        const enabledCheckbox = document.getElementById('adblock-enabled');
-        const listCheckboxes = document.querySelectorAll('input[name="adblock-list"]:checked');
-        
+
+    saveConfig: function () {
+        const enabledCheckbox = document.getElementById("adblock-enabled");
+        const listCheckboxes = document.querySelectorAll(
+            'input[name="adblock-list"]:checked',
+        );
+
         const enabled = enabledCheckbox ? enabledCheckbox.checked : false;
-        const lists = Array.from(listCheckboxes).map(cb => cb.value);
-        
-        const saveBtn = document.getElementById('adblock-save-btn');
-        if(saveBtn) {
+        const lists = Array.from(listCheckboxes).map((cb) => cb.value);
+
+        const saveBtn = document.getElementById("adblock-save-btn");
+        if (saveBtn) {
             saveBtn.disabled = true;
-            saveBtn.innerHTML = '⏳ Đang lưu...';
+            saveBtn.innerHTML = "⏳ Đang lưu...";
         }
 
         // Prepare CSRF
         const payload = { enabled: enabled, lists: lists };
-        const headers = { 'Content-Type': 'application/json' };
-        
-        if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
+        const headers = { "Content-Type": "application/json" };
+
+        if (typeof VWRT_API !== "undefined" && VWRT_API.csrfToken) {
             payload.csrf_token = VWRT_API.csrfToken;
-            headers['X-CSRF-Token'] = VWRT_API.csrfToken;
+            headers["X-CSRF-Token"] = VWRT_API.csrfToken;
         }
-        
-        fetch('/cgi-bin/adblock/set', {
-            method: 'POST',
+
+        fetch("/cgi-bin/adblock/set", {
+            method: "POST",
             headers: headers,
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
         })
-        .then(res => res.json())
-        .then(data => {
-            if(data.success) {
-                Toast.show("Đã lưu cấu hình AdBlock!", "success");
-                // Modal.close(); // Keep open for better UX
-            } else {
-                Toast.show("Lỗi: " + (data.error || "Không thể lưu."), "error");
-            }
-        })
-        .catch(err => {
-            Toast.show("Lỗi kết nối API.", "error");
-            console.error(err);
-        })
-        .finally(() => {
-            if(saveBtn) {
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = '💾 Lưu cấu hình';
-            }
-        });
-    }
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.success) {
+                    Toast.show("Đã lưu cấu hình AdBlock!", "success");
+                    // Modal.close(); // Keep open for better UX
+                } else {
+                    Toast.show(
+                        "Lỗi: " + (data.error || "Không thể lưu."),
+                        "error",
+                    );
+                }
+            })
+            .catch((err) => {
+                Toast.show("Lỗi kết nối API.", "error");
+                console.error(err);
+            })
+            .finally(() => {
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = "💾 Lưu cấu hình";
+                }
+            });
+    },
 };
 
 window.AdBlockModule = AdBlockModule;
