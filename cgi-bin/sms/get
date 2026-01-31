@@ -23,14 +23,13 @@ end
 local config = get_config()
 local driver_lib = require "drivers.mmcli"
 
-local action = get_query_param("action")
-local id_param = get_query_param("id")
 
-if action == "delete" and id_param then
-    for sms_id in string.gmatch(id_param, "([^,]+)") do
-        driver_lib.delete_sms(config, sms_id)
-    end
-    print(json.stringify({ status = "success" }))
+local action = get_query_param("action")
+
+if action then
+    -- Actions moved to sms/action for CSRF protection
+    print(json.stringify({ status = "error", message = "Use POST /cgi-bin/sms/action" }))
+else
 
 
 else

@@ -1,0 +1,56 @@
+#!/usr/bin/lua
+
+local cjson = require "cjson"
+local csrf = require "lib.csrf"
+local driver_lib = require "drivers.mmcli"
+
+-- Helper to read request body
+function read_body()
+    local len = tonumber(os.getenv("CONTENT_LENGTH")) or 0
+    if len > 0 then
+        return io.read(len)
+    end
+    return nil
+end
+
+-- Helper to send JSON response
+function send_json(data)
+    print("Content-type: application/json\n")
+    print(cjson.encode(data))
+end
+
+local method = os.getenv("REQUEST_METHOD")
+
+if method == "POST" then
+    local body = read_body()
+    if not body then
+        send_json({ status = "error", message = "No content" })
+        return
+    end
+
+    local decode_status, req = pcall(cjson.decode, body)
+    if not decode_status or not req then
+        send_json({ status = "error", message = "Invalid JSON" })
+        return
+    end
+
+    -- Validate CSRF Token
+    if not csrf.validate_token(req.csrf_token) then
+        send_json({ status = "error", message = "Invalid CSRF Token" })
+        return
+    end
+
+    local config = { driver = "mmcli", modem_index = "0" }
+
+    if req.action == "delete" and req.id then 
+        for sms_id in string.gmatch(req.id, "([^,]+)") do
+            driver_lib.delete_sms(config, sms_id)
+        end
+        send_json({ status = "success" })
+    else
+        send_json({ status = "error", message = "Invalid action" })
+    end
+
+else
+    send_json({ status = "error", message = "Method not allowed" })
+end

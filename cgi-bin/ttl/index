@@ -1,6 +1,7 @@
 #!/usr/bin/lua
 
 local cjson = require "cjson"
+local csrf = require "lib.csrf"
 
 -- Helper to read request body
 function read_body()
@@ -56,6 +57,12 @@ elseif method == "POST" then
     local decode_status, req = pcall(cjson.decode, body)
     if not decode_status or not req then
         send_json({ status = "error", message = "Invalid JSON" })
+        return
+    end
+
+    -- Validate CSRF Token
+    if not csrf.validate_token(req.csrf_token) then
+        send_json({ status = "error", message = "Invalid CSRF Token" })
         return
     end
 

@@ -188,11 +188,32 @@ const SmsModule = {
         Modal.confirm("Xác nhận xóa", `Xóa <b>${checkedBoxes.length}</b> tin nhắn đã chọn?`, () => {
             const ids = Array.from(checkedBoxes).map(cb => cb.value).join(",");
             if(typeof Toast !== 'undefined') Toast.show("Đang xóa...", "info");
-            fetch(`${this.API_URL}?action=delete&id=${ids}`).then(() => {
-                if(typeof Toast !== 'undefined') Toast.show("Đã xóa!", "success");
-                setTimeout(() => {
-                    this.fetchInbox(true);
-                }, 1500);
+            
+            const payload = { action: 'delete', id: ids };
+            const headers = { 'Content-Type': 'application/json' };
+            if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
+                payload.csrf_token = VWRT_API.csrfToken;
+                headers['X-CSRF-Token'] = VWRT_API.csrfToken;
+            }
+
+            fetch('/cgi-bin/sms/action', {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    if(typeof Toast !== 'undefined') Toast.show("Đã xóa!", "success");
+                    setTimeout(() => {
+                        this.fetchInbox(true);
+                    }, 1500);
+                } else {
+                    if(typeof Toast !== 'undefined') Toast.show("Lỗi: " + (data.message || "Không thể xóa"), "error");
+                }
+            })
+            .catch(err => {
+                 if(typeof Toast !== 'undefined') Toast.show("Lỗi kết nối!", "error");
             });
         });
     },
