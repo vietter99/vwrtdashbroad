@@ -90,9 +90,6 @@ local function set_config()
     print(json.stringify({ success = true, message = "Đã lưu cấu hình thành công." }))
 end
 
-    print(json.stringify({ success = true, message = "Đã lưu cấu hình thành công." }))
-end
-
 log("Calling pcall set_config")
 local ok, err = pcall(set_config)
 log("Pcall result: " .. tostring(ok) .. ", Err: " .. tostring(err))

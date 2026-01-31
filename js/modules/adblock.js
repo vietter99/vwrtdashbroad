@@ -20,107 +20,185 @@ const AdBlockModule = {
     renderModal: function(data) {
         const enabled = data.enabled;
         const lists = data.lists || [];
+        const status = data.status || {};
         
-        // Build list HTML with delete buttons
-        let listsHtml = lists.map((list, idx) => {
+        let listsHtml = lists.map((list) => {
             const sizeKB = Math.round(parseInt(list.size || 0) / 1024);
             const sizeDisplay = sizeKB > 1024 ? (sizeKB / 1024).toFixed(1) + ' MB' : sizeKB + ' KB';
-            
-            // Chống XSS: escape tên danh sách
             const safeName = window.Security ? Security.escapeHtml(list.name) : list.name;
             const escapedName = list.name.replace(/'/g, "\\'");
             const escapedUrl = list.url.replace(/'/g, "\\'");
-            
+
             return `
-                <div class="adblock-list-item" style="display:flex; align-items:center; padding:10px 12px; border-radius:8px; background:var(--card-bg, #f7fafc); margin-bottom:8px; transition: all 0.2s;">
-                    <input type="checkbox" name="adblock-list" value="${list.url}" ${list.enabled ? 'checked' : ''} style="width:18px; height:18px; margin-right:12px; accent-color:#48bb78; cursor:pointer;">
-                    <div style="flex:1; overflow:hidden;">
-                        <div style="font-weight:600; font-size:13px; color:var(--text-primary, #2d3748); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${safeName}</div>
-                        <div style="font-size:11px; color:var(--text-secondary, #718096);">${sizeDisplay}</div>
+                <div class="adblock-list-row" style="display:flex; align-items:center; padding:12px; border-radius:12px; background:var(--bg-card); border:1px solid var(--border-color); margin-bottom:10px; transition:0.2s;">
+                    <div style="margin-right:12px; display:flex; align-items:center;">
+                        <label class="custom-checkbox">
+                            <input type="checkbox" name="adblock-list" value="${list.url}" ${list.enabled ? 'checked' : ''}>
+                            <span class="checkmark"></span>
+                        </label>
                     </div>
-                    <button onclick="AdBlockModule.deleteList('${escapedName}', '${escapedUrl}')" class="adblock-delete-btn" title="Xóa" style="background:none; border:none; color:#e53e3e; font-size:16px; cursor:pointer; padding:5px 8px; opacity:0.6; transition:0.2s;">🗑</button>
+                    <div style="flex:1; overflow:hidden;">
+                        <div style="font-weight:700; font-size:13px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${safeName}</div>
+                        <div style="font-size:11px; color:var(--text-sub); opacity:0.7;">${sizeDisplay}</div>
+                    </div>
+                    <button onclick="AdBlockModule.deleteList('${escapedName}', '${escapedUrl}')" class="adblock-item-del" title="Xóa">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                    </button>
                 </div>
             `;
         }).join('');
         
         const content = `
-            <div style="text-align:left;">
-                <!-- Status Info -->
-                <div style="background:#edf2f7; padding:12px; border-radius:8px; margin-bottom:15px; font-size:13px; color:#4a5568; line-height:1.6;">
-                    <div style="font-weight:600; color:#2d3748;">Version ${data.status?.version || 'Unknown'} - ${enabled ? '<span style="color:#48bb78">Active</span>' : '<span style="color:#e53e3e">Inactive</span>'}.</div>
-                    <div>Blocking <span style="font-weight:600">${data.status?.blocked_domains || 0}</span> domains (with ${data.status?.dns_mode || 'unknown'}).</div>
-                    <div>Force DNS ports: <span style="font-family:monospace; background:#cbd5e0; padding:2px 6px; border-radius:4px; font-size:12px;">${data.status?.force_dns_ports || '53 853'}</span>.</div>
+            <div class="adblock-modern-container">
+                
+                <!-- Status Row -->
+                <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:16px; padding:15px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow);">
+                    <div>
+                        <div style="font-size:11px; color:var(--text-sub); opacity:0.8; font-weight:700;">VERSION ${status.version || '1.2.x'}</div>
+                        <div style="font-size:16px; font-weight:800; color:var(--text-main);">${enabled ? 'ĐANG HOẠT ĐỘNG' : 'ĐANG TẮT'}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:18px; font-weight:900; color:var(--ad-accent, #6366f1);">${(parseInt(status.blocked_domains || 0) / 1000).toFixed(1)}k</div>
+                        <div style="font-size:10px; color:var(--text-sub); font-weight:700; text-transform:uppercase;">DOMAINS</div>
+                    </div>
                 </div>
 
-                <!-- Global Toggle -->
-                <div style="display:flex; align-items:center; justify-content:space-between; padding:15px; background:linear-gradient(135deg, rgba(72,187,120,0.1), rgba(56,161,105,0.15)); border-radius:12px; margin-bottom:20px;">
-                    <div>
-                        <div style="font-weight:700; font-size:15px; color:var(--text-primary, #2d3748);">Bật Chặn quảng cáo</div>
-                        <div style="font-size:12px; color:var(--text-secondary, #718096);">AdBlock Fast</div>
-                    </div>
-                    <label class="adblock-switch" style="position:relative; display:inline-block; width:56px; height:30px;">
-                        <input type="checkbox" id="adblock-enabled" ${enabled ? 'checked' : ''} style="opacity:0; width:0; height:0;">
-                        <span class="adblock-slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#e53e3e; transition:.3s; border-radius:30px; border:2px solid rgba(0,0,0,0.1);"></span>
+                <!-- Toggle Row -->
+                <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:16px; padding:12px 15px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow);">
+                    <span style="font-weight:700; font-size:14px; color:var(--text-main);">Bật chặn quảng cáo</span>
+                    <label class="modern-switch">
+                        <input type="checkbox" id="adblock-enabled" ${enabled ? 'checked' : ''}>
+                        <span class="modern-slider"></span>
                     </label>
                 </div>
-                
-                <!-- Lists Header with Add Button -->
-                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-                    <div style="font-weight:600; font-size:13px; color:var(--text-secondary, #718096);">Danh sách bộ lọc (${lists.length})</div>
-                    <button id="adblock-add-btn" style="background:#3182ce; color:white; border:none; border-radius:6px; padding:5px 12px; font-size:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px;">
-                        <span style="font-size:14px;">+</span> Thêm
-                    </button>
+
+                <!-- Filter Header -->
+                <div style="display:flex; align-items:center; justify-content:space-between; margin:0 0 10px 0; padding:0 5px;">
+                    <div style="font-size:11px; font-weight:800; color:var(--text-sub); opacity:0.8; letter-spacing:1px; text-transform:uppercase;">BỘ LỌC (${lists.length})</div>
+                    <button id="adblock-add-btn" class="modern-action-btn">+ Thêm mới</button>
                 </div>
-                
-                <div id="adblock-lists" style="max-height:280px; overflow-y:auto; padding-right:5px;">
-                    ${listsHtml || '<div style="text-align:center; color:#999; padding:20px;">Chưa có danh sách nào.</div>'}
+
+                <div id="adblock-lists" class="modern-scrollable-list">
+                    ${listsHtml || '<div style="text-align:center; color:var(--text-sub); opacity:0.5; padding:30px;">Chưa có dữ liệu.</div>'}
                 </div>
-                
-                <!-- Save Button -->
-                <button id="adblock-save-btn" style="width:100%; margin-top:20px; padding:12px; background:linear-gradient(135deg, #48bb78, #38a169); color:white; border:none; border-radius:10px; font-weight:700; font-size:14px; cursor:pointer; transition: all 0.2s;">
-                    💾 Lưu cấu hình
-                </button>
+
+                <!-- Save Action -->
+                <button id="adblock-save-btn" class="modern-save-button">Lưu cấu hình</button>
             </div>
+
             <style>
-                .adblock-switch input:checked + .adblock-slider { background-color: #48bb78 !important; }
-                .adblock-slider:before {
-                    position: absolute;
-                    content: "";
-                    height: 22px;
-                    width: 22px;
-                    left: 4px;
-                    bottom: 2px;
-                    background-color: white;
-                    transition: .3s;
-                    border-radius: 50%;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                :root {
+                    --ad-accent: #6366f1;
+                    --ad-success: #10b981;
                 }
-                .adblock-switch input:checked + .adblock-slider:before { transform: translateX(24px); }
-                .adblock-list-item:hover { background: var(--card-hover-bg, #edf2f7) !important; }
-                .adblock-list-item:hover .adblock-delete-btn { opacity: 1 !important; }
-                #adblock-save-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(72,187,120,0.3); }
-                #adblock-add-btn:hover { background: #2b6cb0; }
+                .adblock-modern-container { color: var(--text-main); }
+                /* HIDE DEFAULT MODAL CLOSE BUTTON - the one with &times; character */
+                .modal-box > button:first-child { display: none !important; }
+                
+                .modern-action-btn { background: var(--ad-accent); color: white; border: none; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
+                .modern-scrollable-list { max-height: 230px; overflow-y: auto; padding-right: 5px; }
+                .modern-scrollable-list::-webkit-scrollbar { width: 4px; }
+                .modern-scrollable-list::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+                .adblock-item-del { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: none; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0.4; transition: 0.2s; }
+                .adblock-list-row:hover .adblock-item-del { opacity: 1; }
+                .modern-save-button { width: 100%; margin-top: 15px; padding: 12px; background: var(--ad-accent); color: white; border: none; border-radius: 12px; font-weight: 800; font-size: 14px; cursor: pointer; transition: 0.2s; }
+                .modern-save-button:hover { opacity: 0.9; transform: translateY(-1px); }
+
+                /* Custom Checkbox */
+                .custom-checkbox { position: relative; display: block; width: 20px; height: 20px; cursor: pointer; }
+                .custom-checkbox input { position: absolute; opacity: 0; width:0; height:0; }
+                .checkmark { position: absolute; top:0; left:0; height: 20px; width: 20px; background-color: var(--bg-card); border: 2px solid var(--border-color); border-radius: 6px; }
+                .custom-checkbox input:checked ~ .checkmark { background-color: var(--ad-success); border-color: var(--ad-success); }
+                .checkmark:after { content: ""; position: absolute; display: none; left: 5px; top: 1px; width: 5px; height: 10px; border: solid white; border-width: 0 3px 3px 0; transform: rotate(45deg); }
+                .custom-checkbox input:checked ~ .checkmark:after { display: block; }
+
+                /* Modern Switch */
+                .modern-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+                .modern-switch input { opacity: 0; width: 0; height: 0; }
+                .modern-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border-color); transition: .4s; border-radius: 34px; }
+                .modern-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+                .modern-switch input:checked + .modern-slider { background-color: var(--ad-success); }
+                .modern-switch input:checked + .modern-slider:before { transform: translateX(20px); }
             </style>
         `;
         
         if(typeof Modal !== 'undefined') {
-            Modal.show({
+            const modalId = Modal.show({
                 title: "Chặn quảng cáo",
                 content: content,
                 showCancel: false,
                 showIcon: false,
-                confirmText: "Đóng",
-                onConfirm: () => {}
+                onConfirm: null 
             });
             
-            // Adjust modal styling
-            const mBox = document.querySelector('.modal-box');
-            if(mBox) {
-                mBox.style.maxWidth = "450px";
-                mBox.style.width = "95%";
-            }
+            // Hardened UI adjustments (Runs after a short delay to ensure DOM and CSS are ready)
+            setTimeout(() => {
+                const overlay = document.getElementById(modalId);
+                if(!overlay) return;
+                
+                const box = overlay.querySelector('.modal-box');
+                if(box) {
+                    // Force box styling to match the modern theme
+                    Object.assign(box.style, {
+                        position: 'relative',
+                        background: 'var(--bg-card)',
+                        borderRadius: '24px',
+                        padding: '45px 25px 25px 25px', // Increased top padding to give X button its own space
+                        border: '1px solid var(--border-color)',
+                        boxShadow: 'var(--shadow)',
+                        color: 'var(--text-main)',
+                        maxWidth: '440px',
+                        width: '95%',
+                        overflow: 'visible'
+                    });
+
+                    // 1. Hide the old ugly close button
+                    const oldBtn = box.querySelector('button');
+                    if(oldBtn && oldBtn.innerText.includes('×')) {
+                        oldBtn.style.setProperty('display', 'none', 'important');
+                    }
+                    
+                    // 2. Hide title and actions if they exist
+                    const h3 = box.querySelector('h3'); if(h3) h3.style.display = 'none';
+                    const actions = box.querySelector('.modal-actions'); if(actions) actions.style.display = 'none';
+
+                    // 3. Create a beautiful NEW close button
+                    const closeBtn = document.createElement('div');
+                    closeBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>';
+                    Object.assign(closeBtn.style, {
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        width: '32px',
+                        height: '32px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        color: 'var(--text-sub)',
+                        borderRadius: '50%',
+                        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                        zIndex: '99999',
+                        background: 'transparent'
+                    });
+                    
+                    closeBtn.onmouseenter = () => { 
+                        closeBtn.style.background = 'var(--border-color)';
+                        closeBtn.style.color = 'var(--text-main)';
+                        closeBtn.style.transform = 'rotate(90deg) scale(1.1)';
+                    };
+                    closeBtn.onmouseleave = () => { 
+                        closeBtn.style.background = 'transparent'; 
+                        closeBtn.style.color = 'var(--text-sub)';
+                        closeBtn.style.transform = 'rotate(0deg) scale(1)';
+                    };
+                    closeBtn.onclick = () => overlay.remove();
+                    
+                    box.appendChild(closeBtn);
+                }
+            }, 100);
             
-            // Attach handlers
+            // Attach app logic handlers
             setTimeout(() => {
                 const saveBtn = document.getElementById('adblock-save-btn');
                 if(saveBtn) {
@@ -165,8 +243,37 @@ const AdBlockModule = {
         overlay.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:99999;';
         
         const box = document.createElement('div');
-        box.style.cssText = 'background:var(--card-bg, white); border-radius:16px; padding:24px; max-width:400px; width:90%; box-shadow:0 20px 40px rgba(0,0,0,0.3); animation: popIn 0.2s ease-out;';
-        box.innerHTML = `<style>@keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }</style><h3 style="margin:0 0 20px 0; font-size:18px; color:var(--text-primary, #2d3748);">Thêm danh sách mới</h3>${addContent}`;
+        box.style.cssText = 'background:var(--modal-bg, var(--card-bg)); border-radius:24px; padding:24px; max-width:400px; width:90%; box-shadow:0 30px 60px rgba(0,0,0,0.2); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); border:1px solid var(--border-color); color:var(--text-primary);';
+        box.innerHTML = `
+            <style>@keyframes popIn { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }</style>
+            <h3 style="margin:0 0 20px 0; font-size:20px; font-weight:800; text-align:center;">Thêm danh sách mới</h3>
+            ${addContent}
+            <style>
+                .modern-input { width:100%; padding:14px; background:rgba(0,0,0,0.03); border:1px solid var(--border-color); border-radius:12px; color:var(--text-primary); font-size:14px; outline:none; transition:0.2s; }
+                .modern-input:focus { border-color: #6366f1; background:rgba(0,0,0,0.05); }
+                .modern-btn-sec { flex:1; padding:12px; background:rgba(0,0,0,0.05); color:var(--text-secondary); border:1px solid var(--border-color); border-radius:12px; font-weight:700; cursor:pointer; }
+                .modern-btn-pri { flex:1; padding:12px; background:#6366f1; color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
+            </style>
+        `;
+        
+        // Update addContent to use modern classes
+        const modernizedAddContent = `
+            <div style="text-align:left;">
+                <div style="margin-bottom:20px;">
+                    <label style="display:block; font-weight:700; font-size:11px; color:var(--text-secondary); opacity:0.6; margin-bottom:8px; text-transform:uppercase; letter-spacing:1px;">Tên danh sách</label>
+                    <input type="text" id="adblock-new-name" class="modern-input" placeholder="VD: Hagezi Pro">
+                </div>
+                <div style="margin-bottom:30px;">
+                    <label style="display:block; font-weight:700; font-size:11px; color:var(--text-secondary); opacity:0.6; margin-bottom:8px; text-transform:uppercase; letter-spacing:1px;">URL danh sách</label>
+                    <input type="text" id="adblock-new-url" class="modern-input" placeholder="https://...">
+                </div>
+                <div style="display:flex; gap:12px;">
+                    <button id="adblock-add-cancel" class="modern-btn-sec">Hủy bỏ</button>
+                    <button id="adblock-add-confirm" class="modern-btn-pri">Thêm ngay</button>
+                </div>
+            </div>
+        `;
+        box.innerHTML = box.innerHTML.replace(addContent, modernizedAddContent);
         
         overlay.appendChild(box);
         document.body.appendChild(overlay);

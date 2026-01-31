@@ -33,6 +33,20 @@ local function get_status()
         blocked_domains = log_line:match("blocking (%d+) domains") or blocked_domains
         dns_mode = log_line:match("%(with ([^%)]+)%)") or dns_mode
     end
+
+    -- FALLBACK: If logread failed (0 or Unknown), check the actual servers-file
+    if blocked_domains == "0" or blocked_domains == 0 then
+        local dns_type = uci:get("adblock-fast", "config", "dns")
+        if dns_type == "dnsmasq.servers" then
+            local h = io.popen("wc -l /var/run/adblock-fast/dnsmasq.servers 2>/dev/null | cut -d ' ' -f 1")
+            local count = h:read("*l")
+            h:close()
+            if count and count ~= "" then
+                blocked_domains = count
+                dns_mode = "dnsmasq.servers"
+            end
+        end
+    end
     
     -- If version not found in log, try opkg
     if version == "Unknown" then

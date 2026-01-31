@@ -43,5 +43,6 @@ if f then
     end
 end
 print("Content-Type: application/json; charset=utf-8")
+print("Cache-Control: no-cache, no-store, must-revalidate")
 print("")
 print(content)

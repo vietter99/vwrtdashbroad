@@ -68,10 +68,15 @@ const SmsModule = {
             const modal = document.getElementById('modal-sms-compose');
             if(modal) modal.remove();
 
+            const payload = { number: number, text: text };
+            if (typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
+                payload.csrf_token = VWRT_API.csrfToken;
+            }
+
             fetch('/cgi-bin/sms/send', {
                 method: 'POST',
                 headers: typeof VWRT_API !== 'undefined' ? VWRT_API.getHeaders() : { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ number: number, text: text })
+                body: JSON.stringify(payload)
             })
             .then(res => {
                 if (!res.ok) throw new Error("HTTP Error");
@@ -108,11 +113,12 @@ const SmsModule = {
             .then(res => {
                 if (res.status === 'error') return;
                 const messages = res.data || [];
+                const storage = res.storage || { used: messages.length, total: 50 };
                 
                 if (isFull) {
-                    this.renderFullTable(messages);
+                    this.renderFullTable(messages, storage);
                 } 
-                this.renderDashboardCard(messages);
+                this.renderDashboardCard(messages, storage);
             })
             .catch(err => {});
     },
@@ -125,17 +131,22 @@ const SmsModule = {
         return '<span style="color:#ccc;">--/--</span>';
     },
 
-    renderDashboardCard: function(messages) {
+    renderDashboardCard: function(messages, storage) {
         const cardEl = document.getElementById('dashboard-sms-list');
         if (!cardEl) return;
 
-        if (messages.length === 0) {
-            cardEl.innerHTML = '<div style="text-align:center; padding:30px; color:#999; font-size:13px;">Không có tin nhắn nào</div>';
-            return;
+        // Warning Logic (Warn when 2 or fewer slots left)
+        let warningHtml = '';
+        if (storage && (storage.total - storage.used) <= 2) {
+            warningHtml = `
+                <div style="background:#fff5f5; color:#c53030; padding:8px 12px; border-radius:8px; font-size:11px; font-weight:700; border:1px solid #feb2b2; margin-bottom:10px; display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:14px;">⚠️</span> Bộ nhớ gần đầy! (Cần xóa bớt)
+                </div>
+            `;
         }
 
         let html = '';
-        messages.slice(0, 5).forEach(msg => {
+        messages.slice(0, 3).forEach(msg => {
             const isSent = msg.type === 'sent';
             const icon = isSent ? '↗' : '↙';
             const iconColor = isSent ? '#718096' : '#3182ce';
@@ -161,7 +172,7 @@ const SmsModule = {
                 </div>
             `;
         });
-        cardEl.innerHTML = html;
+        cardEl.innerHTML = warningHtml + html;
     },
 
     toggleAll: function(source) {
@@ -186,21 +197,13 @@ const SmsModule = {
         });
     },
 
-    deleteAll: function() {
-        Modal.confirm("Cảnh báo", "Xóa SẠCH toàn bộ tin nhắn?", () => {
-            if(typeof Toast !== 'undefined') Toast.show("Đang xóa...", "info");
-            fetch(`${this.API_URL}?action=delete_all`).then(() => {
-                if(typeof Toast !== 'undefined') Toast.show("Đã xóa sạch!", "success");
-                setTimeout(() => {
-                    this.fetchInbox(true);
-                }, 2000);
-            });
-        });
-    },
-
-    renderFullTable: function(messages) {
+    renderFullTable: function(messages, storage) {
         // SINGLETON: Clean up old modals
         document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
+
+        const remaining = storage ? (storage.total - storage.used) : 0;
+        const percent = storage ? Math.min(100, Math.round((storage.used / storage.total) * 100)) : 0;
+        const color = remaining <= 2 ? '#e53e3e' : '#3182ce';
 
         let rows = '';
         if (!messages || messages.length === 0) {
@@ -258,11 +261,23 @@ const SmsModule = {
                         <h3 style="margin:0; font-size:18px; color:#2d3748;">Quản lý Tin nhắn (${messages.length})</h3>
                         <button onclick="document.getElementById('modal-sms-full').remove()" style="font-size:24px; border:none; background:none; cursor:pointer; color:#999;">&times;</button>
                     </div>
-                    <div style="padding: 10px 20px; background: #f8f9fa; border-bottom: 1px solid #e2e8f0; display:flex; gap:10px;">
-                        <button onclick="SmsModule.deleteSelected()" style="background: #e53e3e; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight:600;">🗑 Xóa chọn</button>
-                        <button onclick="SmsModule.deleteAll()" style="background: #4a5568; color: white; border: none; padding: 6px 12px; border-radius: 4px;">🔥 Xóa HẾT</button>
-                        <div style="flex-grow:1;"></div>
-                        <button onclick="SmsModule.fetchInbox(true)" style="background: #3182ce; color: white; border: none; padding: 6px 12px; border-radius: 4px;">↻ Tải lại</button>
+                    <div class="sms-manage-bar" style="padding: 10px 15px; background: #f8f9fa; border-bottom: 1px solid #e2e8f0; display:flex; flex-wrap: wrap; align-items:center; gap:10px;">
+                        <div style="display:flex; gap:8px;">
+                            <button onclick="SmsModule.deleteSelected()" style="background: #e53e3e; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size:12px; font-weight:600; cursor:pointer; display:flex; flex-direction:column; align-items:center; min-width:60px;">
+                                <span style="font-size:14px; margin-bottom:2px;">🗑</span>
+                                <span>Xóa</span>
+                            </button>
+                        </div>
+                        
+                        <div style="flex: 1; min-width: 140px; display:flex; align-items:center; gap:8px; padding:8px 12px; background:white; border-radius:8px; border:1px solid #eee;">
+                            <div style="font-size:10px; font-weight:800; color:#718096; white-space:nowrap;">SIM:</div>
+                            <div style="flex:1; height:6px; background:#edf2f7; border-radius:10px; overflow:hidden;">
+                                <div style="width:${percent}%; height:100%; background:${color}; transition:0.3s;"></div>
+                            </div>
+                            <div style="font-size:11px; font-weight:800; color:${color}; white-space:nowrap;">${storage.used}/${storage.total}</div>
+                        </div>
+
+                        <button onclick="SmsModule.fetchInbox(true)" style="background: white; color: #3182ce; border: 1px solid #3182ce; padding: 8px 12px; border-radius: 6px; cursor:pointer; font-weight:600; font-size:12px; height: 42px;">↻</button>
                     </div>
                     <div style="flex:1; overflow-y: auto;">
                         <table style="width:100%; border-collapse: collapse; font-size:14px; table-layout: fixed;">

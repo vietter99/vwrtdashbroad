@@ -32,18 +32,12 @@ if action == "delete" and id_param then
     end
     print(json.stringify({ status = "success" }))
 
-elseif action == "delete_all" then
-    if driver_lib.delete_all_sms then
-        driver_lib.delete_all_sms(config)
-    else
-        local all = driver_lib.get_sms(config)
-        for _, msg in ipairs(all) do
-            driver_lib.delete_sms(config, msg.index)
-        end
-    end
-    print(json.stringify({ status = "success" }))
 
 else
-    local messages = driver_lib.get_sms(config)
-    print(json.stringify({ status = "success", data = messages }))
+    local result = driver_lib.get_sms(config)
+    print(json.stringify({ 
+        status = "success", 
+        data = result.messages,
+        storage = result.storage
+    }))
 end

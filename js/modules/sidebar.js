@@ -239,50 +239,50 @@ const SidebarModule = {
                     const tx = parseInt(net.tx) || 0;
                     
                     return `
-                        <div style="background:var(--bg-body); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
+                        <div style="background:var(--bg-card); padding:18px; border-radius:12px; border:1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                             <!-- Header: Icon + Name + MAC -->
-                            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                                 <div style="display:flex; align-items:center; gap:12px;">
-                                    <div style="width:40px; height:40px; border-radius:8px; background:${isUp ? 'rgba(72,187,120,0.1)' : 'rgba(229,62,62,0.1)'}; display:flex; align-items:center; justify-content:center; color:${isUp ? '#48bb78' : '#e53e3e'};">
+                                    <div style="width:42px; height:42px; border-radius:10px; background:${isUp ? 'rgba(72,187,120,0.1)' : 'rgba(229,62,62,0.1)'}; display:flex; align-items:center; justify-content:center; color:${isUp ? '#48bb78' : '#e53e3e'};">
                                         ${this.getIconForInterface(net.name, net.label)}
                                     </div>
-                                    <div style="display:flex; flex-direction:column;">
-                                        <div style="display:flex; align-items:center; gap:8px;">
-                                            <span style="font-weight:700; font-size:15px; color:var(--text-main);">${net.label || net.name}</span>
-                                            <span style="font-size:10px; padding:2px 6px; border-radius:4px; background:${isUp ? '#c6f6d5' : '#fed7d7'}; color:${isUp ? '#22543d' : '#822727'}; font-weight:600;">${isUp ? 'ONLINE' : 'OFFLINE'}</span>
+                                    <div style="text-align: left;">
+                                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:2px;">
+                                            <span style="font-weight:700; font-size:16px; color:var(--text-main);">${net.label || net.name}</span>
+                                            <span style="font-size:10px; padding:2px 6px; border-radius:4px; background:${isUp ? '#c6f6d5' : '#fed7d7'}; color:${isUp ? '#22543d' : '#822727'}; font-weight:700;">${isUp ? 'ONLINE' : 'OFFLINE'}</span>
                                         </div>
-                                        <span style="font-size:12px; color:var(--text-sub); font-family:monospace;">${(net.mac || "").toUpperCase()}</span>
+                                        <div style="font-size:11px; color:var(--text-muted); font-family:monospace; opacity:0.8; text-align: left;">${(net.mac || "").toUpperCase()}</div>
                                     </div>
                                 </div>
-                                <div style="text-align:right;">
-                                    <!-- Use name as badge -->
-                                    <span style="font-size:11px; color:var(--text-muted); background:var(--bg-card); padding:2px 5px; border-radius:4px; border:1px solid var(--border-color);">${net.name}</span>
+                                <div style="font-size:11px; color:var(--text-sub); background:var(--bg-body); padding:4px 8px; border-radius:6px; border:1px solid var(--border-color); font-weight:600;">${net.name}</div>
+                            </div>
+
+                            <!-- Traffic Stats (More Modern) -->
+                            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:1px; margin-bottom:15px; background:var(--border-color); border-radius:10px; overflow:hidden; border:1px solid var(--border-color);">
+                                <div style="background:var(--bg-card); padding:10px; text-align:center;">
+                                    <div style="font-size:10px; color:#48bb78; font-weight:700; margin-bottom:4px;">▼ DOWNLOAD</div>
+                                    <div style="font-size:14px; font-weight:700; color:var(--text-main);">${this.formatBytes(rx)}</div>
+                                </div>
+                                <div style="background:var(--bg-card); padding:10px; text-align:center;">
+                                    <div style="font-size:10px; color:#3182ce; font-weight:700; margin-bottom:4px;">▲ UPLOAD</div>
+                                    <div style="font-size:14px; font-weight:700; color:var(--text-main);">${this.formatBytes(tx)}</div>
+                                </div>
+                                <div style="background:var(--bg-card); padding:10px; text-align:center;">
+                                    <div style="font-size:10px; color:var(--text-sub); font-weight:700; margin-bottom:4px;">∑ TOTAL</div>
+                                    <div style="font-size:14px; font-weight:700; color:var(--text-main);">${this.formatBytes(rx+tx)}</div>
                                 </div>
                             </div>
 
-                            <!-- Traffic Stats -->
-                            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; margin-bottom:12px; background:rgba(255,255,255,0.03); padding:8px; border-radius:6px;">
-                                <div style="display:flex; flex-direction:column; align-items:center;">
-                                    <span style="font-size:10px; color:#68d391;">▼ RX</span>
-                                    <span style="font-size:12px; font-weight:600; color:var(--text-main);">${this.formatBytes(rx)}</span>
+                            <!-- IP Info (Gom nhóm gọn gàng) -->
+                            <div style="background:var(--bg-body); border-radius:10px; padding:12px 15px; border:1px solid var(--border-color);">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                    <span style="font-size:12px; color:var(--text-sub); font-weight:500;">Địa chỉ IPv4:</span>
+                                    <span style="font-family:monospace; font-weight:700; color:${net.ipv4 === '--' ? '#e53e3e' : '#3182ce'}; font-size:13px;">${net.ipv4}</span>
                                 </div>
-                                <div style="display:flex; flex-direction:column; align-items:center; border-left:1px solid rgba(255,255,255,0.1); border-right:1px solid rgba(255,255,255,0.1);">
-                                    <span style="font-size:10px; color:#63b3ed;">▲ TX</span>
-                                    <span style="font-size:12px; font-weight:600; color:var(--text-main);">${this.formatBytes(tx)}</span>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="font-size:12px; color:var(--text-sub); font-weight:500;">Địa chỉ IPv6:</span>
+                                    <span style="font-family:monospace; color:${net.ipv6 === '--' ? '#a0aec0' : '#805ad5'}; font-size:11px; text-align:right; max-width:250px; overflow:hidden; text-overflow:ellipsis;">${net.ipv6}</span>
                                 </div>
-                                <div style="display:flex; flex-direction:column; align-items:center;">
-                                    <span style="font-size:10px; color:#a0aec0;">∑ Tổng</span>
-                                    <span style="font-size:12px; font-weight:600; color:var(--text-main);">${this.formatBytes(rx+tx)}</span>
-                                </div>
-                            </div>
-
-                            <!-- IP Info -->
-                            <div style="display:grid; grid-template-columns: auto 1fr; gap:10px; align-items:center; font-size:12px;">
-                                <span style="color:var(--text-sub); width:30px;">IPv4:</span>
-                                <span style="font-family:monospace; font-weight:600; color:${net.ipv4 === '--' ? '#e53e3e' : '#3182ce'};">${net.ipv4}</span>
-                                
-                                <span style="color:var(--text-sub); width:30px;">IPv6:</span>
-                                <span style="font-family:monospace; color:${net.ipv6 === '--' ? '#a0aec0' : '#805ad5'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px;">${net.ipv6}</span>
                             </div>
                         </div>
                     `;

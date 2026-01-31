@@ -23,13 +23,38 @@ function get_data()
         end
     end
 
-    -- Fix: Get WAN IP Address
-    local wan_iface = data.iface or "wwan0"
-    local handle = io.popen("ip -4 addr show " .. wan_iface .. " | grep -oP '(?<=inet\\s)\\d+(\\.\\d+){3}'")
-    local wan_ip = handle:read("*l")
-    handle:close()
+    -- Dynamic WAN IP Extraction (No hardcoding)
+    local function get_wan_ip()
+        -- Priority interfaces
+        local interfaces = {"5G", "wan", "wwan0"}
+        for _, ifname in ipairs(interfaces) do
+            local h = io.popen("ubus call network.interface." .. ifname .. " status 2>/dev/null")
+            if h then
+                local json = h:read("*all")
+                h:close()
+                if json and json ~= "" then
+                    local ok, st = pcall(cjson.decode, json)
+                    if ok and st and st["ipv4-address"] and st["ipv4-address"][1] then
+                        return st["ipv4-address"][1].address
+                    end
+                end
+            end
+        end
+        
+        -- Fallback: Check data.iface from cache
+        if data.iface then
+             local h = io.popen("ip -4 addr show " .. data.iface .. " 2>/dev/null | sed -n 's/.*inet \\([0-9.]*\\).*/\\1/p'")
+             if h then
+                 local ip = h:read("*l")
+                 h:close()
+                 if ip and ip ~= "" then return ip end
+             end
+        end
+
+        return "Unknown"
+    end
     
-    data.wan_ip = wan_ip or "Unknown"
+    data.wan_ip = get_wan_ip()
 
     if not data.operator_name then
         data.operator_name = "Loading..."

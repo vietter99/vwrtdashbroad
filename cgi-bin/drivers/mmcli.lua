@@ -149,7 +149,14 @@ function M.get_sms(config)
     end
     
     table.sort(messages, function(a, b) return tonumber(a.index) > tonumber(b.index) end)
-    return messages
+    
+    return {
+        messages = messages,
+        storage = {
+            used = #messages,
+            total = 10 -- Adjusted to 10 as per user request
+        }
+    }
 end
 
 function M.delete_sms(config, index)

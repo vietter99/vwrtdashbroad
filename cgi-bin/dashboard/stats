@@ -112,36 +112,33 @@ function get_other_sys_info()
         p:close()
     end
     
-    -- Data Traffic (Dynamic Interface Detection)
-    local lan_iface = nil
-
-    -- 1. Try to get WAN interface first (usually interesting for traffic)
-    -- Or if user wants to track specific interface, could be configured.
-    -- Default behavior: Find main LAN bridge or WAN interface.
-    
-    -- Try standard OpenWrt 'lan' logical interface device
-    local uci_lan = io.popen("uci get network.lan.device 2>/dev/null")
-    if uci_lan then
-        local dev = uci_lan:read("*all")
-        if dev and dev ~= "" then lan_iface = dev:gsub("\n", "") end
-        uci_lan:close()
-    end
-
-    -- If UCI failed, try to find bridge via brctl
-    if not lan_iface then
-        local brctl = io.popen("brctl show | grep '\\bbr-' | cut -f1 2>/dev/null")
-        if brctl then
-            local dev = brctl:read("*line") -- read first line
-            if dev and dev ~= "" then lan_iface = dev:match("%S+") end
-            brctl:close()
+    -- Data Traffic (Priority Detection)
+    local lan_iface = "wwan0"
+    if not io.open("/sys/class/net/" .. lan_iface) then
+        -- Fallback to standard OpenWrt 'lan' logical interface device
+        local uci_lan = io.popen("uci get network.lan.device 2>/dev/null")
+        if uci_lan then
+            local dev = uci_lan:read("*all")
+            if dev and dev ~= "" then lan_iface = dev:gsub("\n", "") end
+            uci_lan:close()
         end
-    end
-    
-    -- If still failed, try common names
-    if not lan_iface then
-        if io.open("/sys/class/net/br-lan") then lan_iface = "br-lan"
-        elseif io.open("/sys/class/net/eth0") then lan_iface = "eth0" 
-        else lan_iface = "lo" end -- Safe fallback
+
+        -- If UCI failed, try to find bridge via brctl
+        if not lan_iface or lan_iface == "" then
+            local brctl = io.popen("brctl show | grep '\\bbr-' | cut -f1 2>/dev/null")
+            if brctl then
+                local dev = brctl:read("*line") -- read first line
+                if dev and dev ~= "" then lan_iface = dev:match("%S+") end
+                brctl:close()
+            end
+        end
+        
+        -- If still failed, try common names
+        if not lan_iface or lan_iface == "" then
+            if io.open("/sys/class/net/br-lan") then lan_iface = "br-lan"
+            elseif io.open("/sys/class/net/eth0") then lan_iface = "eth0" 
+            else lan_iface = "lo" end -- Safe fallback
+        end
     end
     
     -- Network traffic

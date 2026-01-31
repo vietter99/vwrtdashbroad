@@ -28,82 +28,58 @@ const ClientsModule = {
 
                 .client-item { 
                     display: flex; align-items: center; justify-content: space-between;
-                    background: var(--bg-body); border-radius: 10px; padding: 8px 12px;
+                    background: var(--bg-card); border-radius: 12px; padding: 12px 15px;
                     border: 1px solid var(--border-color); transition: all 0.2s ease;
-                    min-height: 60px;
+                    min-height: 70px; margin-bottom: 10px;
+                    position: relative;
                 }
                 .client-item:hover { 
-                    background: var(--bg-card); 
                     border-color: var(--accent-color);
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-                    transform: translateX(4px);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+                    transform: translateY(-2px);
                 }
                 .c-icon { 
-                    width: 36px; height: 36px; border-radius: 8px; 
-                    background: var(--icon-bg); color: var(--text-sub);
+                    width: 40px; height: 40px; border-radius: 10px; 
+                    background: var(--bg-body); color: var(--text-sub);
                     display: flex; align-items: center; justify-content: center;
-                    font-size: 18px; flex-shrink: 0;
+                    font-size: 20px; flex-shrink: 0;
                 }
-                .c-info { flex: 1; margin: 0 12px; min-width: 0; }
-                .c-name { font-weight: 700; font-size: 13px; color: var(--text-main); margin-bottom: 0px; }
-                .c-meta { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-sub); }
-                .c-tag { 
-                    padding: 1px 5px; border-radius: 4px; font-weight: 600; font-size: 8px; text-transform: uppercase;
-                }
-                .c-stats { text-align: right; min-width: 80px; }
-                .c-total { font-weight: 700; font-size: 13px; color: var(--text-main); }
-                .c-time { font-size: 10px; color: var(--text-sub); }
+                .c-info { flex: 1; margin: 0 15px; min-width: 0; }
+                .c-name { font-weight: 700; font-size: 14px; color: var(--text-main); margin-bottom: 2px; }
+                .c-meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-sub); }
+                .c-stats { text-align: right; min-width: 90px; }
+                .c-total { font-weight: 700; font-size: 14px; color: var(--text-main); }
+                .c-time { font-size: 11px; color: var(--text-sub); }
                 .btn-manage {
-                    color: var(--text-sub); opacity: 0.5; padding-left: 5px;
+                    color: var(--accent-color); opacity: 0.6; padding-left: 10px;
                 }
                 
-                /* Mobile Layout Fix */
                 /* Mobile Layout Fix */
                 @media (max-width: 768px) {
                     .client-item {
                         flex-wrap: wrap;
-                        height: auto;
-                        min-height: auto;
                         padding: 12px;
-                        gap: 10px;
-                    }
-                    .client-item > div {
-                        flex-wrap: wrap;
+                        gap: 8px;
                     }
                     .c-icon {
-                        width: 32px; height: 32px; font-size: 16px;
+                        width: 36px; height: 36px; font-size: 18px;
                     }
                     .c-info {
-                        flex: 1 1 50%;
-                        margin: 0 10px;
-                    }
-                    .c-name {
-                        font-size: 13px;
-                    }
-                    .c-meta {
-                        font-size: 10px;
+                        flex: 1 1 calc(100% - 60px);
+                        margin: 0 0 0 10px;
                     }
                     .c-stats {
                         flex: 1 1 100%;
                         display: flex;
                         justify-content: space-between;
                         align-items: center;
-                        border-top: 1px dashed var(--border-color);
-                        margin-top: 5px;
-                        padding-top: 8px;
-                        text-align: left;
-                        min-width: 100%;
-                    }
-                    .c-total {
-                        font-size: 12px;
+                        background: var(--bg-body);
+                        padding: 8px 12px;
+                        border-radius: 8px;
+                        margin-top: 4px;
                     }
                     .btn-manage {
-                        position: absolute;
-                        top: 12px;
-                        right: 12px;
-                        width: auto;
-                        height: auto;
-                        padding: 5px;
+                        display: none; /* Removed arrow on mobile as per user suggestion */
                     }
                 }
             `;
@@ -325,28 +301,26 @@ const ClientsModule = {
             }
 
             return `
-            <div class="client-item" onclick="ClientsModule.showManageModal('${c.mac}')" style="cursor:pointer; margin-bottom:8px;">
-                <div style="display:flex; align-items:center; width:100%;">
-                    <div>
-                        ${this.getDeviceIcon(c.name)}
+            <div class="client-item" onclick="ClientsModule.showManageModal('${c.mac}')" style="cursor:pointer;">
+                <div>
+                    ${this.getDeviceIcon(c.name)}
+                </div>
+                <div class="c-info">
+                    <div class="c-name">${c.name}</div>
+                    <div class="c-meta">
+                        <span style="font-family:monospace;">${c.ip}</span>
+                        <span>•</span>
+                        <span style="text-transform:uppercase;">${isWifi ? c.type.replace('WiFi ', '') : 'LAN'}</span>
+                        <span>•</span>
+                        ${signalIcon}
                     </div>
-                    <div class="c-info">
-                        <div class="c-name">${c.name}</div>
-                        <div class="c-meta">
-                            <span style="font-family:monospace;">${c.ip}</span>
-                            <span>•</span>
-                            <span style="text-transform:uppercase;">${isWifi ? c.type.replace('WiFi ', '') : 'LAN'}</span>
-                            <span>•</span>
-                            ${signalIcon}
-                        </div>
-                    </div>
-                    <div class="c-stats">
-                        <div class="c-total">${c.total > 0 ? this.formatBytes(c.total) : '0 B'}</div>
-                        <div class="c-time">${this.formatDuration(c.connected_time)}</div>
-                    </div>
-                    <div class="btn-manage">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                    </div>
+                </div>
+                <div class="c-stats">
+                    <div class="c-total">${c.total > 0 ? this.formatBytes(c.total) : '0 B'}</div>
+                    <div class="c-time">${this.formatDuration(c.connected_time)}</div>
+                </div>
+                <div class="btn-manage">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
                 </div>
             </div>
             `;

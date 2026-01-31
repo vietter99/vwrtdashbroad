@@ -134,10 +134,11 @@ const LedModule = {
                         `;
                     }).join('')}
                     
-                    <button id="save-auto-led" style="width:100%; margin-top:10px; padding:10px; background:#3182ce; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; transition: 0.2s;">
-                        Lưu cấu hình Auto LED
-                    </button>
                 </div>
+                
+                <button id="save-auto-led" style="width:100%; margin-top:10px; padding:10px; background:#3182ce; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; transition: 0.2s;">
+                    Lưu cấu hình Auto LED
+                </button>
             </div>
             <style>
                 #auto-led-enable:checked + .auto-led-slider { background-color: #3182ce !important; }

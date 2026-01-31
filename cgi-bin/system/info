@@ -182,11 +182,16 @@ function get_system_basic()
 end
 
 -- ==========================================
--- LẤY TỔNG TRAFFIC CỦA WWAN0 (MOBILE DATA)
+-- LẤY TỔNG TRAFFIC (ƯU TIÊN WWAN0)
 -- ==========================================
-function get_mobile_traffic()
-    local rx = read_file("/sys/class/net/wwan0/statistics/rx_bytes")
-    local tx = read_file("/sys/class/net/wwan0/statistics/tx_bytes")
+function get_data_traffic()
+    local iface = "wwan0"
+    if not io.open("/sys/class/net/" .. iface) then
+        iface = "br-lan"
+    end
+    
+    local rx = read_file("/sys/class/net/" .. iface .. "/statistics/rx_bytes")
+    local tx = read_file("/sys/class/net/" .. iface .. "/statistics/tx_bytes")
     
     local total = (tonumber(rx) or 0) + (tonumber(tx) or 0)
     return total
@@ -204,8 +209,7 @@ local result = {
     rom = get_rom(),
     uptime = basic_info.uptime,
     temp = basic_info.temp,
-    lan_total = get_mobile_traffic()  -- Giữ tên để frontend không cần sửa
-    -- mobile_test = get_mobile_traffic() -- Debug: Doi ten bien de check sync
+    lan_total = get_data_traffic()  -- Trả lại traffic LAN (br-lan) theo yêu cầu
 }
 
 local json_output = cjson.encode(result)

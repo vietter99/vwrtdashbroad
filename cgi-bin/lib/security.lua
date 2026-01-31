@@ -16,9 +16,9 @@ function M.is_valid_phone(phone)
     if not phone or type(phone) ~= "string" then return false end
     -- Allow only: digits, +, spaces, hyphens, parentheses
     if not phone:match("^[+0-9%s%-%(%)]+$") then return false end
-    -- Must contain at least 7 digits
+    -- Must contain at least 3 digits (for short codes like 888)
     local digits = phone:gsub("[^0-9]", "")
-    return #digits >= 7 and #digits <= 15
+    return #digits >= 3 and #digits <= 15
 end
 
 -- Validate numeric ID (for modem/SMS index)
