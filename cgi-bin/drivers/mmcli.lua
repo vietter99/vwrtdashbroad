@@ -52,6 +52,17 @@ local function get_current_modem_index()
     return idx or "0"
 end
 
+
+-- Helper: Locking mechanism to prevent poller conflict
+local function lock_poller()
+    local f = io.open("/tmp/modem_at.lock", "w")
+    if f then f:write(tostring(os.time())); f:close() end
+end
+
+local function unlock_poller()
+    os.remove("/tmp/modem_at.lock")
+end
+
 function M.send_sms(config, number, text)
     -- Chống Command Injection: validate inputs
     local security = require "lib.security"
@@ -66,6 +77,11 @@ function M.send_sms(config, number, text)
         return { status = "error", message = "Invalid or empty SMS text" }
     end
     
+    -- LOCK POLLER
+    lock_poller()
+    -- Safety delay: 10s (Poller cycle takes ~6s, so 10s is safe)
+    os.execute("sleep 10")
+    
     local m_idx = get_current_modem_index()
     
     -- Escape arguments properly for shell
@@ -76,18 +92,24 @@ function M.send_sms(config, number, text)
     local create_out = exec(cmd)
     local sms_id = create_out:match("/SMS/(%d+)")
 
+    local res = nil
     if sms_id then
         local send_cmd = "mmcli -s " .. sms_id .. " --send"
         local send_out = exec(send_cmd)
         if send_out and send_out:find("successfully sent") then
-            return { status = "success", message = "Sent via mmcli", id = sms_id }
+            res = { status = "success", message = "Sent via mmcli", id = sms_id }
         else
-            return { status = "error", message = "Failed to send", debug = send_out }
+            res = { status = "error", message = "Failed to send", debug = send_out }
         end
     else
-        return { status = "error", message = "Could not create SMS", debug = create_out }
+        res = { status = "error", message = "Could not create SMS", debug = create_out }
     end
+    
+    -- UNLOCK POLLER removed to allow 30s receive window
+    -- unlock_poller()
+    return res
 end
+
 
 function M.get_sms(config)
     local m_idx = get_current_modem_index()

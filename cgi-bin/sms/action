@@ -16,7 +16,19 @@ end
 
 local cjson = require "cjson"
 local csrf = require "lib.csrf"
-local driver_lib = require "drivers.mmcli"
+-- Dynamic Driver Selection
+local function get_driver()
+    local handle = io.popen("uci show network | grep '.proto=.atc.'")
+    if handle then
+        local content = handle:read("*all")
+        handle:close()
+        if content and content ~= "" then
+             return require "drivers.fm350"
+        end
+    end
+    return require "drivers.mmcli"
+end
+local driver_lib = get_driver()
 
 -- Helper to read request body
 function read_body()

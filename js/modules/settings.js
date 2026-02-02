@@ -320,15 +320,30 @@ const SettingsModule = {
 
         this.closePopup();
         
+        // Rate limiting: Prevent spam (minimum 60 seconds between restarts)
+        const lastRestart = parseInt(localStorage.getItem('last_mobile_restart') || 0);
+        const timeSinceLastRestart = Date.now() - lastRestart;
+        const minInterval = 60000; // 60 seconds
+        
+        if (timeSinceLastRestart < minInterval) {
+            const remainingSeconds = Math.ceil((minInterval - timeSinceLastRestart) / 1000);
+            if(typeof Toast !== 'undefined') {
+                Toast.show(`⏱️ Vui lòng đợi ${remainingSeconds} giây nữa trước khi khởi động lại.`, "warning");
+            } else {
+                alert(`Vui lòng đợi ${remainingSeconds} giây nữa.`);
+            }
+            return;
+        }
+        
         if(typeof Modal !== 'undefined') {
             Modal.confirm(
-                "Khởi động lại dịch vụ Mobile",
-                "Hành động này sẽ restart ModemManager và Mobile Service (mất khoảng 15s).<br>Bạn có chắc chắn không?",
+                "Khởi động lại kết nối 4G/5G",
+                "Hành động này sẽ tạm ngắt và kết nối lại mạng di động (mất khoảng 15 giây).<br>Bạn có chắc chắn không?",
                 () => {
                     this.doRestartMobile();
                 }
             );
-        } else if(confirm("Khởi động lại dịch vụ (mất 15s)?")) {
+        } else if(confirm("Khởi động lại kết nối (mất 15s)?")) {
             this.doRestartMobile();
         }
     },

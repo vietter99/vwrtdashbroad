@@ -17,11 +17,23 @@ function get_query_param(key)
 end
 
 local function get_config()
-    return { driver = "mmcli", modem_index = "0" }
+    return { driver = "dynamic", modem_index = "0" }
+end
+
+local function get_driver()
+    local handle = io.popen("uci show network | grep '.proto=.atc.'")
+    if handle then
+        local content = handle:read("*all")
+        handle:close()
+        if content and content ~= "" then
+             return require "drivers.fm350"
+        end
+    end
+    return require "drivers.mmcli"
 end
 
 local config = get_config()
-local driver_lib = require "drivers.mmcli"
+local driver_lib = get_driver()
 
 
 local action = get_query_param("action")

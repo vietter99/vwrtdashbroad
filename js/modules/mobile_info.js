@@ -92,7 +92,7 @@ const MobileModule = {
                 <div style="border-bottom: 1px dashed var(--border-color); margin: 5px 0;"></div>
 
                 <div style="margin-bottom: 5px; font-size: 12px; display: flex; justify-content: space-between;">
-                    <span style="color: var(--text-sub);">Nhà mạng</span> 
+                    <span style="color: var(--text-sub);">Hãng SX</span> 
                     <span style="font-weight: 600; color: var(--text-main);" id="mob-provider">--</span>
                 </div>
                 <div style="margin-bottom: 5px; font-size: 12px; display: flex; justify-content: space-between;">
@@ -148,9 +148,12 @@ const MobileModule = {
     updatePopup: function(data) {
         const setTxt = (id, txt) => { const e = document.getElementById(id); if(e) e.innerText = txt; };
 
-        setTxt('mob-operator', data.operator_name);
+        // Popup Title: Hardware Manufacturer (e.g., Fibocom, Dell, Sierra)
+        setTxt('mob-operator', data.manufacturer || data.model || "Modem");
         setTxt('mob-mode', data.display_type || "--");
-        setTxt('mob-provider', data.operator_name);
+        
+        // Popup Details Field: Hãng SX
+        setTxt('mob-provider', data.manufacturer || "--");
         setTxt('mob-band-main', data.display_band);
         setTxt('mob-model', data.modem || data.model || "--");
         setTxt('mob-fw', data.firmware || "--");
@@ -184,12 +187,17 @@ const MobileModule = {
         const card = document.getElementById('card-mobile');
         if (!card) return;
 
-        if (!mobData || (!mobData.operator_name && !mobData.signal)) return;
+        // Show card if we have WAN IP (connected) OR operator name OR signal
+        // This ensures visibility immediately after boot once internet is up
+        if (!mobData || (!mobData.wan_ip && !mobData.operator_name && !mobData.signal)) return;
+        if (mobData.wan_ip === "Unknown" && !mobData.operator_name && !mobData.signal) return;
+        
         card.style.display = 'flex'; 
 
         const setTxt = (id, txt) => { const e = document.getElementById(id); if(e) e.innerText = txt; };
 
-        setTxt('mob-card-operator', (mobData.operator_name || "--").toUpperCase());
+        // Card header shows Operator name (e.g. VIETTEL)
+        setTxt('mob-card-operator', (mobData.operator_name || "NHÀ MẠNG").toUpperCase());
         setTxt('mob-card-type', mobData.display_type || "MOBILE");
         
         let cleanBand = mobData.display_band || "--";
@@ -305,7 +313,7 @@ const MobileModule = {
                                 right: 15px !important; 
                                 z-index: 10;
                                 opacity: 0.8;
-                            }
+                             }
                             .modal-box > button:hover { opacity: 1; }
                             
                             .modem-info-modal { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -394,7 +402,7 @@ const MobileModule = {
                                 </div>
                                 
                                 <div class="sys-info-block">
-                                    <div class="sys-row"><span class="sys-label">Nhà mạng</span><span class="sys-val">${d.operator_name || '--'}</span></div>
+                                    <div class="sys-row"><span class="sys-label">Hãng SX</span><span class="sys-val">${d.manufacturer || '--'}</span></div>
                                     <div class="sys-row"><span class="sys-label">Model</span><span class="sys-val">${d.model || '--'}</span></div>
                                     <div class="sys-row"><span class="sys-label">Firmware</span><span class="sys-val" style="font-family:monospace">${d.firmware || '--'}</span></div>
                                 </div>

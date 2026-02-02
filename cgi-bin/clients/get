@@ -108,7 +108,7 @@ local function main()
 
     -- 3. Read Bridge FDB to map MAC -> Interface
     local fdb = {}
-    local bridge_out = exec("bridge fdb show")
+    local bridge_out = exec("bridge fdb show 2>/dev/null")
     if bridge_out then
         for line in bridge_out:gmatch("[^\r\n]+") do
             -- 40:a5:ef:54:3f:09 dev rax0 offload master br-lan
@@ -200,7 +200,11 @@ local function main()
                         c_sig = active_wifi[mac].signal
                     elseif is_wifi_port then
                         should_include = false
-                    elseif fdb_iface == "" then
+                    elseif is_wifi_port then
+                        should_include = false
+                    elseif fdb_iface == "" and dev ~= "br-lan" and dev ~= "br0" then
+                        -- Strict filter: Only exclude if NOT on main bridge AND not in FDB
+                        -- If on br-lan but not in FDB (e.g. bridge cmd missing), we assume LAN
                         should_include = false
                     end
 

@@ -127,7 +127,8 @@ const ClientsModule = {
             .then(res => res.json())
             .then(res => {
                 if (res.status === 'success') {
-                    this.clients = res.data;
+                    // Fix: Lua cjson returns {} for empty arrays, which JS treats as object
+                    this.clients = Array.isArray(res.data) ? res.data : [];
                     this.renderClients();
                 }
             })

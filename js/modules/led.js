@@ -107,27 +107,29 @@ const LedModule = {
                 
                 <div id="auto-led-settings" style="display: ${auto.enabled ? 'block' : 'none'};">
                     <div style="font-size:11px; color:#c53030; margin-bottom:12px; background: #fff5f5; padding: 10px; border-radius: 8px; border-left: 4px solid #f56565;">
-                        Khi bật Auto, hệ thống sẽ tự động gán bóng đèn theo loại mạng di động.
+                        <strong>💡 Mẹo:</strong> Khi vừa khởi động và chưa xác định được loại mạng, hệ thống sẽ tự động sáng <strong>CẢ HAI</strong> LED 4G + 5G để báo hiệu đã có kết nối.
                     </div>
                     
                     ${["5G", "4G"].map(status => {
-                        const rule = findRule(status);
+                        const rules = (auto.rules || []).filter(r => r.status === status);
+                        const firstRule = rules[0] || { led: "", trigger: "default-on" };
+                        
                         let ledOptions = `<option value="">-- Không dùng --</option>` + leds.map(l => {
-                            return `<option value="${l.name}" ${rule.led === l.name ? 'selected' : ''}>${getDisplayName(l.name)}</option>`;
+                            return `<option value="${l.name}" ${firstRule.led === l.name ? 'selected' : ''}>${getDisplayName(l.name)}</option>`;
                         }).join('');
                         
                         return `
-                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; background:white; padding:10px; border-radius:8px;">
-                                <div style="font-size:13px; font-weight:600; min-width:90px;">
+                            <div style="margin-bottom:12px; background:white; padding:10px; border-radius:8px;">
+                                <div style="font-size:13px; font-weight:600; margin-bottom:8px;">
                                     ${status === '5G' ? '⚡ Mạng 5G' : '📱 Mạng 4G'}
                                 </div>
                                 <div style="display:flex; gap:5px;">
-                                    <select class="auto-led-mapping-select" data-status="${status}" style="padding:5px; font-size:12px; border-radius:5px; border:1px solid #ddd; width:130px;">
+                                    <select class="auto-led-mapping-select" data-status="${status}" style="padding:5px; font-size:12px; border-radius:5px; border:1px solid #ddd; flex:1;">
                                         ${ledOptions}
                                     </select>
                                     <select class="auto-led-effect-select" data-status="${status}" style="padding:5px; font-size:12px; border-radius:5px; border:1px solid #ddd; width:100px;">
-                                        <option value="default-on" ${rule.trigger === 'default-on' ? 'selected' : ''}>Sáng tĩnh</option>
-                                        <option value="netdev" ${rule.trigger === 'netdev' ? 'selected' : ''}>Nháy data</option>
+                                        <option value="default-on" ${firstRule.trigger === 'default-on' ? 'selected' : ''}>Sáng tĩnh</option>
+                                        <option value="netdev" ${firstRule.trigger === 'netdev' ? 'selected' : ''}>Nháy data</option>
                                     </select>
                                 </div>
                             </div>
@@ -205,22 +207,22 @@ const LedModule = {
                         enabled: autoEnable.checked,
                         rules: []
                     };
-                    const mapSelects = document.querySelectorAll('.auto-led-mapping-select');
-                    const effectSelects = document.querySelectorAll('.auto-led-effect-select');
-
-                    mapSelects.forEach((sel, index) => {
+                    
+                    // Handle single-select statuses (4G, 5G)
+                    const singleSelects = document.querySelectorAll('.auto-led-mapping-select');
+                    const singleEffects = document.querySelectorAll('.auto-led-effect-select');
+                    
+                    singleSelects.forEach((sel, index) => {
                         const status = sel.getAttribute('data-status');
                         const led = sel.value;
-                        // Find corresponding effect select (assuming same order)
-                        const effectSel = effectSelects[index]; 
+                        const effectSel = singleEffects[index];
                         const trigger = effectSel ? effectSel.value : 'default-on';
 
-                        config.rules.push({
-                            status: status,
-                            led: led,
-                            trigger: trigger
-                        });
+                        if (led) {  // Only add if LED is selected
+                            config.rules.push({ status, led, trigger });
+                        }
                     });
+                    
                     LedModule.saveAutoConfig(config);
                 });
             }, 100);

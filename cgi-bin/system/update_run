@@ -146,8 +146,8 @@ local function run_update()
         f:write("ln -snf /www/luci-static /www/vwrt/luci-static\n")
         f:write("ln -snf /www/cgi-bin/luci /www/vwrt/cgi-bin/luci\n")
         
-        -- Restart Mobile Poller if exists
-        f:write("[ -f /www/vwrt/services/mobile_poller.lua ] && lua /www/vwrt/services/mobile_poller.lua >/dev/null 2>&1 &\n")
+        -- Restart Mobile Poller if exists (with delay to ensure modem ready)
+        f:write("[ -f /www/vwrt/services/mobile_poller.lua ] && (sleep 60; lua /www/vwrt/services/mobile_poller.lua) > /dev/null 2>&1 &\n")
         
         -- CONFIG: Set Dashboard as Default on Port 80
         f:write("uci set uhttpd.main.home='/www/vwrt'\n")
