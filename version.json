@@ -2,6 +2,6 @@
     "dashboard": {
         "version": "1.1.2",
         "url": "https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.zip",
-        "log": "- Fix FM350 LTE-A Display (B1+B3)\n- Hỗ trợ tốt hơn cho DW5821e (WAN IP Fallback)\n- Chuẩn hóa logic 5G-NSA/SA tương lai\n- Fix lỗi hiển thị danh sách thiết bị LAN"
+        "log": "- Hỗ trợ FM350.\n- Tối ưu hiển thị thông tin.\n- Tối ưu và cải thiện giao diện.\n- Tối ưu và cải thiện đèn LED."
     }
 }
