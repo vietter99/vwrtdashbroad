@@ -89,75 +89,97 @@ function M.parse_all_signal(output)
     if not output then return {} end
     local res = { active_bands = {} }
     
-    -- 1. GTCCINFO (Primary source for metrics and initial band)
-    local ccinfo_line = output:match("%+GTCCINFO:%s*[\r\n]*%s*([^\r\n]+)")
-    if ccinfo_line then
-        local parts = parse_csv(ccinfo_line)
-        if #parts >= 7 then
-            local rat = parts[2]
-            local earfcn = parts[7]
-            local pci = parts[8]
-            local band_idx = parts[9]
-            
-            res.active_mode = (rat == "9") and "5G" or "LTE"
-            res.active_band = map_band(band_idx, earfcn, rat)
-            res.pci = pci
-            res.earfcn = earfcn
+    -- Iterate through all lines
+    for line in output:gmatch("[^\r\n]+") do
+        local trimmed = line:match("^%s*(.-)%s*$")
+        if trimmed and trimmed ~= "" and trimmed ~= "OK" then
 
-            if #parts >= 14 then
-                local sinr_raw = tonumber(parts[11])
-                local rsrp_raw = tonumber(parts[13])
-                local rsrq_raw = tonumber(parts[14])
-                
-                if sinr_raw and sinr_raw ~= 255 then
-                    if rat == "9" then res.sinr = string.format("%.1f", (sinr_raw - 45) / 2 - 1)
-                    else res.sinr = string.format("%.1f", sinr_raw / 2) end
+            -- 1. GTCCINFO Data (Starts with a number and comma)
+            if trimmed:match("^%d+,%d+,") then
+                local parts = parse_csv(trimmed)
+                if #parts >= 7 then
+                    local rat = parts[2]
+                    local earfcn = parts[7]
+                    local pci = parts[8]
+                    local band_idx = parts[9]
+                    
+                    local current_mode = (rat == "9") and "5G" or "LTE"
+                    local current_band = map_band(band_idx, earfcn, rat)
+
+                    -- Prioritize 5G for primary band/metrics
+                    if not res.active_mode or current_mode == "5G" or (res.active_mode ~= "5G" and current_mode == "5G") then
+                        res.active_mode = current_mode
+                        res.active_band = current_band
+                        res.pci = pci
+                        res.earfcn = earfcn
+
+                        if #parts >= 14 then
+                            local sinr_raw = tonumber(parts[11])
+                            local rsrp_raw = tonumber(parts[13])
+                            local rsrq_raw = tonumber(parts[14])
+                            
+                            if sinr_raw and sinr_raw ~= 255 then
+                                if rat == "9" then res.sinr = string.format("%.1f", (sinr_raw - 45) / 2 - 1)
+                                else res.sinr = string.format("%.1f", sinr_raw / 2) end
+                            end
+                            
+                            if rsrp_raw and rsrp_raw ~= 255 then
+                                if rat == "9" then res.rsrp = tostring(rsrp_raw - 157)
+                                else res.rsrp = tostring(rsrp_raw - 141) end
+                            end
+                            
+                            if rsrq_raw and rsrq_raw ~= 255 then
+                                if rat == "9" then res.rsrq = string.format("%.1f", (rsrq_raw - 87) / 2)
+                                else res.rsrq = string.format("%.1f", (rsrq_raw - 34) / 2 - 3) end
+                            end
+                        end
+                    end
                 end
-                
-                if rsrp_raw and rsrp_raw ~= 255 then
-                    if rat == "9" then res.rsrp = tostring(rsrp_raw - 157)
-                    else res.rsrp = tostring(rsrp_raw - 141) end
-                end
-                
-                if rsrq_raw and rsrq_raw ~= 255 then
-                    if rat == "9" then res.rsrq = string.format("%.1f", (rsrq_raw - 87) / 2)
-                    else res.rsrq = string.format("%.1f", (rsrq_raw - 34) / 2 - 3) end
+
+            -- 2. GTCAINFO Data (PCC/SCC prefixes)
+            elseif trimmed:match("^[PS]CC") then
+                local type_cell, csv_part = trimmed:match("([PS]CC[^:]*):%s*([%d%,%-]+)")
+                if type_cell and csv_part then
+                    local parts = parse_csv(csv_part)
+                    if #parts >= 3 then
+                        local band_idx = parts[1]
+                        local earfcn = parts[3]
+                        
+                        if type_cell:find("SCC") then
+                            if #parts >= 5 then band_idx = parts[3]; earfcn = parts[5] end
+                        end
+
+                        local band_name = map_band(band_idx, earfcn, res.active_mode)
+                        
+                        if type_cell:find("PCC") then
+                            -- If we already have a 5G band as active, and this is LTE, put it in SCC
+                            if res.active_band and res.active_band:find("^n") and not band_name:find("^n") then
+                                table.insert(res.active_bands, band_name)
+                                res.active_mode = "5G-NSA"
+                            -- If this is 5G, it wins
+                            elseif band_name:find("^n") then
+                                if res.active_band and not res.active_band:find("^n") then
+                                    table.insert(res.active_bands, res.active_band)
+                                end
+                                res.active_band = band_name
+                                res.active_mode = "5G-NSA"
+                            else
+                                res.active_band = band_name
+                            end
+                        else
+                            -- Pure SCC
+                            local exists = false
+                            for _, b in ipairs(res.active_bands) do if b == band_name then exists = true; break end end
+                            if not exists and band_name ~= res.active_band then
+                                table.insert(res.active_bands, band_name)
+                                if res.active_mode == "LTE" then res.active_mode = "LTE-A" end
+                                if band_name:find("^n") then res.active_mode = "5G-NSA" end
+                            end
+                        end
+                    end
                 end
             end
-        end
-    end
 
-    -- 2. GTCAINFO (Carrier Aggregated bands)
-    -- Matches "PCC:..." or "SCC 1:..." or "SCC:..."
-    for type_cell, csv_part in output:gmatch("([PS]CC[^:]*):%s*([%d%,%-]+)") do
-        local parts = parse_csv(csv_part)
-        if #parts >= 3 then
-            local band_idx = parts[1]
-            local earfcn = parts[3]
-            
-            -- Parsing Adjustment for FM350 SCC lines
-            -- PCC: 101,223,550... (Idx=1, EARFCN=3)
-            -- SCC: 2,0,103,223,1300... (Idx=3, EARFCN=5)
-            if type_cell:find("SCC") then
-                 if #parts >= 5 then
-                     band_idx = parts[3]
-                     earfcn = parts[5]
-                 else
-                     -- Fallback (Malform string)
-                     band_idx = 0
-                     earfcn = 0
-                 end
-            end
-
-            local band_name = map_band(band_idx, earfcn, res.active_mode)
-            
-            if type_cell == "PCC" then
-                res.active_band = band_name
-                if band_name:find("^n") then res.active_mode = "5G-NSA" end
-            else
-                table.insert(res.active_bands, band_name)
-                if res.active_mode == "LTE" then res.active_mode = "LTE-A" end
-            end
         end
     end
 
