@@ -430,6 +430,11 @@ local function find_modem_device()
     end
 
     -- Strategy 2: ttyUSB (ATC/PPP)
+    -- Priority: ttyUSB3 (Standard for FM350/Quectel/Sierra on this router)
+    if file_exists("/sys/class/tty/ttyUSB3") then
+         return "/dev/ttyUSB3"
+    end
+
     handle = io.popen("/bin/ls -d /sys/class/tty/ttyUSB* 2>/dev/null")
     if handle then
         local ports = {}
