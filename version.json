@@ -1,6 +1,6 @@
 {
     "dashboard": {
-        "version": "1.1.2",
+        "version": "1.1.1",
         "url": "https://github.com/vietter99/vwrtdashbroad/archive/refs/heads/main.zip",
         "log": "- Hỗ trợ FM350.\n- Tối ưu hiển thị thông tin.\n- Tối ưu và cải thiện giao diện.\n- Tối ưu và cải thiện đèn LED."
     }
