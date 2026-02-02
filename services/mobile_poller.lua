@@ -26,14 +26,15 @@ end
 function exec_at_tty(device, cmd)
     if not cmd or cmd == "" then return nil end
     
-    -- Call external shell script for better shell robustness (PID handling, cat backgrounding)
-    local sh = string.format("/www/vwrt/services/at_cmd.sh %s '%s'", device, cmd)
-    
-    local res = exec(sh)
-    if res and res ~= "" then
-        return res
+    -- Try sms_tool first (very reliable on this system)
+    local res = exec("/usr/bin/sms_tool -d " .. device .. " at '" .. cmd .. "' 2>/dev/null")
+    if res and res ~= "" and not res:find("timeout") then 
+        return res 
     end
-    return nil
+
+    -- Fallback to shell script
+    local sh = string.format("/www/vwrt/services/at_cmd.sh %s '%s' 2>/dev/null", device, cmd)
+    return exec(sh)
 end
 
 -- Clear TTY garbage before real commands
@@ -762,10 +763,8 @@ function main()
                     drain_tty(port)
                 
                     -- 1. Signal / Cell Info 
-                    local ccinfo = exec_at_tty(port, "AT+GTCCINFO?")
-                    local cainfo = exec_at_tty(port, "AT+GTCAINFO?")
-                    local cainfo = exec_at_tty(port, "AT+GTCAINFO?")
-                    local s1 = fm350_parser.parse_all_signal((ccinfo or "") .. "\n" .. (cainfo or ""))
+                    local combined_raw = exec_at_tty(port, "AT+GTCCINFO?;+GTCAINFO?;+GTSENRDTEMP=1;+CSQ")
+                    local s1 = fm350_parser.parse_all_signal(combined_raw)
                     
                     if s1.full_mode then data_modem.mode = s1.full_mode end
                     if s1.rsrp then data_modem.rsrp = s1.rsrp end
@@ -773,12 +772,11 @@ function main()
                     if s1.sinr then data_modem.sinr = s1.sinr end
 
                     -- 2. Temp
-                    local temp_raw = exec_at_tty(port, "AT+GTSENRDTEMP=1")
-                    local temp = fm350_parser.parse_temp(temp_raw)
+                    local temp = fm350_parser.parse_temp(combined_raw)
                     if temp then data_modem.mtemp = temp end
 
                     -- 3. Signal Strength & RSSI
-                    local csq_raw = exec_at_tty(port, "AT+CSQ")
+                    local csq_raw = combined_raw
                     if csq_raw then
                         local csq = csq_raw:match("%+CSQ:%s*(%d+),")
                         if csq then
@@ -845,44 +843,30 @@ function main()
                         if at_data.active_band then data_modem.mode = at_data.active_mode .. " | " .. at_data.active_band end
     
                     elseif is_dell then
-                        -- === DELL DW5821e LOGIC (VIA MMCLI INJECTION) ===
-                        local m_idx = get_current_modem_index()
+                        -- === DELL DW5821e LOGIC (Prefer TTY over mmcli) ===
+                        local at_port = get_at_port_from_json(raw_modem) or "/dev/ttyUSB1"
                         
-                        -- 1. Temp (AT#TEMPMON=1 or AT+TEMP)
-                        local raw_temp = exec_at_mmcli(m_idx, "AT#TEMPMON=1")
-                        
-                        local t = nil
-                        if raw_temp and not raw_temp:match("ERROR") then
-                             t = raw_temp:match("pa_therm1:(%d+)")
-                             if not t then t = raw_temp:match("xo_therm_buf:(%d+)") end
-                        end
-                        
-                        if not t then
-                            -- Fallback
-                            raw_temp = exec_at_mmcli(m_idx, "AT+TEMP")
-                            if raw_temp then 
-                                t = raw_temp:match("pa_therm1:(%d+)")
-                                if not t then t = raw_temp:match("xo_therm_buf:(%d+)") end
-                                if not t then t = raw_temp:match("%+TEMP:%s*(%d+)") end
-                            end
-                        end
-                        if t then data_modem.mtemp = t end
-                        
-                        -- 2. CA / Band Info (AT^CA_INFO?)
-                        local raw_ca = exec_at_mmcli(m_idx, "AT^CA_INFO?")
-                        
+                        -- 1. CA / Band Info (AT^CA_INFO?)
+                        local raw_ca = exec_at_tty(at_port, "AT^CA_INFO?")
                         local mode_found = false
                         if raw_ca and not raw_ca:match("ERROR") then
                             local ca_data = parse_at_dw5821e_cainfo(raw_ca)
                             if ca_data.active_band then
-                                -- Display LTE-A only if multiple bands, otherwise LTE
                                 data_modem.mode = ca_data.active_mode .. " | " .. ca_data.active_band
                                 mode_found = true
                             end
                         end
                         
+                        -- 2. Temp (AT+TEMP)
+                        local raw_temp = exec_at_tty(at_port, "AT+TEMP")
+                        if raw_temp then
+                            local t = parse_at_dw5821e_temp(raw_temp)
+                            if t then data_modem.mtemp = t .. " &deg;C" end
+                        end
+                        
+                        -- 3. Fallback to GSTATUS if CA_INFO fails
                         if not mode_found then
-                            local raw_stat = exec_at_mmcli(m_idx, "AT!GSTATUS?")
+                            local raw_stat = exec_at_tty(at_port, "AT!GSTATUS?")
                             if raw_stat and raw_stat:match("GSTATUS") then
                                  local at_data = parse_at_gstatus(raw_stat)
                                  if at_data.active_band then
@@ -891,8 +875,8 @@ function main()
                             end
                         end
                         
-                        -- Fallback Sierra stats if available (Signal / RSRP)
-                        local raw_at = exec_at_mmcli(m_idx, "AT!GSTATUS?")
+                        -- 4. Fallback Sierra stats for metrics
+                        local raw_at = exec_at_tty(at_port, "AT!GSTATUS?")
                         if raw_at and raw_at:find("GSTATUS") then
                              local at_data = parse_at_gstatus(raw_at)
                              if at_data.rsrp then data_modem.rsrp = at_data.rsrp end

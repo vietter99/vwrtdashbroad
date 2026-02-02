@@ -268,9 +268,20 @@ function M.get_sms(config)
     for _, item in ipairs(merged_messages) do
         if item.parts then
             local full_text = ""
+            local missing_parts = {}
             for i = 1, item.total do
-                full_text = full_text .. (item.parts[i] or "")
+                if item.parts[i] then
+                    full_text = full_text .. item.parts[i]
+                else
+                    table.insert(missing_parts, tostring(i))
+                end
             end
+            
+            -- Warning for incomplete messages
+            if #missing_parts > 0 then
+                full_text = "[⚠️ Thiếu phần " .. table.concat(missing_parts, ", ") .. "/" .. item.total .. "] " .. full_text
+            end
+            
             item.text = full_text
             item.parts = nil 
             item.index = "grouped" 
