@@ -1,13 +1,15 @@
 const SmsModule = {
-    API_URL: '/cgi-bin/sms/get',
+    API_URL: "/cgi-bin/sms/get",
 
-    init: function() {
+    init: function () {
         this.fetchInbox(false);
     },
 
-    openCompose: function() {
+    openCompose: function () {
         // SINGLETON: Clean up old modals
-        document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
+        document
+            .querySelectorAll(".modal-overlay")
+            .forEach((el) => el.remove());
 
         const modalHtml = `
             <div class="modal-overlay active" id="modal-sms-compose" style="z-index: 1001;">
@@ -35,109 +37,127 @@ const SmsModule = {
                 </div>
             </div>
         `;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        
+        document.body.insertAdjacentHTML("beforeend", modalHtml);
+
         setTimeout(() => {
-            const inputTo = document.getElementById('sms-to-modal');
-            if(inputTo) inputTo.focus();
+            const inputTo = document.getElementById("sms-to-modal");
+            if (inputTo) inputTo.focus();
         }, 100);
 
-        const escHandler = function(e) {
+        const escHandler = function (e) {
             if (e.key === "Escape") {
-                const m = document.getElementById('modal-sms-compose');
+                const m = document.getElementById("modal-sms-compose");
                 if (m) m.remove();
-                document.removeEventListener('keydown', escHandler);
+                document.removeEventListener("keydown", escHandler);
             }
         };
-        document.addEventListener('keydown', escHandler);
+        document.addEventListener("keydown", escHandler);
     },
 
-    sendSMSFromModal: function() {
-        const number = document.getElementById('sms-to-modal').value;
-        const text = document.getElementById('sms-body-modal').value;
+    sendSMSFromModal: function () {
+        const number = document.getElementById("sms-to-modal").value;
+        const text = document.getElementById("sms-body-modal").value;
 
-        if (!number || !text) { 
-            if(typeof Toast !== 'undefined') Toast.show("Vui lòng nhập đầy đủ thông tin!", "warning");
+        if (!number || !text) {
+            if (typeof Toast !== "undefined")
+                Toast.show("Vui lòng nhập đầy đủ thông tin!", "warning");
             else alert("Thiếu thông tin!");
-            return; 
+            return;
         }
 
         const executeSend = () => {
-            if(typeof Toast !== 'undefined') Toast.show("Đang gửi tin nhắn...", "info");
-            
-            const modal = document.getElementById('modal-sms-compose');
-            if(modal) modal.remove();
+            if (typeof Toast !== "undefined")
+                Toast.show("Đang gửi tin nhắn...", "info");
+
+            const modal = document.getElementById("modal-sms-compose");
+            if (modal) modal.remove();
 
             const payload = { number: number, text: text };
-            if (typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
+            if (typeof VWRT_API !== "undefined" && VWRT_API.csrfToken) {
                 payload.csrf_token = VWRT_API.csrfToken;
             }
 
-            fetch('/cgi-bin/sms/send', {
-                method: 'POST',
-                headers: typeof VWRT_API !== 'undefined' ? VWRT_API.getHeaders() : { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+            fetch("/cgi-bin/sms/send", {
+                method: "POST",
+                headers:
+                    typeof VWRT_API !== "undefined"
+                        ? VWRT_API.getHeaders()
+                        : { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
             })
-            .then(res => {
-                if (!res.ok) throw new Error("HTTP Error");
-                return res.json();
-            })
-            .then(data => {
-                if (data.status === 'success') {
-                    if(typeof Toast !== 'undefined') Toast.show("Đã gửi thành công!", "success");
-                    setTimeout(() => this.fetchInbox(false), 2000); 
-                } else {
-                    const msg = data.message || "Lỗi modem";
-                    if(typeof Toast !== 'undefined') Toast.show("Gửi thất bại: " + msg, "error");
-                }
-            })
-            .catch(err => {
-                if(typeof Toast !== 'undefined') Toast.show("❌ Lỗi kết nối Server!", "error");
-            });
+                .then((res) => {
+                    if (!res.ok) throw new Error("HTTP Error");
+                    return res.json();
+                })
+                .then((data) => {
+                    if (data.status === "success") {
+                        if (typeof Toast !== "undefined")
+                            Toast.show("Đã gửi thành công!", "success");
+                        setTimeout(() => this.fetchInbox(false), 2000);
+                    } else {
+                        const msg = data.message || "Lỗi modem";
+                        if (typeof Toast !== "undefined")
+                            Toast.show("Gửi thất bại: " + msg, "error");
+                    }
+                })
+                .catch((err) => {
+                    if (typeof Toast !== "undefined")
+                        Toast.show("❌ Lỗi kết nối Server!", "error");
+                });
         };
 
-        if(typeof Modal !== 'undefined') {
-            Modal.confirm("Xác nhận gửi", `Gửi tin đến <b>${number}</b>?`, () => {
-                executeSend();
-            });
-        } else if(confirm(`Gửi tin đến ${number}?`)) {
+        if (typeof Modal !== "undefined") {
+            Modal.confirm(
+                "Xác nhận gửi",
+                `Gửi tin đến <b>${number}</b>?`,
+                () => {
+                    executeSend();
+                },
+            );
+        } else if (confirm(`Gửi tin đến ${number}?`)) {
             executeSend();
         }
     },
 
-    fetchInbox: function(isFull) {
-        const url = `${this.API_URL}?_t=${new Date().getTime()}${isFull ? '&full=true' : ''}`;
+    fetchInbox: function (isFull, forceSync = false) {
+        let url = `${this.API_URL}?_t=${new Date().getTime()}`;
+        if (isFull) url += "&full=true";
+        if (forceSync) url += "&sync=true";
 
         fetch(url)
-            .then(res => res.json())
-            .then(res => {
-                if (res.status === 'error') return;
+            .then((res) => res.json())
+            .then((res) => {
+                if (res.status === "error") return;
                 const messages = res.data || [];
-                const storage = res.storage || { used: messages.length, total: 50 };
-                
+                const storage = res.storage || {
+                    used: messages.length,
+                    total: 50,
+                };
+
                 if (isFull) {
                     this.renderFullTable(messages, storage);
-                } 
+                }
                 this.renderDashboardCard(messages, storage);
             })
-            .catch(err => {});
+            .catch((err) => {});
     },
 
-    getDisplayTime: function(msg) {
-        if (msg.time && msg.time !== "" && !msg.time.includes('--:--')) {
+    getDisplayTime: function (msg) {
+        if (msg.time && msg.time !== "" && !msg.time.includes("--:--")) {
             return msg.time;
         }
-        if (msg.type === 'sent') return '<span style="font-style:italic; color:#a0aec0;">Đã gửi</span>';
+        if (msg.type === "sent")
+            return '<span style="font-style:italic; color:#a0aec0;">Đã gửi</span>';
         return '<span style="color:#ccc;">--/--</span>';
     },
 
-    renderDashboardCard: function(messages, storage) {
-        const cardEl = document.getElementById('dashboard-sms-list');
+    renderDashboardCard: function (messages, storage) {
+        const cardEl = document.getElementById("dashboard-sms-list");
         if (!cardEl) return;
 
         // Warning Logic (Warn when 2 or fewer slots left)
-        let warningHtml = '';
-        if (storage && (storage.total - storage.used) <= 2) {
+        let warningHtml = "";
+        if (storage && storage.total - storage.used <= 2) {
             warningHtml = `
                 <div style="background:#fff5f5; color:#c53030; padding:8px 12px; border-radius:8px; font-size:11px; font-weight:700; border:1px solid #feb2b2; margin-bottom:10px; display:flex; align-items:center; gap:8px;">
                     <span style="font-size:14px;">⚠️</span> Bộ nhớ gần đầy! (Cần xóa bớt)
@@ -145,17 +165,21 @@ const SmsModule = {
             `;
         }
 
-        let html = '';
-        messages.slice(0, 3).forEach(msg => {
-            const isSent = msg.type === 'sent';
-            const icon = isSent ? '↗' : '↙';
-            const iconColor = isSent ? '#718096' : '#3182ce';
-            const bgIcon = isSent ? '#f7fafc' : '#ebf8ff';
+        let html = "";
+        messages.slice(0, 3).forEach((msg) => {
+            const isSent = msg.type === "sent";
+            const icon = isSent ? "↗" : "↙";
+            const iconColor = isSent ? "#718096" : "#3182ce";
+            const bgIcon = isSent ? "#f7fafc" : "#ebf8ff";
             const timeShow = this.getDisplayTime(msg);
 
             // Chống XSS: escape nội dung tin nhắn và số điện thoại
-            const safeNumber = window.Security ? Security.escapeHtml(msg.number) : msg.number;
-            const safeText = window.Security ? Security.escapeHtml(msg.text) : msg.text;
+            const safeNumber = window.Security
+                ? Security.escapeHtml(msg.number)
+                : msg.number;
+            const safeText = window.Security
+                ? Security.escapeHtml(msg.text)
+                : msg.text;
 
             html += `
                 <div class="sms-dash-item" onclick="SmsModule.fetchInbox(true)">
@@ -175,86 +199,120 @@ const SmsModule = {
         cardEl.innerHTML = warningHtml + html;
     },
 
-    toggleAll: function(source) {
-        document.querySelectorAll('.sms-chk').forEach(cb => cb.checked = source.checked);
+    toggleAll: function (source) {
+        document
+            .querySelectorAll(".sms-chk")
+            .forEach((cb) => (cb.checked = source.checked));
     },
 
-    deleteSelected: function() {
-        const checkedBoxes = document.querySelectorAll('.sms-chk:checked');
+    deleteSelected: function () {
+        const checkedBoxes = document.querySelectorAll(".sms-chk:checked");
         if (checkedBoxes.length === 0) {
-            if(typeof Toast !== 'undefined') Toast.show("Vui lòng chọn tin nhắn!", "warning");
+            if (typeof Toast !== "undefined")
+                Toast.show("Vui lòng chọn tin nhắn!", "warning");
             return;
         }
-        Modal.confirm("Xác nhận xóa", `Xóa <b>${checkedBoxes.length}</b> tin nhắn đã chọn?`, () => {
-            const ids = Array.from(checkedBoxes).map(cb => cb.value).join(",");
-            if(typeof Toast !== 'undefined') Toast.show("Đang xóa...", "info");
-            
-            const payload = { action: 'delete', id: ids };
-            const headers = { 'Content-Type': 'application/json' };
-            if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
-                payload.csrf_token = VWRT_API.csrfToken;
-                headers['X-CSRF-Token'] = VWRT_API.csrfToken;
-            }
+        Modal.confirm(
+            "Xác nhận xóa",
+            `Xóa <b>${checkedBoxes.length}</b> tin nhắn đã chọn?`,
+            () => {
+                const ids = Array.from(checkedBoxes)
+                    .map((cb) => cb.value)
+                    .join(",");
+                if (typeof Toast !== "undefined")
+                    Toast.show("Đang xóa...", "info");
 
-            fetch('/cgi-bin/sms/action', {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify(payload)
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.status === 'success') {
-                    if(typeof Toast !== 'undefined') Toast.show("Đã xóa!", "success");
-                    setTimeout(() => {
-                        this.fetchInbox(true);
-                    }, 1500);
-                } else {
-                    if(typeof Toast !== 'undefined') Toast.show("Lỗi: " + (data.message || "Không thể xóa"), "error");
+                const payload = { action: "delete", id: ids };
+                const headers = { "Content-Type": "application/json" };
+                if (typeof VWRT_API !== "undefined" && VWRT_API.csrfToken) {
+                    payload.csrf_token = VWRT_API.csrfToken;
+                    headers["X-CSRF-Token"] = VWRT_API.csrfToken;
                 }
-            })
-            .catch(err => {
-                 if(typeof Toast !== 'undefined') Toast.show("Lỗi kết nối!", "error");
-            });
-        });
+
+                fetch("/cgi-bin/sms/action", {
+                    method: "POST",
+                    headers: headers,
+                    body: JSON.stringify(payload),
+                })
+                    .then((res) => res.json())
+                    .then((data) => {
+                        if (data.status === "success") {
+                            if (typeof Toast !== "undefined")
+                                Toast.show("Đã xóa!", "success");
+                            setTimeout(() => {
+                                this.fetchInbox(true);
+                            }, 1500);
+                        } else {
+                            if (typeof Toast !== "undefined")
+                                Toast.show(
+                                    "Lỗi: " + (data.message || "Không thể xóa"),
+                                    "error",
+                                );
+                        }
+                    })
+                    .catch((err) => {
+                        if (typeof Toast !== "undefined")
+                            Toast.show("Lỗi kết nối!", "error");
+                    });
+            },
+        );
     },
 
-    renderFullTable: function(messages, storage) {
+    renderFullTable: function (messages, storage) {
         // SINGLETON: Clean up old modals
-        document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
+        document
+            .querySelectorAll(".modal-overlay")
+            .forEach((el) => el.remove());
 
-        const remaining = storage ? (storage.total - storage.used) : 0;
-        const percent = storage ? Math.min(100, Math.round((storage.used / storage.total) * 100)) : 0;
-        const color = remaining <= 2 ? '#e53e3e' : '#3182ce';
+        const remaining = storage ? storage.total - storage.used : 0;
+        const percent = storage
+            ? Math.min(100, Math.round((storage.used / storage.total) * 100))
+            : 0;
+        const color = remaining <= 2 ? "#e53e3e" : "#3182ce";
 
-        let rows = '';
-        let mobileCards = '';
+        let rows = "";
+        let mobileCards = "";
         if (!messages || messages.length === 0) {
-            rows = '<tr><td colspan="5" style="text-align:center; padding:40px; color:#888;">Hộp thư trống.</td></tr>';
-            mobileCards = '<div style="text-align:center; padding:40px; color:#888;">Hộp thư trống.</div>';
+            rows =
+                '<tr><td colspan="5" style="text-align:center; padding:40px; color:#888;">Hộp thư trống.</td></tr>';
+            mobileCards =
+                '<div style="text-align:center; padding:40px; color:#888;">Hộp thư trống.</div>';
         } else {
-            messages.forEach(msg => {
-                const isSent = msg.type === 'sent';
-                let typeLabel = '';
-                let typeLabelMobile = '';
-                
+            messages.forEach((msg) => {
+                const isSent = msg.type === "sent";
+                let typeLabel = "";
+                let typeLabelMobile = "";
+
                 if (isSent) {
-                    let statusIcon = '';
-                    const s = (msg.status || '').toLowerCase(); 
-                    if (s === 'completed-received') statusIcon = ' <span title="Đã nhận" style="color:#38a169;">✔✔</span>';
-                    else if (s.includes('failed')) statusIcon = ` <span title="Lỗi: ${msg.status}" style="color:#e53e3e;">✖</span>`;
-                    else statusIcon = ` <span title="Đã gửi" style="color:#a0aec0;">✔</span>`;
-                    
+                    let statusIcon = "";
+                    const s = (msg.status || "").toLowerCase();
+                    if (s === "completed-received")
+                        statusIcon =
+                            ' <span title="Đã nhận" style="color:#38a169;">✔✔</span>';
+                    else if (s.includes("failed"))
+                        statusIcon = ` <span title="Lỗi: ${msg.status}" style="color:#e53e3e;">✖</span>`;
+                    else
+                        statusIcon = ` <span title="Đã gửi" style="color:#a0aec0;">✔</span>`;
+
                     typeLabel = `<span style="color:#4a5568; background:#edf2f7; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold; border:1px solid #cbd5e0; display:inline-block; width:75px; text-align:center;">↗ Gửi đi${statusIcon}</span>`;
                     typeLabelMobile = `<span style="color:#4a5568; background:#edf2f7; padding:3px 6px; border-radius:4px; font-size:10px; font-weight:bold;">↗ Gửi đi${statusIcon}</span>`;
                 } else {
-                    typeLabel = '<span style="color:#2b6cb0; background:#bee3f8; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold; border:1px solid #90cdf4; display:inline-block; width:75px; text-align:center;">↙ Tin đến</span>';
-                    typeLabelMobile = '<span style="color:#2b6cb0; background:#bee3f8; padding:3px 6px; border-radius:4px; font-size:10px; font-weight:bold;">↙ Tin đến</span>';
-                }                
-                
+                    typeLabel =
+                        '<span style="color:#2b6cb0; background:#bee3f8; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold; border:1px solid #90cdf4; display:inline-block; width:75px; text-align:center;">↙ Tin đến</span>';
+                    typeLabelMobile =
+                        '<span style="color:#2b6cb0; background:#bee3f8; padding:3px 6px; border-radius:4px; font-size:10px; font-weight:bold;">↙ Tin đến</span>';
+                }
+
                 const timeShow = this.getDisplayTime(msg);
-                const safeNumber = window.Security ? Security.escapeHtml(msg.number) : msg.number;
-                const safeText = window.Security ? Security.escapeHtml(msg.text) : msg.text;
-                const safeIndex = window.Security ? Security.escapeHtml(msg.index) : msg.index;
+                const safeNumber = window.Security
+                    ? Security.escapeHtml(msg.number)
+                    : msg.number;
+                const safeText = window.Security
+                    ? Security.escapeHtml(msg.text)
+                    : msg.text;
+                const safeIndex = window.Security
+                    ? Security.escapeHtml(msg.index)
+                    : msg.index;
 
                 rows += `
                     <tr style="border-bottom:1px solid #eee;">
@@ -315,7 +373,7 @@ const SmsModule = {
                             <div style="font-size:11px; font-weight:800; color:${color}; white-space:nowrap;">${storage.used}/${storage.total}</div>
                         </div>
 
-                        <button onclick="SmsModule.fetchInbox(true)" style="background: white; color: #3182ce; border: 1px solid #3182ce; padding: 8px 12px; border-radius: 6px; cursor:pointer; font-weight:600; font-size:12px; height: 42px;">↻</button>
+                        <button onclick="SmsModule.fetchInbox(true, true)" style="background: white; color: #3182ce; border: 1px solid #3182ce; padding: 8px 12px; border-radius: 6px; cursor:pointer; font-weight:600; font-size:12px; height: 42px;">↻</button>
                     </div>
                     <div style="flex:1; overflow-y: auto; padding: 10px;">
                         <table style="width:100%; border-collapse: collapse; font-size:14px; table-layout: fixed;">
@@ -345,6 +403,6 @@ const SmsModule = {
                 </div>
             </div>
         `;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-    }
+        document.body.insertAdjacentHTML("beforeend", modalHtml);
+    },
 };

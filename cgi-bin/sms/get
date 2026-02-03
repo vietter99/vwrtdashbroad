@@ -89,6 +89,42 @@ end
 local force_sync = get_query_param("sync")
 
 if force_sync == "true" then
+    -- ANTI-SPAM: Rate Limit 30 seconds
+    local COOLDOWN_FILE = "/tmp/sms_sync_cooldown"
+    local now = os.time()
+    local last_sync = tonumber(read_file(COOLDOWN_FILE) or "0")
+    
+    if now - last_sync < 30 then
+        -- Priority fallback: Show Archive instead of error if spamming
+        local messages, used, total = get_messages_from_archive()
+        print(json.stringify({ 
+            status = "error", 
+            message = "Vui lòng đợi 30 giây trước khi quét lại (Chống treo modem)",
+            data = messages,
+            storage = { used = used, total = total },
+            source = "router"
+        }))
+        return
+    end
+
+    -- ANTI-SPAM: Global Lock Check (Wait if another process is using modem)
+    local LOCK_FILE = constants.PATHS.MODEM_AT_LOCK
+    if read_file(LOCK_FILE) then
+        local messages, used, total = get_messages_from_archive()
+        print(json.stringify({ 
+            status = "error", 
+            message = "Modem đang bận xử lý tác vụ khác, hãy thử lại sau.",
+            data = messages,
+            storage = { used = used, total = total },
+            source = "router"
+        }))
+        return
+    end
+
+    -- Save new cooldown timestamp
+    local f = io.open(COOLDOWN_FILE, "w")
+    if f then f:write(tostring(now)); f:close() end
+
     -- Force read from modem (Refresh button)
     local config = get_config()
     local driver_lib = get_driver()

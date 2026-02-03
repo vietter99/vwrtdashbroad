@@ -112,6 +112,11 @@ end
 
 
 function M.get_sms(config)
+    -- ANTI-SPAM: Don't read if another process is using AT port
+    if io.open("/tmp/modem_at.lock", "r") then
+        return { messages = {}, storage = { used = 0, total = 10 }, status = "busy" }
+    end
+
     local m_idx = get_current_modem_index()
     local messages = {}
     local list_cmd = string.format("mmcli -m %s --messaging-list-sms", m_idx)
