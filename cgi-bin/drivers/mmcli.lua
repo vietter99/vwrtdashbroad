@@ -149,6 +149,7 @@ function M.get_sms(config)
                 end
 
                 if text_val ~= "" and text_val ~= "--" then
+                    local storage_val = data.sms.properties.storage or "unknown"
                     if data.sms.properties["pdu-type"] == "submit" then
                         type_val = "sent"
                         delivery_status = data.sms.properties["delivery-state"] or "unknown"
@@ -163,6 +164,7 @@ function M.get_sms(config)
                         time = time_val,
                         text = text_val,
                         type = type_val,
+                        storage = storage_val,
                         status = delivery_status 
                     })
                 end

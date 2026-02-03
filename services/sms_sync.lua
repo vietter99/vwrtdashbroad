@@ -183,11 +183,12 @@ function sync_sms_via_driver(archive, driver_lib)
             if add_to_archive(archive, phone, direction, content, iso_time, msg_id) then
                 count = count + 1
                 
-                -- Auto-delete from SIM after successful sync
+                -- Auto-delete from Modem/SIM after successful sync to keep memory clean
                 pcall(function()
-                    if msg.storage == "SM" and msg.index then
+                    local st = string.upper(msg.storage or "")
+                    if msg.index and (st == "SM" or st == "ME" or st == "MT") then
                         driver_lib.delete_sms(config, msg.index)
-                        log("Deleted SMS from SIM: " .. msg.index)
+                        log("Archived and deleted SMS from " .. st .. ": " .. msg.index)
                     end
                 end)
             end
