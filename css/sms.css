@@ -47,3 +47,96 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
     line-height: 1.4;
 }
+
+/* Mobile-friendly: Hiển thị đầy đủ nội dung tin nhắn */
+@media (max-width: 768px) {
+    .sms-dash-text {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+    
+    .sms-dash-time {
+        font-size: 10px;
+    }
+    
+    .sms-dash-sender {
+        font-size: 12px;
+    }
+    
+    /* Ẩn table, hiển thị card list trên mobile */
+    #modal-sms-full table {
+        display: none !important;
+    }
+    
+    #modal-sms-full .sms-mobile-list {
+        display: block !important;
+    }
+}
+
+/* Card layout cho mobile */
+.sms-mobile-list {
+    display: none; /* Ẩn mặc định trên desktop */
+}
+
+.sms-mobile-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+}
+
+.sms-mobile-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.sms-mobile-card-type {
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.sms-mobile-card-time {
+    font-size: 11px;
+    color: #718096;
+}
+
+.sms-mobile-card-phone {
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 6px;
+}
+
+.sms-mobile-card-content {
+    color: #4a5568;
+    line-height: 1.5;
+    font-size: 13px;
+    word-break: break-word;
+    /* Collapsed by default (3 lines) */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.sms-mobile-card-content.expanded {
+    display: block;
+    -webkit-line-clamp: none;
+    line-clamp: none;
+    overflow: visible;
+}
+
+.sms-mobile-card-checkbox {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f0f0f0;
+}

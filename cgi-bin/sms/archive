@@ -1,0 +1,272 @@
+#!/usr/bin/lua
+
+-- Add parent /www/vwrt/ to package path for lib modules
+if not package.path:find("/www/vwrt") then
+    package.path = "/www/vwrt/?.lua;" .. package.path
+end
+
+local cjson = require "cjson"
+local constants = require "lib.constants"
+
+local ARCHIVE_FILE = constants.PATHS.SMS_ARCHIVE
+
+-- Default settings
+local DEFAULT_SETTINGS = {
+    max_messages = 50,
+    auto_delete_days = 7
+}
+
+-- Helper functions
+function read_file(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local content = f:read("*all")
+    f:close()
+    return content
+end
+
+function write_file(path, content)
+    local f = io.open(path, "w")
+    if f then
+        f:write(content)
+        f:close()
+        return true
+    end
+    return false
+end
+
+-- Load archive from file
+function load_archive()
+    local content = read_file(ARCHIVE_FILE)
+    if not content or content == "" then
+        return {
+            settings = DEFAULT_SETTINGS,
+            conversations = {}
+        }
+    end
+    
+    local ok, archive = pcall(cjson.decode, content)
+    if ok and archive then
+        -- Ensure settings exist
+        if not archive.settings then
+            archive.settings = DEFAULT_SETTINGS
+        end
+        if not archive.conversations then
+            archive.conversations = {}
+        end
+        return archive
+    end
+    
+    return {
+        settings = DEFAULT_SETTINGS,
+        conversations = {}
+    }
+end
+
+-- Save archive to file
+function save_archive(archive)
+    local json = cjson.encode(archive)
+    return write_file(ARCHIVE_FILE, json)
+end
+
+-- Get conversation list (for main screen)
+function get_conversation_list(archive)
+    local list = {}
+    for phone, conv in pairs(archive.conversations) do
+        table.insert(list, {
+            phone = phone,
+            last_message = conv.last_message or "",
+            last_time = conv.last_time or "",
+            unread = conv.unread or 0
+        })
+    end
+    
+    -- Sort by last_time (newest first)
+    table.sort(list, function(a, b)
+        return a.last_time > b.last_time
+    end)
+    
+    return list
+end
+
+-- Get conversation details (for chat screen)
+function get_conversation(archive, phone)
+    if not archive.conversations[phone] then
+        return { messages = {} }
+    end
+    
+    local conv = archive.conversations[phone]
+    
+    -- Sort messages: Oldest at Top, Newest at Bottom
+    table.sort(conv.messages, function(a, b)
+        return (a.timestamp or "") < (b.timestamp or "")
+    end)
+    
+    return conv
+end
+
+-- Add message to archive
+function add_message(archive, phone, message)
+    if not archive.conversations[phone] then
+        archive.conversations[phone] = {
+            messages = {},
+            unread = 0
+        }
+    end
+    
+    local conv = archive.conversations[phone]
+    table.insert(conv.messages, message)
+    
+    -- Update last_message and last_time
+    conv.last_message = message.content
+    conv.last_time = message.timestamp
+    
+    -- Increment unread if message is received
+    if message.direction == "received" and not message.read then
+        conv.unread = (conv.unread or 0) + 1
+    end
+    
+    -- Check message limit and remove oldest if needed
+    local max_msg = archive.settings.max_messages or 50
+    if #conv.messages > max_msg then
+        -- Remove oldest non-important messages
+        local removed = 0
+        for i = 1, #conv.messages do
+            if not conv.messages[i].important then
+                table.remove(conv.messages, i)
+                removed = removed + 1
+                break
+            end
+        end
+    end
+    
+    return save_archive(archive)
+end
+
+-- Mark message as read
+function mark_read(archive, phone)
+    if archive.conversations[phone] then
+        archive.conversations[phone].unread = 0
+        for _, msg in ipairs(archive.conversations[phone].messages) do
+            msg.read = true
+        end
+        return save_archive(archive)
+    end
+    return false
+end
+
+-- Mark message as important
+function mark_important(archive, phone, msg_id, important)
+    if archive.conversations[phone] then
+        for _, msg in ipairs(archive.conversations[phone].messages) do
+            if msg.id == msg_id then
+                msg.important = important
+                return save_archive(archive)
+            end
+        end
+    end
+    return false
+end
+
+-- Delete conversation
+function delete_conversation(archive, phone)
+    archive.conversations[phone] = nil
+    return save_archive(archive)
+end
+
+-- Delete old messages (older than auto_delete_days)
+function clean_old_messages(archive)
+    local days = archive.settings.auto_delete_days or 7
+    local cutoff_time = os.time() - (days * 24 * 60 * 60)
+    
+    for phone, conv in pairs(archive.conversations) do
+        local new_messages = {}
+        for _, msg in ipairs(conv.messages) do
+            -- Keep message if important or newer than cutoff
+            local msg_time = parse_timestamp(msg.timestamp)
+            if msg.important or msg_time >= cutoff_time then
+                table.insert(new_messages, msg)
+            end
+        end
+        conv.messages = new_messages
+        
+        -- If no messages left, delete conversation
+        if #new_messages == 0 then
+            archive.conversations[phone] = nil
+        end
+    end
+    
+    return save_archive(archive)
+end
+
+-- Parse timestamp to os.time format
+function parse_timestamp(ts)
+    local y, m, d, h, min, s = ts:match("(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)")
+    if y then
+        return os.time({year=y, month=m, day=d, hour=h, min=min, sec=s})
+    end
+    return os.time()
+end
+
+-- Main handler
+print("Content-type: application/json\n\n")
+
+local archive = load_archive()
+local query = os.getenv("QUERY_STRING") or ""
+
+if query:find("action=list") then
+    -- Get conversation list
+    local list = get_conversation_list(archive)
+    print(cjson.encode({status = "success", conversations = list}))
+    
+elseif query:find("action=get") then
+    -- Get conversation details
+    local phone = query:match("phone=([^&]+)")
+    if phone then
+        local conv = get_conversation(archive, phone)
+        print(cjson.encode({status = "success", conversation = conv}))
+    else
+        print(cjson.encode({status = "error", message = "Missing phone parameter"}))
+    end
+    
+elseif query:find("action=mark_read") then
+    -- Mark conversation as read
+    local phone = query:match("phone=([^&]+)")
+    if phone then
+        mark_read(archive, phone)
+        print(cjson.encode({status = "success"}))
+    else
+        print(cjson.encode({status = "error", message = "Missing phone parameter"}))
+    end
+    
+elseif query:find("action=mark_important") then
+    -- Mark message as important
+    local phone = query:match("phone=([^&]+)")
+    local msg_id = query:match("msg_id=([^&]+)")
+    local important = query:match("important=([^&]+)") == "true"
+    
+    if phone and msg_id then
+        mark_important(archive, phone, msg_id, important)
+        print(cjson.encode({status = "success"}))
+    else
+        print(cjson.encode({status = "error", message = "Missing parameters"}))
+    end
+    
+elseif query:find("action=delete") then
+    -- Delete conversation
+    local phone = query:match("phone=([^&]+)")
+    if phone then
+        delete_conversation(archive, phone)
+        print(cjson.encode({status = "success"}))
+    else
+        print(cjson.encode({status = "error", message = "Missing phone parameter"}))
+    end
+    
+elseif query:find("action=clean") then
+    -- Clean old messages
+    clean_old_messages(archive)
+    print(cjson.encode({status = "success"}))
+    
+else
+    print(cjson.encode({status = "error", message = "Unknown action"}))
+end

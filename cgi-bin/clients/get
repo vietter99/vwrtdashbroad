@@ -179,7 +179,8 @@ local function main()
     if acontent then
         for line in acontent:gmatch("[^\r\n]+") do
             local ip, hw, flags, mac, mask, dev = line:match("(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)")
-            if mac and mac:find(":") and mac ~= "00:00:00:00:00:00" then
+            -- Filter: Must have MAC, not zero-MAC, and NOT be a stale entry (flags == 0x0)
+            if mac and mac:find(":") and mac ~= "00:00:00:00:00:00" and flags ~= "0x0" then
                 mac = mac:lower()
                 
                 -- SKIP if MAC is in blocked list

@@ -4,8 +4,9 @@ local cjson = require "cjson"
 -- Add project root to package path
 package.path = "/www/vwrt/?.lua;" .. package.path
 
-local CACHE_FILE = "/tmp/vwrt_mobile.json"
-local TEMP_FILE = "/tmp/vwrt_mobile_temp.json"
+local constants = require "lib.constants"
+local CACHE_FILE = constants.PATHS.MOBILE_CACHE
+local TEMP_FILE = constants.PATHS.MOBILE_CACHE_TEMP
 
 
 
@@ -20,7 +21,7 @@ function exec(cmd)
 end
 
 function log(msg)
-    -- Disabled for production
+    os.execute("logger -t VWRT_POLLER '" .. tostring(msg) .. "'")
 end
 
 function exec_at_tty(device, cmd)

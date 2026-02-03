@@ -2,9 +2,10 @@
 print("Content-type: application/json\n")
 
 local script_path = "/www/vwrt/cgi-bin/"
-package.path = script_path .. "?.lua;" .. package.path
+package.path = script_path .. "?.lua;/www/vwrt/?.lua;" .. package.path
 
 local json = require "luci.jsonc"
+local constants = require "lib.constants"
 
 function get_query_param(key)
     local query = os.getenv("QUERY_STRING") or ""
@@ -16,10 +17,16 @@ function get_query_param(key)
     return nil
 end
 
-local function get_config()
-    return { driver = "dynamic", modem_index = "0" }
+-- Helper: Read file
+local function read_file(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local content = f:read("*all")
+    f:close()
+    return content
 end
 
+-- Get driver for fallback
 local function get_driver()
     local handle = io.popen("uci show network | grep '.proto=.atc.'")
     if handle then
@@ -32,21 +39,89 @@ local function get_driver()
     return require "drivers.mmcli"
 end
 
-local config = get_config()
-local driver_lib = get_driver()
+local function get_config()
+    return { driver = "dynamic", modem_index = "0" }
+end
 
+-- Read from Router Archive (Priority)
+local function get_messages_from_archive()
+    local ARCHIVE_FILE = constants.PATHS.SMS_ARCHIVE
+    local content = read_file(ARCHIVE_FILE)
+    
+    if not content or content == "" then
+        return nil, 0, 0
+    end
+    
+    local ok, archive = pcall(json.parse, content)
+    if not ok or not archive or not archive.conversations then
+        return nil, 0, 0
+    end
+    
+    -- Flatten conversations into flat message list (for compatibility)
+    local messages = {}
+    local msg_count = 0
+    
+    for phone, conv in pairs(archive.conversations) do
+        if conv.messages then
+            for _, msg in ipairs(conv.messages) do
+                msg_count = msg_count + 1
+                table.insert(messages, {
+                    index = msg.id or "archived_" .. msg_count,
+                    number = phone,
+                    time = msg.timestamp or "",
+                    text = msg.content or "",
+                    type = msg.direction or "received",
+                    status = msg.direction == "sent" and "sent" or "received"
+                })
+            end
+        end
+    end
+    
+    -- Sort by time (newest first)
+    table.sort(messages, function(a, b)
+        return (a.time or "") > (b.time or "")
+    end)
+    
+    return messages, msg_count, 50
+end
 
-local action = get_query_param("action")
+-- Main logic
+local force_sync = get_query_param("sync")
 
-
-if action then
-    -- Actions moved to sms/action for CSRF protection
-    print(json.stringify({ status = "error", message = "Use POST /cgi-bin/sms/action" }))
-else
+if force_sync == "true" then
+    -- Force read from modem (Refresh button)
+    local config = get_config()
+    local driver_lib = get_driver()
     local result = driver_lib.get_sms(config)
+    
     print(json.stringify({ 
         status = "success", 
         data = result.messages,
-        storage = result.storage
+        storage = result.storage,
+        source = "modem"
     }))
+else
+    -- Priority: Read from Router Archive
+    local messages, used, total = get_messages_from_archive()
+    
+    if messages then
+        print(json.stringify({ 
+            status = "success", 
+            data = messages,
+            storage = { used = used, total = total },
+            source = "router"
+        }))
+    else
+        -- Fallback: Read from Modem if archive is empty
+        local config = get_config()
+        local driver_lib = get_driver()
+        local result = driver_lib.get_sms(config)
+        
+        print(json.stringify({ 
+            status = "success", 
+            data = result.messages,
+            storage = result.storage,
+            source = "modem_fallback"
+        }))
+    end
 end

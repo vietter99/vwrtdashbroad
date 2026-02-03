@@ -1,8 +1,14 @@
 #!/usr/bin/lua
 
+-- Add parent /www/vwrt/ to package path for lib modules
+if not package.path:find("/www/vwrt") then
+    package.path = "/www/vwrt/?.lua;" .. package.path
+end
+
 local cjson = require "cjson"
-local tmp_file_cpu = "/tmp/cpu_last_stat"
-local cache_file = "/tmp/sysinfo_output.json" 
+local constants = require "lib.constants"
+local tmp_file_cpu = constants.PATHS.CPU_STAT
+local cache_file = constants.PATHS.SYSTEM_CACHE
 local cache_ttl = 1  -- Updated to 1s for faster refreshes 
 
 -- ==========================================
@@ -47,7 +53,7 @@ function write_file(path, content)
 end
 
 function get_mobile_temp()
-    local f = io.open("/tmp/vwrt_mobile.json", "r")
+    local f = io.open(constants.PATHS.MOBILE_CACHE, "r")
     if not f then return 0 end
     local content = f:read("*all")
     f:close()
@@ -67,7 +73,7 @@ end
 -- TÊN THIẾT BỊ (MODEL)
 -- ==========================================
 function get_device_model()
-    local model = read_file("/tmp/sysinfo/model")
+    local model = read_file(constants.PATHS.SYSINFO_MODEL)
     if model and model ~= "" then
         return model:gsub("\n", "") 
     end

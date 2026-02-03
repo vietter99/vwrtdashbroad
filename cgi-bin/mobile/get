@@ -1,8 +1,14 @@
 #!/usr/bin/lua
 
-local cjson = require "cjson"
+-- Add parent /www/vwrt/ to package path for lib modules
+if not package.path:find("/www/vwrt") then
+    package.path = "/www/vwrt/?.lua;" .. package.path
+end
 
-local cache_file = "/tmp/vwrt_mobile.json"
+local cjson = require "cjson"
+local constants = require "lib.constants"
+
+local cache_file = constants.PATHS.MOBILE_CACHE
 
 function read_file(path)
     local f = io.open(path, "r")

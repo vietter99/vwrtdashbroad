@@ -227,12 +227,15 @@ const SmsModule = {
         const color = remaining <= 2 ? '#e53e3e' : '#3182ce';
 
         let rows = '';
+        let mobileCards = '';
         if (!messages || messages.length === 0) {
             rows = '<tr><td colspan="5" style="text-align:center; padding:40px; color:#888;">Hộp thư trống.</td></tr>';
+            mobileCards = '<div style="text-align:center; padding:40px; color:#888;">Hộp thư trống.</div>';
         } else {
             messages.forEach(msg => {
                 const isSent = msg.type === 'sent';
                 let typeLabel = '';
+                let typeLabelMobile = '';
                 
                 if (isSent) {
                     let statusIcon = '';
@@ -242,13 +245,13 @@ const SmsModule = {
                     else statusIcon = ` <span title="Đã gửi" style="color:#a0aec0;">✔</span>`;
                     
                     typeLabel = `<span style="color:#4a5568; background:#edf2f7; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold; border:1px solid #cbd5e0; display:inline-block; width:75px; text-align:center;">↗ Gửi đi${statusIcon}</span>`;
+                    typeLabelMobile = `<span style="color:#4a5568; background:#edf2f7; padding:3px 6px; border-radius:4px; font-size:10px; font-weight:bold;">↗ Gửi đi${statusIcon}</span>`;
                 } else {
                     typeLabel = '<span style="color:#2b6cb0; background:#bee3f8; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold; border:1px solid #90cdf4; display:inline-block; width:75px; text-align:center;">↙ Tin đến</span>';
+                    typeLabelMobile = '<span style="color:#2b6cb0; background:#bee3f8; padding:3px 6px; border-radius:4px; font-size:10px; font-weight:bold;">↙ Tin đến</span>';
                 }                
                 
                 const timeShow = this.getDisplayTime(msg);
-
-                // Chống XSS: escape dữ liệu trước khi hiển thị
                 const safeNumber = window.Security ? Security.escapeHtml(msg.number) : msg.number;
                 const safeText = window.Security ? Security.escapeHtml(msg.text) : msg.text;
                 const safeIndex = window.Security ? Security.escapeHtml(msg.index) : msg.index;
@@ -260,17 +263,32 @@ const SmsModule = {
                         </td>
                         <td style="padding-left:15px; vertical-align: top; padding-top: 12px;">${typeLabel}</td>
                         <td style="font-weight:600; color:#2d3748; padding-left:5px; vertical-align: top; padding-top: 15px;">${safeNumber}</td>
-                        
                         <td style="color:#4a5568; padding: 12px 5px;">
- <div onclick="this.style.whiteSpace=this.style.whiteSpace==='normal'?'nowrap':'normal'" 
+                            <div onclick="this.style.whiteSpace=this.style.whiteSpace==='normal'?'nowrap':'normal'" 
                                  style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width: 100%; cursor:pointer; line-height: 1.5;" 
                                  title="Chạm để xem toàn bộ">
                                 ${safeText}
                             </div>
                         </td>
-                        
                         <td style="text-align:right; padding-right:15px; color:#718096; font-size:13px; vertical-align: top; padding-top: 15px;">${timeShow}</td>
                     </tr>
+                `;
+
+                mobileCards += `
+                    <div class="sms-mobile-card">
+                        <div class="sms-mobile-card-header">
+                            <div class="sms-mobile-card-phone">📞 ${safeNumber}</div>
+                            <div class="sms-mobile-card-time">${timeShow}</div>
+                        </div>
+                        <div style="margin-bottom: 10px;">${typeLabelMobile}</div>
+                        <div class="sms-mobile-card-content" onclick="this.classList.toggle('expanded')" title="Bấm để mở rộng/thu gọn">${safeText}</div>
+                        <div class="sms-mobile-card-checkbox" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0;">
+                            <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:#718096; cursor:pointer;">
+                                <input type="checkbox" class="sms-chk" value="${safeIndex}" style="width:18px; height:18px;">
+                                Chọn tin này
+                            </label>
+                        </div>
+                    </div>
                 `;
             });
         }
@@ -299,7 +317,7 @@ const SmsModule = {
 
                         <button onclick="SmsModule.fetchInbox(true)" style="background: white; color: #3182ce; border: 1px solid #3182ce; padding: 8px 12px; border-radius: 6px; cursor:pointer; font-weight:600; font-size:12px; height: 42px;">↻</button>
                     </div>
-                    <div style="flex:1; overflow-y: auto;">
+                    <div style="flex:1; overflow-y: auto; padding: 10px;">
                         <table style="width:100%; border-collapse: collapse; font-size:14px; table-layout: fixed;">
                             <colgroup>
                                 <col style="width: 50px;">
@@ -318,6 +336,8 @@ const SmsModule = {
                             </thead>
                             <tbody>${rows}</tbody>
                         </table>
+                        
+                        <div class="sms-mobile-list">${mobileCards}</div>
                     </div>
                     <div style="padding: 10px 20px; border-top: 1px solid #e2e8f0; text-align:right; background:#f8f9fa;">
                         <button onclick="document.getElementById('modal-sms-full').remove()" style="padding: 6px 20px; background:#fff; border:1px solid #ccc; border-radius:4px;">Đóng</button>

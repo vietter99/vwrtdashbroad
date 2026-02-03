@@ -82,4 +82,56 @@ local config = { driver = "dynamic", modem_index = "0" }
 local driver_lib = get_driver()
 
 local result = driver_lib.send_sms(config, data.number, data.text)
+
+-- Update Archive immediately on success for instant UI feedback
+if result.status == "success" then
+    pcall(function()
+        local constants = require "lib.constants"
+        local ARCHIVE_FILE = constants.PATHS.SMS_ARCHIVE
+        local cjson = require "cjson"
+        
+        local f_in = io.open(ARCHIVE_FILE, "r")
+        local archive = { conversations = {}, synced_ids = {} }
+        if f_in then
+            local content = f_in:read("*all")
+            f_in:close()
+            local ok, decoded = pcall(cjson.decode, content)
+            if ok then archive = decoded end
+        end
+        
+        if not archive.conversations then archive.conversations = {} end
+        if not archive.synced_ids then archive.synced_ids = {} end
+        
+        local phone = data.number
+        if not archive.conversations[phone] then
+            archive.conversations[phone] = { messages = {}, unread = 0 }
+        end
+        
+        local timestamp = os.date("!%Y-%m-%dT%H:%M:%S")
+        local msg_id = "sent_" .. os.time()
+        
+        table.insert(archive.conversations[phone].messages, {
+            id = msg_id,
+            direction = "sent",
+            timestamp = timestamp,
+            content = data.text,
+            read = true,
+            important = false
+        })
+        archive.conversations[phone].last_message = data.text
+        archive.conversations[phone].last_time = timestamp
+        
+        -- Mark as synced to prevent duplicate from sync service
+        archive.synced_ids[msg_id] = true
+        -- Also mark potential modem index to skip
+        archive.synced_ids["LOCAL_" .. os.time()] = true
+        
+        local f_out = io.open(ARCHIVE_FILE, "w")
+        if f_out then
+            f_out:write(cjson.encode(archive))
+            f_out:close()
+        end
+    end)
+end
+
 print(json.stringify(result))

@@ -1,9 +1,8 @@
 #!/usr/bin/lua
 
-
 -- Dynamic Path Resolution
 local source = debug.getinfo(1).source
-local script_path = source:match("@?(.*[\\/])")
+local script_path = source:match("@?(.*[/\\])")
 if script_path then
     local cgi_root = script_path:match("(.*cgi%-bin/)")
     if cgi_root then
@@ -11,24 +10,53 @@ if script_path then
     end
 end
 if not package.path:find("/www/vwrt/cgi-bin") then
-    package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+    package.path = "/www/vwrt/cgi-bin/?.lua;/www/vwrt/?.lua;" .. package.path
 end
 
 local cjson = require "cjson"
 local csrf = require "lib.csrf"
--- Dynamic Driver Selection
-local function get_driver()
-    local handle = io.popen("uci show network | grep '.proto=.atc.'")
-    if handle then
-        local content = handle:read("*all")
-        handle:close()
-        if content and content ~= "" then
-             return require "drivers.fm350"
-        end
-    end
-    return require "drivers.mmcli"
+local constants = require "lib.constants"
+
+local ARCHIVE_FILE = constants.PATHS.SMS_ARCHIVE
+
+-- Helper functions
+function read_file(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local content = f:read("*all")
+    f:close()
+    return content
 end
-local driver_lib = get_driver()
+
+function write_file(path, content)
+    local f = io.open(path, "w")
+    if f then
+        f:write(content)
+        f:close()
+        return true
+    end
+    return false
+end
+
+function load_archive()
+    local content = read_file(ARCHIVE_FILE)
+    if not content or content == "" then
+        return { settings = {}, conversations = {}, synced_ids = {} }
+    end
+    
+    local ok, archive = pcall(cjson.decode, content)
+    if ok and archive then
+        if not archive.synced_ids then archive.synced_ids = {} end
+        return archive
+    end
+    
+    return { settings = {}, conversations = {}, synced_ids = {} }
+end
+
+function save_archive(archive)
+    local json = cjson.encode(archive)
+    return write_file(ARCHIVE_FILE, json)
+end
 
 -- Helper to read request body
 function read_body()
@@ -66,13 +94,34 @@ if method == "POST" then
         return
     end
 
-    local config = { driver = "mmcli", modem_index = "0" }
-
-    if req.action == "delete" and req.id then 
-        for sms_id in string.gmatch(req.id, "([^,]+)") do
-            driver_lib.delete_sms(config, sms_id)
+    if req.action == "delete" and req.id then
+        local archive = load_archive()
+        local deleted_count = 0
+        
+        -- Delete from Router Archive only
+        for msg_id in string.gmatch(req.id, "([^,]+)") do
+            for phone, conv in pairs(archive.conversations) do
+                if conv.messages then
+                    for i = #conv.messages, 1, -1 do
+                        if conv.messages[i].id == msg_id then
+                            table.remove(conv.messages, i)
+                            deleted_count = deleted_count + 1
+                            
+                            -- Remove synced_id to allow re-sync if needed
+                            archive.synced_ids[msg_id] = nil
+                        end
+                    end
+                    
+                    -- Clean up empty conversations
+                    if #conv.messages == 0 then
+                        archive.conversations[phone] = nil
+                    end
+                end
+            end
         end
-        send_json({ status = "success" })
+        
+        save_archive(archive)
+        send_json({ status = "success", deleted = deleted_count })
     else
         send_json({ status = "error", message = "Invalid action" })
     end

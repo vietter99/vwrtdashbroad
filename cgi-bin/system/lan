@@ -1,0 +1,113 @@
+#!/usr/bin/lua
+
+-- Add project path to package.path
+-- Use absolute path for cgi-bin modules
+package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+
+local cjson = require "cjson"
+local csrf = require "lib.csrf"
+
+local function exec(cmd)
+    local f = io.popen(cmd)
+    local s = f:read("*a")
+    f:close()
+    return s
+end
+
+local function get_lan_config()
+    local res = {}
+    res.ipaddr = exec("uci -q get network.lan.ipaddr"):gsub("\n", "")
+    res.netmask = exec("uci -q get network.lan.netmask"):gsub("\n", "")
+    res.gateway = exec("uci -q get network.lan.gateway"):gsub("\n", "")
+    
+    -- DNS is a list
+    local dns_raw = exec("uci -q get network.lan.dns")
+    res.dns = {}
+    for d in dns_raw:gmatch("%S+") do
+        table.insert(res.dns, d)
+    end
+    
+    -- DHCP
+    res.dhcp_ignore = exec("uci -q get dhcp.lan.ignore"):gsub("\n", "") == "1"
+    res.dhcp_start = exec("uci -q get dhcp.lan.start"):gsub("\n", "")
+    res.dhcp_limit = exec("uci -q get dhcp.lan.limit"):gsub("\n", "")
+    res.dhcp_leasetime = exec("uci -q get dhcp.lan.leasetime"):gsub("\n", "")
+    
+    return res
+end
+
+local function main()
+    local method = os.getenv("REQUEST_METHOD")
+
+    if method == "GET" then
+        local status, data = pcall(get_lan_config)
+        print("Content-type: application/json\n\n")
+        if status then
+            print(cjson.encode(data))
+        else
+            print(cjson.encode({status = "error", message = "Lỗi Backend: " .. tostring(data)}))
+        end
+        return
+    end
+
+    if method == "POST" then
+        local status, err = pcall(function()
+            local len = tonumber(os.getenv("CONTENT_LENGTH") or 0)
+            local content = io.read(len)
+            local input = cjson.decode(content)
+            
+            -- CSRF Check
+            local token = csrf.get_token_from_request() or csrf.get_token_from_body(input)
+            if not csrf.validate_token(token) then
+                error("CSRF Token không hợp lệ!")
+            end
+            
+            function safe_arg(str) 
+                if not str then return "''" end
+                return "'" .. str:gsub("'", "'\\''") .. "'" 
+            end
+
+            -- Update Network
+            if input.ipaddr then os.execute("uci set network.lan.ipaddr=" .. safe_arg(input.ipaddr)) end
+            if input.netmask then os.execute("uci set network.lan.netmask=" .. safe_arg(input.netmask)) end
+            if input.gateway then 
+                if input.gateway == "" then
+                    os.execute("uci delete network.lan.gateway")
+                else
+                    os.execute("uci set network.lan.gateway=" .. safe_arg(input.gateway))
+                end
+            end
+            
+            -- DNS Update
+            os.execute("uci delete network.lan.dns")
+            if input.dns and type(input.dns) == "table" then
+                for _, d in ipairs(input.dns) do
+                    os.execute("uci add_list network.lan.dns=" .. safe_arg(d))
+                end
+            end
+            
+            -- Update DHCP
+            if input.dhcp_ignore ~= nil then
+                os.execute("uci set dhcp.lan.ignore=" .. (input.dhcp_ignore and "1" or "0"))
+            end
+            if input.dhcp_start then os.execute("uci set dhcp.lan.start=" .. safe_arg(input.dhcp_start)) end
+            if input.dhcp_limit then os.execute("uci set dhcp.lan.limit=" .. safe_arg(input.dhcp_limit)) end
+            if input.dhcp_leasetime then os.execute("uci set dhcp.lan.leasetime=" .. safe_arg(input.dhcp_leasetime)) end
+            
+            os.execute("uci commit network")
+            os.execute("uci commit dhcp")
+            
+            -- Apply changes in background after small delay
+            os.execute("(sleep 1; /etc/init.d/network restart) >/dev/null 2>&1 &")
+        end)
+
+        print("Content-type: application/json\n\n")
+        if status then
+            print('{"status": "success", "message": "Cấu hình thành công! Router đang khởi động lại dịch vụ mạng..."}')
+        else
+            print(cjson.encode({status = "error", message = tostring(err)}))
+        end
+    end
+end
+
+main()

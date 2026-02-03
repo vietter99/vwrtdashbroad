@@ -68,6 +68,12 @@ const NetworkModule = {
             const total = rx + tx;
 
             let v4Display = `<span class="ip-val ip-v4">${net.ipv4}</span>`;
+            
+            // Allow clicking on LAN IP to edit
+            if (net.name === 'br-lan' && net.ipv4 !== '--') {
+                v4Display = `<span class="ip-val ip-v4">${net.ipv4}</span>`;
+            }
+
             let v6Display = `<span class="ip-val ip-v6">${net.ipv6}</span>`;
 
             if (net.ipv4 === '--') v4Display = `<span style="color: #dd6b20; font-size: 12px;">Đang chờ IP...</span>`;

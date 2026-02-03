@@ -206,9 +206,7 @@ const SidebarModule = {
                       </div>`,
             showCancel: false,
             confirmText: "Đóng",
-            onConfirm: () => {
-                // Clear interval if we were auto-refreshing inside modal (optional)
-            }
+            onConfirm: () => {}
         });
         
         // Adjust modal width for more details
@@ -216,6 +214,27 @@ const SidebarModule = {
         if(mBox) {
             mBox.style.maxWidth = "600px";
             mBox.style.width = "95%";
+            
+            // Add LAN Config button next to Close button
+            const actions = mBox.querySelector('.modal-actions');
+            if (actions) {
+                const lanBtn = document.createElement('button');
+                lanBtn.className = 'btn-modal btn-secondary';
+                lanBtn.style.padding = '10px 15px';
+                lanBtn.style.fontSize = '13px';
+                lanBtn.style.display = 'flex';
+                lanBtn.style.alignItems = 'center';
+                lanBtn.style.gap = '5px';
+                lanBtn.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    Cài đặt LAN
+                `;
+                lanBtn.onclick = () => {
+                   document.querySelector('.modal-overlay').remove();
+                   LanModule.showModal();
+                };
+                actions.insertBefore(lanBtn, actions.firstChild);
+            }
         }
 
         this.fetchInterfacesForModal();
@@ -239,50 +258,52 @@ const SidebarModule = {
                     const tx = parseInt(net.tx) || 0;
                     
                     return `
-                        <div style="background:var(--bg-card); padding:18px; border-radius:12px; border:1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <div class="net-modal-item" style="background:var(--bg-card); padding:18px; border-radius:12px; border:1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom:12px;">
                             <!-- Header: Icon + Name + MAC -->
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                                 <div style="display:flex; align-items:center; gap:12px;">
-                                    <div style="width:42px; height:42px; border-radius:10px; background:${isUp ? 'rgba(72,187,120,0.1)' : 'rgba(229,62,62,0.1)'}; display:flex; align-items:center; justify-content:center; color:${isUp ? '#48bb78' : '#e53e3e'};">
+                                    <div style="width:42px; height:42px; border-radius:10px; background:${isUp ? 'rgba(72,187,120,0.1)' : 'rgba(229,62,62,0.1)'}; display:flex; align-items:center; justify-content:center; color:${isUp ? '#48bb78' : '#e53e3e'}; flex-shrink:0;">
                                         ${this.getIconForInterface(net.name, net.label)}
                                     </div>
-                                    <div style="text-align: left;">
-                                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:2px;">
-                                            <span style="font-weight:700; font-size:16px; color:var(--text-main);">${net.label || net.name}</span>
+                                    <div style="text-align: left; min-width:0;">
+                                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:2px; flex-wrap:wrap;">
+                                            <span style="font-weight:700; font-size:16px; color:var(--text-main); white-space:nowrap;">${net.label || net.name}</span>
                                             <span style="font-size:10px; padding:2px 6px; border-radius:4px; background:${isUp ? '#c6f6d5' : '#fed7d7'}; color:${isUp ? '#22543d' : '#822727'}; font-weight:700;">${isUp ? 'ONLINE' : 'OFFLINE'}</span>
                                         </div>
-                                        <div style="font-size:11px; color:var(--text-muted); font-family:monospace; opacity:0.8; text-align: left;">${(net.mac || "").toUpperCase()}</div>
+                                        <div style="font-size:11px; color:var(--text-sub); font-family:monospace; opacity:0.8; text-align: left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${(net.mac || "").toUpperCase()}</div>
                                     </div>
                                 </div>
-                                <div style="font-size:11px; color:var(--text-sub); background:var(--bg-body); padding:4px 8px; border-radius:6px; border:1px solid var(--border-color); font-weight:600;">${net.name}</div>
+                                <div style="font-size:11px; color:var(--text-sub); background:var(--bg-body); padding:4px 8px; border-radius:6px; border:1px solid var(--border-color); font-weight:600; flex-shrink:0;">${net.name}</div>
                             </div>
 
                             <!-- Traffic Stats (More Modern) -->
-                            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:1px; margin-bottom:15px; background:var(--border-color); border-radius:10px; overflow:hidden; border:1px solid var(--border-color);">
-                                <div style="background:var(--bg-card); padding:10px; text-align:center;">
+                            <div class="net-modal-stats" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:1px; margin-bottom:12px; background:var(--border-color); border-radius:10px; overflow:hidden; border:1px solid var(--border-color);">
+                                <div class="net-modal-stat-box" style="background:var(--bg-card); padding:10px; text-align:center;">
                                     <div style="font-size:10px; color:#48bb78; font-weight:700; margin-bottom:4px;">▼ DOWNLOAD</div>
                                     <div style="font-size:14px; font-weight:700; color:var(--text-main);">${this.formatBytes(rx)}</div>
                                 </div>
-                                <div style="background:var(--bg-card); padding:10px; text-align:center;">
+                                <div class="net-modal-stat-box" style="background:var(--bg-card); padding:10px; text-align:center;">
                                     <div style="font-size:10px; color:#3182ce; font-weight:700; margin-bottom:4px;">▲ UPLOAD</div>
                                     <div style="font-size:14px; font-weight:700; color:var(--text-main);">${this.formatBytes(tx)}</div>
                                 </div>
-                                <div style="background:var(--bg-card); padding:10px; text-align:center;">
+                                <div class="net-modal-stat-box" style="background:var(--bg-card); padding:10px; text-align:center;">
                                     <div style="font-size:10px; color:var(--text-sub); font-weight:700; margin-bottom:4px;">∑ TOTAL</div>
                                     <div style="font-size:14px; font-weight:700; color:var(--text-main);">${this.formatBytes(rx+tx)}</div>
                                 </div>
                             </div>
 
                             <!-- IP Info (Gom nhóm gọn gàng) -->
-                            <div style="background:var(--bg-body); border-radius:10px; padding:12px 15px; border:1px solid var(--border-color);">
-                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                    <span style="font-size:12px; color:var(--text-sub); font-weight:500;">Địa chỉ IPv4:</span>
+                            <div class="net-modal-ip-info" style="background:var(--bg-body); border-radius:10px; padding:10px 15px; border:1px solid var(--border-color);">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                    <span style="font-size:12px; color:var(--text-sub); font-weight:500;">IPv4:</span>
                                     <span style="font-family:monospace; font-weight:700; color:${net.ipv4 === '--' ? '#e53e3e' : '#3182ce'}; font-size:13px;">${net.ipv4}</span>
                                 </div>
+                                ${net.ipv6 && net.ipv6 !== '--' ? `
                                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    <span style="font-size:12px; color:var(--text-sub); font-weight:500;">Địa chỉ IPv6:</span>
-                                    <span style="font-family:monospace; color:${net.ipv6 === '--' ? '#a0aec0' : '#805ad5'}; font-size:11px; text-align:right; max-width:250px; overflow:hidden; text-overflow:ellipsis;">${net.ipv6}</span>
+                                    <span style="font-size:12px; color:var(--text-sub); font-weight:500;">IPv6:</span>
+                                    <span style="font-family:monospace; color:#805ad5; font-size:11px; text-align:right; max-width:200px; overflow:hidden; text-overflow:ellipsis;">${net.ipv6}</span>
                                 </div>
+                                ` : ''}
                             </div>
                         </div>
                     `;
