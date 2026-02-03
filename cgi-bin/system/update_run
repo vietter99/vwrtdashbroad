@@ -125,7 +125,7 @@ local function run_update()
         f:write("# Update Dashboard\n")
         
         -- Stop services
-        f:write("killall mobile_poller.lua 2>/dev/null\n")
+        f:write("killall mobile_poller.lua sms_sync.lua 2>/dev/null\n")
         
         -- CLEAN INSTALL: Delete old files
         f:write("rm -rf /www/vwrt/*\n")
@@ -146,8 +146,9 @@ local function run_update()
         f:write("ln -snf /www/luci-static /www/vwrt/luci-static\n")
         f:write("ln -snf /www/cgi-bin/luci /www/vwrt/cgi-bin/luci\n")
         
-        -- Restart Mobile Poller if exists (with delay to ensure modem ready)
+        -- Restart services if they exist (with delay to ensure modem ready)
         f:write("[ -f /www/vwrt/services/mobile_poller.lua ] && (sleep 60; lua /www/vwrt/services/mobile_poller.lua) > /dev/null 2>&1 &\n")
+        f:write("[ -f /www/vwrt/services/sms_sync.lua ] && (sleep 65; lua /www/vwrt/services/sms_sync.lua) > /dev/null 2>&1 &\n")
         
         -- CONFIG: Set Dashboard as Default on Port 80
         f:write("uci set uhttpd.main.home='/www/vwrt'\n")
