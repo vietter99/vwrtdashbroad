@@ -107,7 +107,7 @@ if result.status == "success" then
             archive.conversations[phone] = { messages = {}, unread = 0 }
         end
         
-        local timestamp = os.date("!%Y-%m-%dT%H:%M:%S")
+        local timestamp = os.date("%Y-%m-%dT%H:%M:%S")
         local msg_id = "sent_" .. os.time()
         
         table.insert(archive.conversations[phone].messages, {

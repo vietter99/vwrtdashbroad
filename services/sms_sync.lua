@@ -94,11 +94,26 @@ end
 
 -- Add message to archive
 function add_to_archive(archive, phone, direction, content, timestamp, msg_id)
-    -- Check if already synced
+    -- 1. Check if ID already synced (Basic check)
     if archive.synced_ids[msg_id] then
-        return false -- Already synced
+        return false 
     end
     
+    -- 2. Deduplication for "SENT" messages
+    if direction == "sent" and (not timestamp or timestamp == "" or timestamp == "--") then
+         if archive.conversations[phone] then
+             local messages = archive.conversations[phone].messages
+             for i = #messages, math.max(1, #messages - 2), -1 do
+                 local prev = messages[i]
+                 if prev.direction == "sent" and prev.content == content then
+                     log("Dedup: Found identical sent message for " .. phone .. ", marking as handled.")
+                     archive.synced_ids[msg_id] = true -- Handle but skip insert
+                     return true -- Return true so it gets saved to disk and deleted from modem
+                 end
+             end
+         end
+    end
+
     if not archive.conversations[phone] then
         archive.conversations[phone] = {
             messages = {},
@@ -113,14 +128,14 @@ function add_to_archive(archive, phone, direction, content, timestamp, msg_id)
         id = "sms_" .. os.time() .. "_" .. math.random(1000),
         direction = direction,
         content = content,
-        timestamp = timestamp,
+        timestamp = (timestamp and timestamp ~= "" and timestamp ~= "--") and timestamp or os.date("%Y-%m-%dT%H:%M:%S"),
         read = false,
         important = false
     }
     
     table.insert(conv.messages, msg)
     conv.last_message = content
-    conv.last_time = timestamp
+    conv.last_time = msg.timestamp
     
     if direction == "received" then
         conv.unread = (conv.unread or 0) + 1
@@ -129,7 +144,7 @@ function add_to_archive(archive, phone, direction, content, timestamp, msg_id)
     -- Mark as synced
     archive.synced_ids[msg_id] = true
     
-    -- Limit messages per conversation
+    -- Limit messages
     local max_msg = archive.settings.max_messages or 50
     while #conv.messages > max_msg do
         for i = 1, #conv.messages do
@@ -157,46 +172,48 @@ function sync_sms_via_driver(archive, driver_lib)
     
     local count = 0
     for _, msg in ipairs(result.messages) do
-        -- Check if already synced
         local msg_id = msg.index or string.format("%s_%d_%s", msg.storage or "SENT", os.time(), msg.number or "unknown")
         
-        if not archive.synced_ids[msg_id] and msg.text and msg.text ~= "" then
+        -- A. Handle Content Messages
+        if not msg.is_status_report and msg.text and msg.text ~= "" then
             local phone = msg.number or "Unknown"
             local content = msg.text or ""
             local direction = msg.type or "received"
             local timestamp = msg.time_sort or msg.time or os.date("%Y/%m/%d %H:%M:%S")
             
-            -- Convert timestamp to ISO format (YYYY-MM-DDTHH:MM:SS)
+            -- Convert timestamp to ISO
             local iso_time = timestamp:gsub(" ", "T"):gsub("/", "-")
-            
-            -- If it's DD-MM-YY, convert to YYYY-MM-DD
             if iso_time:match("^(%d+)-(%d+)-(%d+)T") then
                 local p1, p2, p3, rest = iso_time:match("^(%d+)-(%d+)-(%d+)T(.*)")
                 if #p1 <= 2 and #p3 >= 2 then
-                    -- Assume DD-MM-YYYY or DD-MM-YY based on p3
-                    local y = p3
-                    if #y == 2 then y = "20" .. y end
+                    local y = p3; if #y == 2 then y = "20" .. y end
                     iso_time = string.format("%s-%s-%sT%s", y, p2, p1, rest)
                 end
             end
             
-            -- Add to archive (returns true if new, false if exists)
+            -- Try to add to archive
             local is_new = add_to_archive(archive, phone, direction, content, iso_time, msg_id)
-            if is_new then
-                count = count + 1
-            end
+            if is_new then count = count + 1 end
             
-            -- Auto-delete from Modem/SIM if it is safely in archive (newly added or previously synced)
-            if is_new or archive.synced_ids[msg_id] then
+            -- Cleanup: If it's in archive (just added OR already existed), DELETE it from modem
+            if archive.synced_ids[msg_id] then
                 pcall(function()
-                    local st = string.upper(msg.storage or "NIL")
-                    
-                    if msg.index and (st == "SM" or st == "ME" or st == "MT") then
+                    if msg.index then
                         driver_lib.delete_sms(config, msg.index)
-                        log("Cleaned up SMS from " .. st .. ": " .. msg.index)
+                        log("Cleaned up SMS index: " .. msg.index)
                     end
                 end)
             end
+        
+        -- B. Handle Trash (Status Reports)
+        elseif msg.is_status_report then
+            pcall(function()
+                if msg.index then
+                    driver_lib.delete_sms(config, msg.index)
+                    log("Deleted Status Report: " .. msg.index)
+                end
+            end)
+            count = count + 1 -- Trigger save
         end
     end
     
@@ -213,16 +230,44 @@ function main()
     while true do
         local archive = load_archive()
         
+        -- Clear trigger file before sync
+        os.remove("/tmp/sms_sync_trigger")
+        
         local ok, count = pcall(sync_sms_via_driver, archive, driver_lib)
-        if ok and type(count) == "number" and count > 0 then
-            save_archive(archive)
-            log("Synced " .. count .. " new SMS to archive")
-        elseif not ok then
-            log("Error syncing SMS: " .. tostring(count))
+        
+        local base_sleep = 60 -- Default interval (Rest mode)
+        
+        -- Check for recent web activity (last 2 minutes)
+        local f_act = io.open("/tmp/sms_web_activity", "r")
+        if f_act then
+            local last_act = tonumber(f_act:read("*a") or 0)
+            f_act:close()
+            if (os.time() - last_act) < 120 then
+                base_sleep = 10 -- Fast polling (Active mode)
+            end
         end
         
-        -- Sleep 1 minute (60 seconds) for faster updates
-        os.execute("sleep 60")
+        if ok then
+            if type(count) == "number" and count > 0 then
+                save_archive(archive)
+                log("Synced " .. count .. " new SMS to archive")
+                base_sleep = 5 -- Burst mode if messages coming
+            end
+        else
+            log("Modem/Driver error: " .. tostring(count))
+            base_sleep = 300 -- Sleep 5 mins on failure
+        end
+        
+        -- Smart Sleep: check for trigger every second
+        for i = 1, base_sleep do
+            os.execute("sleep 1")
+            -- If trigger file appears, wake up immediately
+            local f_trig = io.open("/tmp/sms_sync_trigger", "r")
+            if f_trig then
+                f_trig:close()
+                break
+            end
+        end
     end
 end
 

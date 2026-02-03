@@ -127,15 +127,15 @@ function M.get_sms(config)
         if data and data.sms and data.sms.properties and data.sms.properties.state ~= "receiving" then
             local pdu_type = data.sms.properties["pdu-type"] or ""
             
-            if pdu_type ~= "status-report" then
-                local sender_val = (data.sms.content and data.sms.content.number) or "Unknown"
-                local text_val = ""
-                local time_val = data.sms.properties.timestamp or ""
-                local type_val = "received"
-                local delivery_status = ""
+            local sender_val = (data.sms.content and data.sms.content.number) or "Unknown"
+            local text_val = ""
+            local time_val = data.sms.properties.timestamp or ""
+            local type_val = "received"
+            local delivery_status = ""
+            local is_status_report = (pdu_type == "status-report")
 
-                -- Lấy nội dung tin nhắn
-                if data.sms.content then
+            -- Lấy nội dung tin nhắn
+            if not is_status_report and data.sms.content then
                     text_val = data.sms.content.text or ""
                     
                     if (text_val == "" or text_val == "--") then
@@ -148,7 +148,7 @@ function M.get_sms(config)
                     end
                 end
 
-                if text_val ~= "" and text_val ~= "--" then
+                if (text_val ~= "" and text_val ~= "--") or is_status_report then
                     local storage_val = data.sms.properties.storage or "unknown"
                     if data.sms.properties["pdu-type"] == "submit" then
                         type_val = "sent"
@@ -165,12 +165,12 @@ function M.get_sms(config)
                         text = text_val,
                         type = type_val,
                         storage = storage_val,
-                        status = delivery_status 
+                        status = delivery_status,
+                        is_status_report = is_status_report
                     })
                 end
             end
         end
-    end
     
     table.sort(messages, function(a, b) return tonumber(a.index) > tonumber(b.index) end)
     

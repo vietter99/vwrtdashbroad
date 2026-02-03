@@ -88,6 +88,15 @@ end
 -- Main logic
 local force_sync = get_query_param("sync")
 
+-- Signal activity and trigger for reactive sync
+pcall(function()
+    local f_act = io.open("/tmp/sms_web_activity", "w")
+    if f_act then f_act:write(tostring(os.time())); f_act:close() end
+    
+    local f_trig = io.open("/tmp/sms_sync_trigger", "w")
+    if f_trig then f_trig:write("1"); f_trig:close() end
+end)
+
 if force_sync == "true" then
     -- Force read from modem (Refresh button)
     local config = get_config()

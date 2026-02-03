@@ -205,6 +205,7 @@ function M.get_sms(config)
                             status = "received",
                             type = "received", -- UI uses this
                             storage = s,
+                            is_status_report = false, -- fm350/sms_tool handle reports differently
                             -- Add fields for stitching
                             ref = msg.reference,
                             part = msg.part,

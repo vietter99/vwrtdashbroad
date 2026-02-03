@@ -188,18 +188,50 @@ function get_system_basic()
 end
 
 -- ==========================================
--- LẤY TỔNG TRAFFIC (ƯU TIÊN WWAN0)
+-- LẤY TỔNG TRAFFIC (ĐỘNG 100% THEO UCI/UBUS)
 -- ==========================================
 function get_data_traffic()
-    local iface = "wwan0"
-    if not io.open("/sys/class/net/" .. iface) then
-        iface = "br-lan"
+    local total = 0
+    local seen_devs = {}
+    
+    -- 1. Tìm Zone tên là 'wan' bằng vòng lặp an toàn
+    local networks = ""
+    for i = 0, 10 do -- Thử qua các index từ 0-10
+        local p_name = io.popen(string.format("uci -q get firewall.@zone[%d].name", i))
+        local name = p_name:read("*l")
+        p_name:close()
+        
+        if not name then break end -- Hết zone
+        if name == "wan" then
+            local p_net = io.popen(string.format("uci -q get firewall.@zone[%d].network", i))
+            networks = p_net:read("*a") or ""
+            p_net:close()
+            break
+        end
     end
     
-    local rx = read_file("/sys/class/net/" .. iface .. "/statistics/rx_bytes")
-    local tx = read_file("/sys/class/net/" .. iface .. "/statistics/tx_bytes")
+    -- 2. Duyệt qua từng network để lấy device thực tế
+    for net in networks:gmatch("%S+") do
+        local ubus_h = io.popen("ubus call network.interface." .. net .. " status 2>/dev/null")
+        if ubus_h then
+            local raw_json = ubus_h:read("*a")
+            ubus_h:close()
+            
+            if raw_json and raw_json ~= "" then
+                local ok, parsed = pcall(cjson.decode, raw_json)
+                local dev = (ok and parsed) and (parsed.l3_device or parsed.device)
+                
+                -- 3. Chỉ cộng dồn nếu device tồn tại và chưa được tính (tránh tính trùng wan/wan6)
+                if dev and not seen_devs[dev] and io.open("/sys/class/net/" .. dev) then
+                    local rx = read_file("/sys/class/net/" .. dev .. "/statistics/rx_bytes")
+                    local tx = read_file("/sys/class/net/" .. dev .. "/statistics/tx_bytes")
+                    total = total + (tonumber(rx) or 0) + (tonumber(tx) or 0)
+                    seen_devs[dev] = true
+                end
+            end
+        end
+    end
     
-    local total = (tonumber(rx) or 0) + (tonumber(tx) or 0)
     return total
 end
 
