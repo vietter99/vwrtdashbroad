@@ -3,6 +3,19 @@ const SmsModule = {
 
     init: function () {
         this.fetchInbox(false);
+
+        // Auto-refresh every 30 seconds if any SMS UI is visible
+        if (!this._refreshInterval) {
+            this._refreshInterval = setInterval(() => {
+                const modal = document.getElementById("modal-sms-full");
+                const dashCard = document.getElementById("dashboard-sms-list");
+                if (modal) {
+                    this.fetchInbox(true, false); // Refresh from Archive
+                } else if (dashCard) {
+                    this.fetchInbox(false, false);
+                }
+            }, 30000);
+        }
     },
 
     openCompose: function () {

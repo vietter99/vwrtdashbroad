@@ -221,8 +221,8 @@ function main()
             log("Error syncing SMS: " .. tostring(count))
         end
         
-        -- Sleep 5 minutes
-        os.execute("sleep 300")
+        -- Sleep 1 minute (60 seconds) for faster updates
+        os.execute("sleep 60")
     end
 end
 
