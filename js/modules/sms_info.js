@@ -373,7 +373,7 @@ const SmsModule = {
                             <div style="font-size:11px; font-weight:800; color:${color}; white-space:nowrap;">${storage.used}/${storage.total}</div>
                         </div>
 
-                        <button onclick="SmsModule.fetchInbox(true, true)" style="background: white; color: #3182ce; border: 1px solid #3182ce; padding: 8px 12px; border-radius: 6px; cursor:pointer; font-weight:600; font-size:12px; height: 42px;">↻</button>
+
                     </div>
                     <div style="flex:1; overflow-y: auto; padding: 10px;">
                         <table style="width:100%; border-collapse: collapse; font-size:14px; table-layout: fixed;">

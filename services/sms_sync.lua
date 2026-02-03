@@ -189,7 +189,8 @@ function sync_sms_via_driver(archive, driver_lib)
             -- Auto-delete from Modem/SIM if it is safely in archive (newly added or previously synced)
             if is_new or archive.synced_ids[msg_id] then
                 pcall(function()
-                    local st = string.upper(msg.storage or "")
+                    local st = string.upper(msg.storage or "NIL")
+                    
                     if msg.index and (st == "SM" or st == "ME" or st == "MT") then
                         driver_lib.delete_sms(config, msg.index)
                         log("Cleaned up SMS from " .. st .. ": " .. msg.index)
@@ -212,20 +213,12 @@ function main()
     while true do
         local archive = load_archive()
         
-        -- ANTI-SPAM: Respect Hardware Lock
-        local LOCK_FILE = constants.PATHS.MODEM_AT_LOCK
-        local f_lock = io.open(LOCK_FILE, "r")
-        if f_lock then
-            f_lock:close()
-            log("Modem is busy (locked), skipping sync cycle...")
-        else
-            local ok, count = pcall(sync_sms_via_driver, archive, driver_lib)
-            if ok and type(count) == "number" and count > 0 then
-                save_archive(archive)
-                log("Synced " .. count .. " new SMS to archive")
-            elseif not ok then
-                log("Error syncing SMS: " .. tostring(count))
-            end
+        local ok, count = pcall(sync_sms_via_driver, archive, driver_lib)
+        if ok and type(count) == "number" and count > 0 then
+            save_archive(archive)
+            log("Synced " .. count .. " new SMS to archive")
+        elseif not ok then
+            log("Error syncing SMS: " .. tostring(count))
         end
         
         -- Sleep 5 minutes
