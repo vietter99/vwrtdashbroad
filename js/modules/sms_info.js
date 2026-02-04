@@ -225,13 +225,16 @@ const SmsModule = {
                 Toast.show("Vui lòng chọn tin nhắn!", "warning");
             return;
         }
+
+        // Fix: Use Set to get unique IDs (avoid double counting desktop + mobile checkboxes)
+        const uniqueIds = Array.from(checkedBoxes).map((cb) => cb.value);
+        const finalIds = [...new Set(uniqueIds)];
+
         Modal.confirm(
             "Xác nhận xóa",
-            `Xóa <b>${checkedBoxes.length}</b> tin nhắn đã chọn?`,
+            `Xóa <b>${finalIds.length}</b> tin nhắn đã chọn?`,
             () => {
-                const ids = Array.from(checkedBoxes)
-                    .map((cb) => cb.value)
-                    .join(",");
+                const ids = finalIds.join(",");
                 if (typeof Toast !== "undefined")
                     Toast.show("Đang xóa...", "info");
 

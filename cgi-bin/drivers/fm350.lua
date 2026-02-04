@@ -10,6 +10,27 @@ local function exec(cmd)
     return content
 end
 
+-- Helper: Trim whitespace
+local function trim(s)
+    return (s or ""):gsub("^%s*(.-)%s*$", "%1")
+end
+
+-- Helper: Read from serial port with timeout
+local function read_serial_until(f, patterns, timeout)
+    local content = ""
+    local start = os.time()
+    while os.time() - start < timeout do
+        local chunk = f:read(1)
+        if chunk then
+            content = content .. chunk
+            for _, p in ipairs(patterns) do
+                if content:find(p) then return content, p end
+            end
+        end
+    end
+    return content, nil
+end
+
 -- Helper to check if a file exists
 local function file_exists(path)
     local f = io.open(path, "r")
@@ -20,21 +41,51 @@ local function file_exists(path)
     return false
 end
 
+-- Helper: Kiểm tra path là character device (KHÔNG phải file thường)
+-- Quan trọng: Ngăn việc ghi đè device node thành regular file
+-- Sử dụng 'test -c' vì busybox/OpenWrt có thể không có 'stat' đầy đủ
+local function is_valid_device(path)
+    local ret = os.execute("test -c " .. path .. " 2>/dev/null")
+    return (ret == 0 or ret == true)
+end
+
+-- ===== LOCKING MECHANISM =====
+local LOCK_FILE = "/tmp/modem_at.lock"
+
+local function acquire_lock()
+    -- Busy wait for lock if exists and not stale
+    for i = 1, 5 do
+        local f = io.open(LOCK_FILE, "r")
+        if f then
+            local ts = tonumber(f:read("*all") or "0")
+            f:close()
+            if os.time() - (ts or 0) < 30 then
+                os.execute("sleep 1")
+            else
+                break
+            end
+        else
+            break
+        end
+    end
+    -- Create lock with timestamp
+    local f = io.open(LOCK_FILE, "w")
+    if f then
+        f:write(tostring(os.time()))
+        f:close()
+        return true
+    end
+    return false
+end
+
+local function release_lock()
+    os.remove(LOCK_FILE)
+end
+
 -- Helper: Get configured AT port dynamic
 local function get_fm350_port(purpose)
-    -- Hybrid Strategy:
-    -- ttyUSB3 IS REQUIRED FOR SENDING (firmware restriction)
-    -- ttyUSB1 IS BETTER FOR READING/POLLING (no conflict with data session traffic)
-    
-    if purpose == "send" then
-        if file_exists("/dev/ttyUSB3") then return "/dev/ttyUSB3" end
-        return "/dev/ttyUSB1"
-    else
-        -- Default/Read/Poll
-        if file_exists("/dev/ttyUSB1") then return "/dev/ttyUSB1" end
-        if file_exists("/dev/ttyUSB3") then return "/dev/ttyUSB3" end
-    end
-    
+    -- SINGLE PORT STRATEGY (FALLBACK)
+    -- ttyUSB1/2 are unresponsive. We must use ttyUSB3 for everything.
     return "/dev/ttyUSB3"
 end
 
@@ -172,7 +223,7 @@ end
 function M.get_sms(config)
     local port = get_fm350_port("read")
     
-    if os.execute("ls /tmp/modem_at.lock >/dev/null 2>&1") == 0 then
+    if not acquire_lock() then
         return { messages = {}, storage = { used = 0, total = 20 }, status = "busy" }
     end
 
@@ -226,10 +277,26 @@ function M.get_sms(config)
     -- Merge Local Sent Messages
     local sent_msgs = read_sent_msgs()
     for _, m in ipairs(sent_msgs) do
-        -- Ensure local messages have type='sent'
-        m.type = "sent" 
-        m.status = "sent"
-        table.insert(messages, normalize_msg_obj(m)) 
+        -- Check if similar message exists in modem list (Deduplication)
+        local is_duplicate = false
+        for _, modem_msg in ipairs(messages) do
+            -- Strict content match (trimmed) + lenient phone match
+            if trim(modem_msg.text) == trim(m.text) then
+                local p1 = m.number:gsub("+84", "0")
+                local p2 = modem_msg.number:gsub("+84", "0")
+                if p1 == p2 then
+                    is_duplicate = true
+                    break
+                end
+            end
+        end
+        
+        if not is_duplicate then
+            -- Ensure local messages have type='sent'
+            m.type = "sent" 
+            m.status = "sent"
+            table.insert(messages, normalize_msg_obj(m)) 
+        end
     end
     
     -- 1. Merge Multi-part Messages
@@ -239,10 +306,13 @@ function M.get_sms(config)
     for _, msg in ipairs(messages) do
         -- Check if it's a multi-part message (Modem Only)
         if msg.ref and msg.total and msg.total > 1 then
-            local key = msg.number .. "_" .. msg.ref
+            -- NEW: Group by number, ref AND approximate time (hourly) to avoid ref wrap-around collision
+            local time_key = (msg.time or ""):match("^(%d+/%d+/%d+%s+%d+:%d+)") or ""
+            local key = msg.number .. "_" .. msg.ref .. "_" .. time_key
             if not ref_map[key] then
                 ref_map[key] = {
                     parts = {},
+                    raw_indexes = {}, -- NEW: Track all indexes for deletion
                     number = msg.number,
                     time = msg.time, 
                     time_sort = msg.time_sort,
@@ -255,6 +325,7 @@ function M.get_sms(config)
             end
             
             ref_map[key].parts[msg.part] = msg.text
+            table.insert(ref_map[key].raw_indexes, msg.index) -- Store real index
             if (msg.time_sort or "") > (ref_map[key].time_sort or "") then
                 ref_map[key].time = msg.time
                 ref_map[key].time_sort = msg.time_sort
@@ -285,11 +356,16 @@ function M.get_sms(config)
             
             item.text = full_text
             item.parts = nil 
-            item.index = "grouped" 
+            -- IMPORTANT: Set index to the comma-separated list of physical indexes
+            -- This allows the delete_sms function to work without knowing it's a 'grouped' message
+            item.index = table.concat(item.raw_indexes, ",") 
+            item.raw_indices = item.index
         end
         table.insert(final_messages, item)
     end
 
+    release_lock()
+    
     -- 2. Sort messages (Newest first using normalized time)
     table.sort(final_messages, function(a, b) 
         return (a.time_sort or "") > (b.time_sort or "") 
@@ -313,57 +389,74 @@ end
 function M.send_sms(config, number, content)
     local port = get_fm350_port("send")
     
-    -- 1. Acquire Lock
-    os.execute("touch /tmp/modem_at.lock")
-    
-    -- 2. Check registration first
-    local reg_cmd = string.format("/usr/bin/sms_tool -d %s at 'AT+CREG?' 2>&1", port)
-    local reg_out = exec(reg_cmd) or ""
-    
-    -- 3. Escaping content
-    local safe_content = content:gsub("'", "'\\''")
-    
-    -- 4. Execute Blind Write to ttyUSB3 (ATC standard)
-    -- We don't read from the port because atc.sh is already reading it.
-    -- We'll check the log for confirmation instead.
-    local f = io.open(port, "w")
-    if not f then
-        os.execute("rm -f /tmp/modem_at.lock")
-        return { status = "error", message = "Không thể mở cổng gửi tin" }
+    -- 0. Kiểm tra device hợp lệ (character device, không phải regular file)
+    if not is_valid_device(port) then
+        return { status = "error", message = "Modem chưa sẵn sàng (" .. port .. " không hợp lệ)" }
     end
     
-    f:write("AT+CMGF=1\r")
-    f:flush()
-    os.execute("sleep 1")
-    f:write("AT+CMGS=\"" .. number .. "\"\r")
-    f:flush()
-    os.execute("sleep 1")
-    f:write(safe_content .. "\26")
-    f:flush()
-    f:close()
+    -- 1. Acquire Lock
+    if not acquire_lock() then
+        return { status = "error", message = "Modem đang bận xử lý tác vụ khác" }
+    end
     
-    -- 5. Wait and Check Log for confirmation from atc.sh
-    os.execute("sleep 3")
-    local check_cmd = "logread | tail -n 20 | grep 'SMS successfully sent' | tail -n 1"
-    local log_out = exec(check_cmd) or ""
+    -- 2. Native Send Implementation (Replaces sms_tool)
+    local function send_native(p_num)
+        -- Set Text Mode, Charset GSM, Verbose Errors
+        os.execute("echo 'AT+CMGF=1;+CSCS=\"GSM\";+CMEE=2' > " .. port)
+        os.execute("sleep 0.2")
+
+        local f_w = io.open(port, "w")
+        local f_r = io.open(port, "r")
+        if not f_w or not f_r then return "Failed to open port" end
+
+        f_w:write("AT+CMGS=\"" .. p_num .. "\"\r\n")
+        f_w:flush()
+
+        -- Wait for prompt >
+        local patterns_prompt = {">", "\r\nERROR", "+CMS ERROR: ", "+CME ERROR: "}
+        local res, match = read_serial_until(f_r, patterns_prompt, 5)
+        
+        if match == ">" then
+            f_w:write(content .. string.char(26))
+            f_w:flush()
+            -- Improve patterns to avoid partial matches
+            local patterns = {"\r\nOK", "\r\nERROR", "+CMS ERROR: ", "+CME ERROR: "}
+            local res2, match2 = read_serial_until(f_r, patterns, 20)
+            f_w:close(); f_r:close()
+            return res2
+        else
+            f_w:close(); f_r:close()
+            return "Prompt Timeout: " .. res
+        end
+    end
+
+    local result = send_native(number)
     
-    -- 6. Release Lock
-    os.execute("rm -f /tmp/modem_at.lock")
+    -- Retry with +84 if failed
+    if result:find("ERROR") and number:sub(1,1) == "0" then
+        local alt_num = "+84" .. number:sub(2)
+        local log_f = io.open("/tmp/sms_send.log", "a")
+        if log_f then log_f:write("Retrying with " .. alt_num .. "\n"); log_f:close() end
+        result = send_native(alt_num)
+    end
     
-    -- Logging for debug
+    -- 4. Release Lock
+    release_lock()
+    
+    -- 5. Logging for debug
     local log_f = io.open("/tmp/sms_send.log", "a")
     if log_f then
-        log_f:write(string.format("[%s] Sending to %s (Hybrid Blind)\n", os.date(), number))
-        log_f:write("Log check output: " .. log_out .. "\n")
+        log_f:write(string.format("[%s] Sending to %s via Native AT\n", os.date(), number))
+        log_f:write("Result: " .. result .. "\n")
         log_f:close()
     end
     
-    -- If we see the success log in the last few seconds
-    if log_out:find("SMS successfully sent") then
+    -- 6. Check result
+    if result:find("Ok") or result:find("OK") or result:find("+CMGS") then
         save_sent_msg(number, content) -- SAVE TO LOCAL STORAGE
         return { status = "success" }
     else
-        return { status = "error", message = "Gửi tin nhắn đang xử lý hoặc gặp lỗi modem" }
+        return { status = "error", message = "Gửi thất bại (Native): " .. result:gsub("[\r\n]+", " ") }
     end
 end
 
@@ -383,38 +476,43 @@ function M.delete_sms(config, index)
     end
 
     -- 2. Acquire Lock (for Modem Deletion)
-    os.execute("touch /tmp/modem_at.lock")
+    if not acquire_lock() then
+        return { status = "error", message = "Modem đang bận, vui lòng thử lại sau" }
+    end
     
     local ok = true
     if index == "all" then
-        -- Attempt to delete from both common storages
+        -- Attempt Global Delete on all storages to clear junk
+        -- Using AT+CMGD=1,4 (Delete all read, unread, sent, unsent)
+        os.execute(string.format("COMMAND='AT+CPMS=\"SM\",\"SM\",\"SM\";+CMGD=1,4' gcom -d %s -s /etc/gcom/run_at.gcom >/dev/null 2>&1", port))
+        os.execute(string.format("COMMAND='AT+CPMS=\"ME\",\"ME\",\"ME\";+CMGD=1,4' gcom -d %s -s /etc/gcom/run_at.gcom >/dev/null 2>&1", port))
+        -- Fallback to sms_tool for completeness
         os.execute(string.format("/usr/bin/sms_tool -d %s -s SM delete all >/dev/null 2>&1", port))
         os.execute(string.format("/usr/bin/sms_tool -d %s -s ME delete all >/dev/null 2>&1", port))
     else
-        local storage, real_index = index:match("^(.-)_(%d+)$")
-        local cmd = ""
-        if storage and real_index then
-            cmd = string.format("/usr/bin/sms_tool -d %s -s %s delete %s 2>&1", port, storage, real_index)
-        else
-            cmd = string.format("/usr/bin/sms_tool -d %s delete %s 2>&1", port, index)
-        end
-        
-        local f = io.popen(cmd)
-        local out = f:read("*a")
-        ok = f:close()
-        
-        -- Logging for debug
-        local log_f = io.open("/tmp/sms_delete.log", "a")
-        if log_f then
-            log_f:write(string.format("[%s] Deleting index %s\n", os.date(), index))
-            log_f:write("Output: " .. (out or "nil") .. "\n")
-            log_f:write("Status: " .. tostring(ok) .. "\n")
-            log_f:close()
+        -- Support multiple indexes separated by comma (for multipart)
+        for sub_index in index:gmatch("([^,]+)") do
+            local storage, real_index = sub_index:match("^(.-)_(%d+)$")
+            local cmd = ""
+            if storage and real_index then
+                -- Try AT command first for precision
+                local at_cmd = string.format("AT+CPMS=\"%s\",\"%s\",\"%s\";+CMGD=%s", storage, storage, storage, real_index)
+                os.execute(string.format("COMMAND='%s' gcom -d %s -s /etc/gcom/run_at.gcom >/dev/null 2>&1", at_cmd, port))
+                
+                -- Then use sms_tool as fallback
+                cmd = string.format("/usr/bin/sms_tool -d %s -s %s delete %s 2>&1", port, storage, real_index)
+            else
+                cmd = string.format("/usr/bin/sms_tool -d %s delete %s 2>&1", port, sub_index)
+            end
+            
+            local f = io.popen(cmd)
+            local res = f:close()
+            if not res then ok = false end
         end
     end
     
     -- 2. Release Lock
-    os.execute("rm -f /tmp/modem_at.lock")
+    release_lock()
     
     if ok then
         return { status = "success" }

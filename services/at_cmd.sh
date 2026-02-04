@@ -4,6 +4,12 @@ CMD=$2
 [ -z "$DEVICE" ] && exit 1
 [ -z "$CMD" ] && exit 1
 
+# Kiểm tra device tồn tại và là character device (không phải file thường)
+# Quan trọng: Ngăn việc ghi vào path tạo file thường thay vì mở device
+if [ ! -c "$DEVICE" ]; then
+    exit 1
+fi
+
 TMP="/tmp/at_res_$$"
 rm -f $TMP
 

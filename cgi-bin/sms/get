@@ -6,6 +6,7 @@ package.path = script_path .. "?.lua;/www/vwrt/?.lua;" .. package.path
 
 local json = require "luci.jsonc"
 local constants = require "lib.constants"
+local sms_util = require "lib.sms_util"
 
 function get_query_param(key)
     local query = os.getenv("QUERY_STRING") or ""
@@ -97,6 +98,8 @@ pcall(function()
     if f_trig then f_trig:write("1"); f_trig:close() end
 end)
 
+local sms_storage = require "lib.sms_storage"
+
 if force_sync == "true" then
     -- Force read from modem (Refresh button)
     local config = get_config()
@@ -111,26 +114,41 @@ if force_sync == "true" then
     }))
 else
     -- Priority: Read from Router Archive
-    local messages, used, total = get_messages_from_archive()
+    local archive = sms_storage.load()
+    local archive_messages, used, total = get_messages_from_archive()
     
-    if messages then
+    if archive_messages then
         print(json.stringify({ 
             status = "success", 
-            data = messages,
+            data = archive_messages,
             storage = { used = used, total = total },
             source = "router"
         }))
     else
-        -- Fallback: Read from Modem if archive is empty
+        -- Fallback: Read from Modem if archive is incomplete or empty
+        -- But FILTER OUT anything in synced_ids to prevent re-appearance of deleted/stuck msgs
         local config = get_config()
         local driver_lib = get_driver()
         local result = driver_lib.get_sms(config)
         
+        local synced_ids = archive.synced_ids or {}
+
+        local filtered = {}
+        if result.messages then
+            for _, msg in ipairs(result.messages) do
+                local fingerprint = sms_util.get_fingerprint(msg)
+                
+                if not synced_ids[fingerprint] then
+                    table.insert(filtered, msg)
+                end
+            end
+        end
+
         print(json.stringify({ 
             status = "success", 
-            data = result.messages,
+            data = filtered,
             storage = result.storage,
-            source = "modem_fallback"
+            source = "modem_filtered"
         }))
     end
 end

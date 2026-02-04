@@ -107,8 +107,12 @@ if method == "POST" then
                             table.remove(conv.messages, i)
                             deleted_count = deleted_count + 1
                             
-                            -- Remove synced_id to allow re-sync if needed
-                            archive.synced_ids[msg_id] = nil
+                            -- IMPORTANT: DO NOT remove from synced_ids here.
+                            -- If we remove it from synced_ids, the background sync service
+                            -- will see it on the modem (if it hasn't been deleted yet)
+                            -- and re-sync it to the archive!
+                            -- The background service will delete it from the modem 
+                            -- because it stays in synced_ids.
                         end
                     end
                     

@@ -171,6 +171,14 @@ end
 -- Delete conversation
 function delete_conversation(archive, phone)
     archive.conversations[phone] = nil
+    
+    -- Signal to sync service to delete from MODEM too
+    local f = io.open("/tmp/sms_delete_request", "a")
+    if f then
+        f:write(phone .. "\n")
+        f:close()
+    end
+    
     return save_archive(archive)
 end
 

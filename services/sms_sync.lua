@@ -8,6 +8,7 @@ local cjson = require "cjson"
 package.path = "/www/vwrt/?.lua;/www/vwrt/cgi-bin/?.lua;" .. package.path
 
 local constants = require "lib.constants"
+local sms_util = require "lib.sms_util"
 local ARCHIVE_FILE = constants.PATHS.SMS_ARCHIVE
 
 -- Helper functions
@@ -38,7 +39,9 @@ function write_file(path, content)
 end
 
 function log(msg)
-    os.execute("logger -t VWRT_SMS_SYNC '" .. msg .. "'")
+    local safe_msg = tostring(msg):gsub("'", "'\\''")
+    os.execute("logger -t VWRT_SMS_SYNC '" .. safe_msg .. "'")
+    print(os.date("%H:%M:%S") .. " " .. tostring(msg))
 end
 
 -- Detect modem driver  
@@ -88,12 +91,38 @@ end
 
 function save_archive(archive)
     os.execute("mkdir -p /overlay")
-    local json = cjson.encode(archive)
-    return write_file(ARCHIVE_FILE, json)
+    local ok, json_text = pcall(cjson.encode, archive)
+    if not ok then
+        log("Error: Failed to encode archive to JSON: " .. tostring(json_text))
+        return false
+    end
+    
+    local success = write_file(ARCHIVE_FILE, json_text)
+    if success then
+        log("Archive saved successfully to " .. ARCHIVE_FILE .. " (Size: " .. #json_text .. ")")
+    else
+        log("Error: Failed to write archive to " .. ARCHIVE_FILE)
+    end
+    return success
 end
 
 -- Add message to archive
 function add_to_archive(archive, phone, direction, content, timestamp, msg_id)
+    if not archive or not archive.synced_ids or not archive.conversations then
+        log("Error: Invalid archive structure in add_to_archive")
+        return false
+    end
+    
+    if not phone then
+        log("Error: phone is nil in add_to_archive, assigning 'Unknown'")
+        phone = "Unknown"
+    end
+    
+    if not msg_id then
+        log("Error: msg_id is nil in add_to_archive")
+        return false
+    end
+
     -- 1. Check if ID already synced (Basic check)
     if archive.synced_ids[msg_id] then
         return false 
@@ -126,15 +155,16 @@ function add_to_archive(archive, phone, direction, content, timestamp, msg_id)
     local conv = archive.conversations[phone]
     local msg = {
         id = "sms_" .. os.time() .. "_" .. math.random(1000),
-        direction = direction,
-        content = content,
+        fingerprint = msg_id, -- Store original fingerprint for precise deletion
+        direction = direction or "received",
+        content = content or "",
         timestamp = (timestamp and timestamp ~= "" and timestamp ~= "--") and timestamp or os.date("%Y-%m-%dT%H:%M:%S"),
         read = false,
         important = false
     }
     
     table.insert(conv.messages, msg)
-    conv.last_message = content
+    conv.last_message = content or ""
     conv.last_time = msg.timestamp
     
     if direction == "received" then
@@ -159,8 +189,8 @@ function add_to_archive(archive, phone, direction, content, timestamp, msg_id)
 end
 
 -- Sync SMS using driver
-function sync_sms_via_driver(archive, driver_lib)
-    log("Syncing SMS via driver")
+function sync_sms_via_driver(driver_lib)
+    log("Syncing SMS via driver (Atomic mode)")
     
     local config = { driver = "dynamic", modem_index = "0" }
     local ok, result = pcall(driver_lib.get_sms, config)
@@ -170,54 +200,56 @@ function sync_sms_via_driver(archive, driver_lib)
         return 0
     end
     
-    local count = 0
-    for _, msg in ipairs(result.messages) do
-        local msg_id = msg.index or string.format("%s_%d_%s", msg.storage or "SENT", os.time(), msg.number or "unknown")
-        
-        -- A. Handle Content Messages
-        if not msg.is_status_report and msg.text and msg.text ~= "" then
-            local phone = msg.number or "Unknown"
-            local content = msg.text or ""
-            local direction = msg.type or "received"
-            local timestamp = msg.time_sort or msg.time or os.date("%Y/%m/%d %H:%M:%S")
+    local sms_storage = require "lib.sms_storage"
+    local synced_count = 0
+    local to_delete = {}
+
+    -- Step 1: Update Archive Atomically
+    sms_storage.update(function(archive)
+        for _, msg in ipairs(result.messages) do
+            local fingerprint = sms_util.get_fingerprint(msg)
+            local msg_id = fingerprint
             
-            -- Convert timestamp to ISO
-            local iso_time = timestamp:gsub(" ", "T"):gsub("/", "-")
-            if iso_time:match("^(%d+)-(%d+)-(%d+)T") then
-                local p1, p2, p3, rest = iso_time:match("^(%d+)-(%d+)-(%d+)T(.*)")
-                if #p1 <= 2 and #p3 >= 2 then
-                    local y = p3; if #y == 2 then y = "20" .. y end
-                    iso_time = string.format("%s-%s-%sT%s", y, p2, p1, rest)
-                end
-            end
-            
-            -- Try to add to archive
-            local is_new = add_to_archive(archive, phone, direction, content, iso_time, msg_id)
-            if is_new then count = count + 1 end
-            
-            -- Cleanup: If it's in archive (just added OR already existed), DELETE it from modem
-            if archive.synced_ids[msg_id] then
-                pcall(function()
-                    if msg.index then
-                        driver_lib.delete_sms(config, msg.index)
-                        log("Cleaned up SMS index: " .. msg.index)
+            -- Handle Content Messages
+            if not msg.is_status_report and msg.text and msg.text ~= "" then
+                -- Handle incomplete multipart messages
+                if msg.text:find("[⚠️ Thiếu phần", 1, true) or msg.text:find("Thiếu phần", 1, true) then
+                    -- Skip for now
+                else
+                    local phone = msg.number or "Unknown"
+                    local content = msg.text or ""
+                    local direction = msg.type or "received"
+                    local timestamp = msg.time_sort or msg.time or os.date("%Y/%m/%d %H:%M:%S")
+                    
+                    -- Try to add to archive
+                    local is_new = add_to_archive(archive, phone, direction, content, timestamp, msg_id)
+                    if is_new then 
+                        synced_count = synced_count + 1 
+                        local del_idx = msg.raw_indices or msg.index
+                        if del_idx then table.insert(to_delete, del_idx) end
+                    elseif archive.synced_ids[msg_id] then
+                        -- Already in archive, safe to delete from modem
+                        local del_idx = msg.raw_indices or msg.index
+                        if del_idx then table.insert(to_delete, del_idx) end
                     end
-                end)
-            end
-        
-        -- B. Handle Trash (Status Reports)
-        elseif msg.is_status_report then
-            pcall(function()
-                if msg.index then
-                    driver_lib.delete_sms(config, msg.index)
-                    log("Deleted Status Report: " .. msg.index)
                 end
-            end)
-            count = count + 1 -- Trigger save
+            
+            -- Handle Status Reports (Trash)
+            elseif msg.is_status_report then
+                if msg.index then table.insert(to_delete, msg.index) end
+            end
         end
+    end)
+    
+    -- Step 2: Delete from Modem only after archive is confirmed saved
+    for _, idx in ipairs(to_delete) do
+        pcall(function()
+            driver_lib.delete_sms(config, idx)
+            log("Cleaned up SMS index: " .. tostring(idx))
+        end)
     end
     
-    return count
+    return synced_count
 end
 
 -- Main loop
@@ -230,10 +262,39 @@ function main()
     while true do
         local archive = load_archive()
         
-        -- Clear trigger file before sync
+        -- 1. Check for DELETE requests from Web
+        local f_del = io.open("/tmp/sms_delete_request", "r")
+        if f_del then
+            local phones = {}
+            for line in f_del:lines() do
+                local p = line:gsub("%s+", "")
+                if #p > 0 then phones[p] = true end
+            end
+            f_del:close()
+            os.remove("/tmp/sms_delete_request")
+            
+            for phone, _ in pairs(phones) do
+                log("Processing remote delete request for: " .. phone)
+                -- Get all SMS from modem and delete matching phone
+                local result = pcall(driver_lib.get_sms, config)
+                if result and result.messages then
+                    for _, msg in ipairs(result.messages) do
+                        if msg.number == phone then
+                            local to_delete = msg.raw_indices or msg.index
+                            if to_delete then
+                                driver_lib.delete_sms(config, to_delete)
+                                log("Remote cleaned up: " .. to_delete)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        -- 2. Clear trigger file before sync
         os.remove("/tmp/sms_sync_trigger")
         
-        local ok, count = pcall(sync_sms_via_driver, archive, driver_lib)
+        local ok, count = pcall(sync_sms_via_driver, driver_lib)
         
         local base_sleep = 60 -- Default interval (Rest mode)
         
@@ -249,7 +310,6 @@ function main()
         
         if ok then
             if type(count) == "number" and count > 0 then
-                save_archive(archive)
                 log("Synced " .. count .. " new SMS to archive")
                 base_sleep = 5 -- Burst mode if messages coming
             end

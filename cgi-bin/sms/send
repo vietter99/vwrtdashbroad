@@ -85,34 +85,27 @@ local result = driver_lib.send_sms(config, data.number, data.text)
 
 -- Update Archive immediately on success for instant UI feedback
 if result.status == "success" then
-    pcall(function()
-        local constants = require "lib.constants"
-        local ARCHIVE_FILE = constants.PATHS.SMS_ARCHIVE
-        local cjson = require "cjson"
-        
-        local f_in = io.open(ARCHIVE_FILE, "r")
-        local archive = { conversations = {}, synced_ids = {} }
-        if f_in then
-            local content = f_in:read("*all")
-            f_in:close()
-            local ok, decoded = pcall(cjson.decode, content)
-            if ok then archive = decoded end
-        end
-        
-        if not archive.conversations then archive.conversations = {} end
-        if not archive.synced_ids then archive.synced_ids = {} end
-        
+    local sms_storage = require "lib.sms_storage"
+    local sms_util = require "lib.sms_util"
+    
+    sms_storage.update(function(archive)
         local phone = data.number
         if not archive.conversations[phone] then
             archive.conversations[phone] = { messages = {}, unread = 0 }
         end
         
         local timestamp = os.date("%Y-%m-%dT%H:%M:%S")
+        -- Create a fingerprint that will match when the message is read back from modem
+        local fingerprint = sms_util.get_fingerprint({
+            number = data.number,
+            time = timestamp:gsub("T", " "), -- Modem usually uses spaces
+            text = data.text
+        })
         local msg_id = "sent_" .. os.time()
         
         table.insert(archive.conversations[phone].messages, {
             id = msg_id,
-            direction = "sent",
+            fingerprint = fingerprint,
             timestamp = timestamp,
             content = data.text,
             read = true,
@@ -122,15 +115,10 @@ if result.status == "success" then
         archive.conversations[phone].last_time = timestamp
         
         -- Mark as synced to prevent duplicate from sync service
+        archive.synced_ids[fingerprint] = true
         archive.synced_ids[msg_id] = true
         -- Also mark potential modem index to skip
         archive.synced_ids["LOCAL_" .. os.time()] = true
-        
-        local f_out = io.open(ARCHIVE_FILE, "w")
-        if f_out then
-            f_out:write(cjson.encode(archive))
-            f_out:close()
-        end
     end)
 end
 

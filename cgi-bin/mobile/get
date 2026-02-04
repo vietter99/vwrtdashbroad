@@ -31,8 +31,8 @@ function get_data()
 
     -- Dynamic WAN IP Extraction (No hardcoding)
     local function get_wan_ip()
-        -- Priority interfaces
-        local interfaces = {"5G", "wan", "wwan0"}
+        -- Priority interfaces (Cellular only for Modem Info)
+        local interfaces = {"5G", "wwan0", "4G"}
         for _, ifname in ipairs(interfaces) do
             local h = io.popen("ubus call network.interface." .. ifname .. " status 2>/dev/null")
             if h then
