@@ -95,41 +95,39 @@ function main()
         
         -- Apply changes
         if enabled == "1" then
-            -- Robust Firewall Zone setup
-            local zones = exec("uci show firewall | grep '=zone' | cut -d'.' -f2 | cut -d'=' -f1")
-            local found_zone = nil
-            if zones then
-                for zone_id in zones:gmatch("[^\n]+") do
-                    local name = exec("uci get firewall." .. zone_id .. ".name 2>/dev/null"):gsub("%s+", "")
-                    if name == "tailscale" then
-                        found_zone = zone_id
-                        break
-                    end
-                end
-            end
+            -- 1. Deep Cleanup to avoid conflicts (Deletes duplicates/bad IDs)
+            os.execute("uci delete firewall.tailscale 2>/dev/null")
+            os.execute("uci delete firewall.tszone 2>/dev/null")
+            os.execute("uci delete firewall.ts_ac_lan 2>/dev/null")
+            os.execute("uci delete firewall.ts_ac_wan 2>/dev/null")
+            os.execute("uci delete firewall.lan_ac_ts 2>/dev/null")
+            os.execute("uci delete firewall.ts_to_lan 2>/dev/null")
+            os.execute("uci delete firewall.lan_to_ts 2>/dev/null")
+            
+            -- Delete any nameless forwardings containing tailscale
+            os.execute("for i in $(uci show firewall | grep forwarding | grep tailscale | cut -d'.' -f2 | cut -d'=' -f1); do uci delete firewall.$i 2>/dev/null; done")
 
-            if not found_zone then
-                -- Create clean zone with name as ID for easier management
-                os.execute("uci set firewall.tailscale=zone")
-                os.execute("uci set firewall.tailscale.name='tailscale'")
-                os.execute("uci set firewall.tailscale.input='ACCEPT'")
-                os.execute("uci set firewall.tailscale.forward='ACCEPT'")
-                os.execute("uci set firewall.tailscale.output='ACCEPT'")
-                os.execute("uci set firewall.tailscale.network='tailscale'")
-                
-                -- Forwarding TS -> LAN
-                os.execute("uci add firewall forwarding >/dev/null")
-                os.execute("uci set firewall.@forwarding[-1].src='tailscale'")
-                os.execute("uci set firewall.@forwarding[-1].dest='lan'")
-                
-                -- Forwarding LAN -> TS
-                os.execute("uci add firewall forwarding >/dev/null")
-                os.execute("uci set firewall.@forwarding[-1].src='lan'")
-                os.execute("uci set firewall.@forwarding[-1].dest='tailscale'")
-                
-                os.execute("uci commit firewall")
-                os.execute("/etc/init.d/firewall restart")
-            end
+            -- 2. Professional Setup (Best Practices)
+            os.execute("uci set firewall.tszone=zone")
+            os.execute("uci set firewall.tszone.name='tailscale'")
+            os.execute("uci set firewall.tszone.input='ACCEPT'")
+            os.execute("uci set firewall.tszone.forward='ACCEPT'")
+            os.execute("uci set firewall.tszone.output='ACCEPT'")
+            os.execute("uci set firewall.tszone.network='tailscale'")
+            os.execute("uci set firewall.tszone.masq='1'")
+            os.execute("uci set firewall.tszone.mtu_fix='1'")
+            
+            -- Bidirectional Forwarding
+            os.execute("uci set firewall.ts_to_lan=forwarding")
+            os.execute("uci set firewall.ts_to_lan.src='tailscale'")
+            os.execute("uci set firewall.ts_to_lan.dest='lan'")
+            
+            os.execute("uci set firewall.lan_to_ts=forwarding")
+            os.execute("uci set firewall.lan_to_ts.src='lan'")
+            os.execute("uci set firewall.lan_to_ts.dest='tailscale'")
+            
+            os.execute("uci commit firewall")
+            os.execute("/etc/init.d/firewall restart")
 
             os.execute("/etc/init.d/tailscale enable")
             os.execute("/etc/init.d/tailscale restart")
