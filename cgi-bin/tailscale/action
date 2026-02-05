@@ -95,10 +95,32 @@ function main()
         
         -- Apply changes
         if enabled == "1" then
+            -- Automate Firewall Zone setup if missing
+            local has_fw = exec("uci get firewall.tailscale 2>/dev/null")
+            if not has_fw or has_fw == "" then
+                os.execute("uci set firewall.tailscale=zone")
+                os.execute("uci set firewall.tailscale.name='tailscale'")
+                os.execute("uci set firewall.tailscale.input='ACCEPT'")
+                os.execute("uci set firewall.tailscale.forward='ACCEPT'")
+                os.execute("uci set firewall.tailscale.output='ACCEPT'")
+                os.execute("uci set firewall.tailscale.network='tailscale'")
+                
+                -- Forwarding TS -> LAN
+                os.execute("uci add firewall forwarding >/dev/null")
+                os.execute("uci set firewall.@forwarding[-1].src='tailscale'")
+                os.execute("uci set firewall.@forwarding[-1].dest='lan'")
+                
+                -- Forwarding LAN -> TS
+                os.execute("uci add firewall forwarding >/dev/null")
+                os.execute("uci set firewall.@forwarding[-1].src='lan'")
+                os.execute("uci set firewall.@forwarding[-1].dest='tailscale'")
+                
+                os.execute("uci commit firewall")
+                os.execute("/etc/init.d/firewall restart")
+            end
+
             os.execute("/etc/init.d/tailscale enable")
-            -- Restart if running to apply port change ?
-            -- Usually requires restart.
-             os.execute("/etc/init.d/tailscale restart")
+            os.execute("/etc/init.d/tailscale restart")
         else
             os.execute("/etc/init.d/tailscale stop")
             os.execute("/etc/init.d/tailscale disable")
