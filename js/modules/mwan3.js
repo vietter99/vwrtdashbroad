@@ -43,6 +43,8 @@ const Mwan3Module = {
                     /* Icon Button */
                     .mw-btn-icon { background: #eff6ff; color: #3b82f6; border: 1px solid #bfdbfe; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; display: inline-flex;  align-items: center; justify-content: center; transition: all 0.2s; }
                     
+                    .mw-center { text-align: center !important; }
+                    
                     /* Dark Mode */
                     [data-theme="dark"] #mwan3-container,
                     [data-theme="dark"] .mw-body { background: #1a202c !important; color: #e2e8f0 !important; }
@@ -214,8 +216,8 @@ const Mwan3Module = {
                 <thead>
                     <tr>
                         <th style="width: 15%;">Cổng mạng</th>
-                        <th style="width: 35%;">Độ ưu tiên</th>
-                        <th style="width: 35%;">Tỷ lệ tải</th>
+                        <th style="width: 35%;" class="mw-center">Độ ưu tiên</th>
+                        <th style="width: 35%;" class="mw-center">Tỷ lệ tải</th>
                         <th style="text-align: right; width: 15%;">Lưu</th>
                     </tr>
                 </thead>
@@ -231,10 +233,10 @@ const Mwan3Module = {
                         <td>
                             <div style="font-weight: 700; color: #334155;">${m.interface}</div>
                         </td>
-                        <td>
+                        <td class="mw-center">
                             <input type="number" id="metric-${m.name}" class="mw-input-modern" value="${m.metric}" onfocus="Mwan3Module.isEditing=true" onblur="Mwan3Module.isEditing=false" placeholder="VD: 1">
                         </td>
-                        <td>
+                        <td class="mw-center">
                             <input type="number" id="weight-${m.name}" class="mw-input-modern" value="${m.weight}" onfocus="Mwan3Module.isEditing=true" onblur="Mwan3Module.isEditing=false" placeholder="VD: 10">
                         </td>
                         <td style="text-align: right;">
@@ -296,7 +298,7 @@ const Mwan3Module = {
                     <tr>
                         <th style="width: 20%;">Cổng mạng</th>
                         <th style="width: 40%;">Ping tới IP (VD: 8.8.8.8)</th>
-                        <th style="width: 25%;">Kiểm tra mỗi (giây)</th>
+                        <th style="width: 25%;" class="mw-center">Mỗi (giây)</th>
                         <th style="text-align: right; width: 15%;">Lưu</th>
                     </tr>
                 </thead>
@@ -331,7 +333,7 @@ const Mwan3Module = {
                         <td>
                             <input type="text" id="track-ip-${name}" class="mw-input-modern mw-input-full" value="${ips}" onfocus="Mwan3Module.isEditing=true" onblur="Mwan3Module.isEditing=false" placeholder="VD: 8.8.8.8, 1.1.1.1">
                         </td>
-                        <td>
+                        <td class="mw-center">
                             <input type="number" id="track-interval-${name}" class="mw-input-modern" value="${t.interval || 5}" onfocus="Mwan3Module.isEditing=true" onblur="Mwan3Module.isEditing=false">
                         </td>
                         <td style="text-align: right;">
