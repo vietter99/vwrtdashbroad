@@ -1,0 +1,79 @@
+#!/usr/bin/lua
+
+local cjson = require "cjson"
+
+function exec(cmd)
+    local f = io.popen(cmd)
+    if not f then return nil end
+    local content = f:read("*all")
+    f:close()
+    return content
+end
+
+function get_uci(key)
+    local val = exec("uci get tailscale.settings." .. key .. " 2>/dev/null")
+    if val then 
+        val = val:gsub("%s+", "") -- Remove all whitespace
+        if val == "" then return nil end
+        return val
+    end
+    return nil
+end
+
+function get_service_status()
+    local f = io.popen("pgrep tailscaled")
+    local pid = f:read("*line")
+    f:close()
+    return (pid ~= nil)
+end
+
+function main()
+    local is_running = get_service_status()
+    local tailscale_data = {}
+    local needs_login = false
+
+    -- Get runtime status
+    if is_running then
+        local raw = exec("tailscale status --json 2>/dev/null")
+        if raw and raw ~= "" then
+             local ok, data = pcall(cjson.decode, raw)
+             if ok then
+                 tailscale_data = data
+             end
+        end
+        if tailscale_data.BackendState == "NeedsLogin" or tailscale_data.BackendState == "NoState" then
+            needs_login = true
+        end
+    end
+
+    -- Get UCI Config
+    local config = {
+        enabled = (get_uci("enabled") == "1"),
+        port = tonumber(get_uci("port")) or 41641,
+        fw_mode = get_uci("fw_mode") or "nftables",
+        std_out = (get_uci("log_stdout") == "1"),
+        std_err = (get_uci("log_stderr") == "1")
+    }
+
+    local self_node = tailscale_data.Self
+    if type(self_node) ~= "table" then self_node = nil end
+
+    local ip = "-"
+    if self_node and type(self_node.TailscaleIPs) == "table" then
+        ip = self_node.TailscaleIPs[1] or "-"
+    end
+
+    local result = {
+        running = is_running,
+        status = tailscale_data,
+        needs_login = needs_login,
+        ip = ip,
+        hostname = (self_node and self_node.HostName) or "-",
+        config = config
+    }
+
+    print("Content-type: application/json\n")
+    print(cjson.encode(result))
+end
+
+main()

@@ -1,0 +1,165 @@
+#!/usr/bin/lua
+
+local cjson = require "cjson"
+
+function exec(cmd)
+    local f = io.popen(cmd)
+    if not f then return nil end
+    local content = f:read("*all")
+    f:close()
+    return content
+end
+
+-- Helper to parse uci show output line by line for safer parsing
+function get_mwan3_config()
+    local members = {}
+    local f = io.popen("uci show mwan3")
+    if not f then return {} end
+    
+    for line in f:lines() do
+        -- match member config: mwan3.wan_m.metric='1'
+        local member, key, val = line:match("mwan3%.([%w_]+)%.([%w_]+)='?(.*)'?")
+        if member and key and val then
+            -- Clean val of closing quote if exists
+            val = val:gsub("'", "")
+            
+            -- Check if this section is a member (by checking if it has interface/metric/weight)
+            -- We just accumulate all keys for the section
+            -- But we only want 'member' typed sections.
+            -- Actually UCI show doesn't distinct types easily without "uci show mwan3.@member[0]" syntax which is hard.
+            -- Better approach: use `uci -X show mwan3` to get types? Or just assume sections with metric/weight are members.
+            
+            if not members[member] then members[member] = {name=member} end
+            members[member][key] = val
+        end
+    end
+    f:close()
+
+    -- Filter out non-members (ensure they have interface, metric, weight)
+    local clean_members = {}
+    local tracking_config = {}
+
+    for name, data in pairs(members) do
+         -- Member?
+         if data.interface and data.metric and data.weight then
+             table.insert(clean_members, {
+                 name = name,
+                 interface = data.interface,
+                 metric = tonumber(data.metric),
+                 weight = tonumber(data.weight)
+             })
+         end
+         
+         -- Tracking Interface? (Usually same name as interface in mwan3)
+         -- Check keys common for tracking: track_ip, interval 
+         if data.track_ip or data.track_ip_1 or data.interval then
+             -- UCI show might return list as: mwan3.wan.track_ip='8.8.8.8' '1.1.1.1' or multiple lines?
+             -- Our simple parser grabs 'val'. If list, it might overwrite or need handling.
+             -- For simplicity, let's just pass what we found.
+             -- Note: UCI parsing logic in get_mwan3_config is simple.
+             -- List handling: 'val' in previous function might have been last value or space separated?
+             -- uci show list format: mwan3.wan.track_ip='8.8.8.8' then mwan3.wan.track_ip+='1.1.1.1' -> output as separate lines usually.
+             -- We need to improve get_mwan3_config for lists if we want multiple IPs.
+             -- But for now, let's just enable basic reading.
+         end
+    end
+    
+    -- Re-read for Tracking specifically to handle lists correctly (simplified)
+    local f = io.popen("uci show mwan3")
+    if f then
+        for line in f:lines() do
+             -- match interface config
+             local section, key, val = line:match("mwan3%.([%w_]+)%.([%w_]+)=['\"]?(.*)['\"]?")
+             if section and key and val then
+                 val = val:gsub("'", ""):gsub("\"", "")
+                 
+                 -- We assume sections that interact with 'track_ip' are interfaces we want to configure.
+                 -- Status script simply returns all sections, frontend filters.
+                 if not tracking_config[section] then tracking_config[section] = {name=section, track_ips={}} end
+                 
+                 if key == 'track_ip' then
+                     table.insert(tracking_config[section].track_ips, val)
+                 elseif key == 'interval' then
+                     tracking_config[section].interval = val
+                 elseif key == 'reliability' then
+                     tracking_config[section].reliability = val
+                 elseif key == 'timeout' then
+                     tracking_config[section].timeout = val
+                 elseif key == 'enabled' then
+                     tracking_config[section].enabled = val
+                 end
+             end
+        end
+        f:close()
+    end
+
+    return clean_members, tracking_config
+end
+
+function get_interface_status()
+    -- mwan3 status is verbose. Let's try to parse meaningful info.
+    -- Or just use ubus call mwan3 status (if available) -> usually not standard.
+    -- Let's parse 'mwan3 status' output.
+    
+    local status_text = exec("mwan3 status 2>/dev/null")
+    local interfaces = {}
+    
+    if not status_text then return {} end
+    
+    -- Heuristic parsing for interface status
+    -- Output lines like: "interface wan(ipv4) is online 00h:34m:05s, ..."
+    for line in status_text:gmatch("[^\r\n]+") do
+        -- 1. Parse Status
+        local iface, status = line:match("interface ([%w_%%%-]+)%(?.*%)? is ([%w]+)")
+        if not iface then
+            iface, status = line:match("interface ([%w_%%%-]+) is ([%w]+)")
+        end
+
+        if iface and status then
+            -- Normalize status
+            if status == 'active' then status = 'online' end
+            
+            if not interfaces[iface] then
+                interfaces[iface] = { 
+                    name = iface, 
+                    status = status,
+                    load = "0%"
+                }
+            else
+                interfaces[iface].status = status
+            end
+        end
+
+        -- 2. Parse Balancer Load (e.g., " wan (100%)")
+        -- Matches lines indented with spaces, name, space, (perc%)
+        local name, load = line:match("^%s+([%w_]+)%s+%((%d+%%)%)")
+        if name and load then
+            if interfaces[name] then
+                interfaces[name].load = load
+            else
+                -- Fallback if status line wasn't seen yet
+                interfaces[name] = { name = name, status = "unknown", load = load }
+            end
+        end
+    end
+    
+    return interfaces
+end
+
+function main()
+    local members, tracking = get_mwan3_config()
+    local iface_status = get_interface_status()
+    
+    -- Merge status into members? Or keep separate?
+    -- Creating a summary for frontend
+    local result = {
+        members = members,
+        tracking = tracking,
+        interfaces = iface_status
+    }
+    
+    print("Content-type: application/json\n")
+    print(cjson.encode(result))
+end
+
+main()

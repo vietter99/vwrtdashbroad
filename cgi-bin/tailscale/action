@@ -1,0 +1,114 @@
+#!/usr/bin/lua
+
+local cjson = require "cjson"
+
+function read_post_body()
+    local len = tonumber(os.getenv("CONTENT_LENGTH") or "0")
+    if len == 0 then return nil end
+    return io.read(len)
+end
+
+function exec(cmd)
+    local f = io.popen(cmd)
+    if not f then return nil end
+    local content = f:read("*all")
+    f:close()
+    return content
+end
+
+function main()
+    local body = read_post_body()
+    local request = {}
+    if body then
+        pcall(function() request = cjson.decode(body) end)
+    end
+    
+    local action = request.action
+    local result = { status = "error", message = "Invalid action" }
+
+    if action == "start" then
+        os.execute("/etc/init.d/tailscale start")
+        os.execute("/etc/init.d/tailscale enable")
+        result = { status = "success" }
+        
+    elseif action == "stop" then
+        os.execute("/etc/init.d/tailscale stop")
+        os.execute("/etc/init.d/tailscale disable")
+        result = { status = "success" }
+        
+    elseif action == "logout" then
+         os.execute("tailscale logout")
+         result = { status = "success" }
+
+    elseif action == "get_auth_url" then
+        -- 1. Check existing status first
+        local raw = exec("tailscale status --json 2>/dev/null")
+        local url = nil
+        if raw and raw ~= "" then
+             local ok, data = pcall(cjson.decode, raw)
+             if ok and data.AuthURL then
+                 url = data.AuthURL
+             end
+        end
+
+        -- 2. If no URL, try to trigger up
+        if not url then
+            os.execute("echo '' > /tmp/tailscale_login.log")
+            -- Use --reset to force new link if needed? Or just up?
+            os.execute("(tailscale up --reset) > /tmp/tailscale_login.log 2>&1 &")
+            os.execute("sleep 3")
+            
+            local f = io.open("/tmp/tailscale_login.log", "r")
+            if f then
+                local content = f:read("*all")
+                f:close()
+                url = content:match("(https://login%.tailscale%.com/a/[%w%d]+)")
+            end
+        end
+        
+        if url then
+            result = { status = "success", url = url }
+        else
+            result = { status = "error", message = "Timeout fetching URL" }
+        end
+    elseif action == "check_auth_url" then
+        -- Poll for URL if not found immediately
+         local f = io.open("/tmp/tailscale_login.log", "r")
+         local url = nil
+         if f then
+             local content = f:read("*all")
+             f:close()
+             url = content:match("(https://login%.tailscale%.com/a/[%w%d]+)")
+         end
+         if url then
+             result = { status = "success", url = url }
+         else
+             result = { status = "pending" }
+         end
+    elseif action == "save_config" then
+        local port = tonumber(request.port) or 41641
+        local enabled = request.enabled and "1" or "0"
+        
+        os.execute("uci set tailscale.settings.port=" .. port)
+        os.execute("uci set tailscale.settings.enabled=" .. enabled)
+        os.execute("uci commit tailscale")
+        
+        -- Apply changes
+        if enabled == "1" then
+            os.execute("/etc/init.d/tailscale enable")
+            -- Restart if running to apply port change ?
+            -- Usually requires restart.
+             os.execute("/etc/init.d/tailscale restart")
+        else
+            os.execute("/etc/init.d/tailscale stop")
+            os.execute("/etc/init.d/tailscale disable")
+        end
+        
+        result = { status = "success" }
+    end
+
+    print("Content-type: application/json\n")
+    print(cjson.encode(result))
+end
+
+main()

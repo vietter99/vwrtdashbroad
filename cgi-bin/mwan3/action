@@ -1,0 +1,91 @@
+#!/usr/bin/lua
+
+local cjson = require "cjson"
+
+function read_input()
+    local content = io.read("*all")
+    if not content or content == "" then return nil end
+    return cjson.decode(content)
+end
+
+function exec(cmd)
+    local f = io.popen(cmd)
+    local output = f:read("*all")
+    f:close()
+    return output
+end
+
+function main()
+    print("Content-type: application/json\n")
+    
+    local input = read_input()
+    if not input or not input.action then
+        print(cjson.encode({status="error", message="Invalid input"}))
+        return
+    end
+
+    if input.action == "set_member" then
+        if not input.name or not input.metric or not input.weight then
+             print(cjson.encode({status="error", message="Missing fields"}))
+             return
+        end
+        
+        -- Sanitize inputs
+        local name = input.name:gsub("[^%w_]", "")
+        local metric = tonumber(input.metric)
+        local weight = tonumber(input.weight)
+        
+        if not name or not metric or not weight then
+             print(cjson.encode({status="error", message="Invalid data format"}))
+             return
+        end
+
+        os.execute(string.format("uci set mwan3.%s.metric='%d'", name, metric))
+        os.execute(string.format("uci set mwan3.%s.weight='%d'", name, weight))
+        os.execute("uci commit mwan3")
+        
+        -- Reload mwan3 (using /usr/sbin/mwan3 restart/reload is standard)
+        -- reload is faster and less disruptive
+        os.execute("/usr/sbin/mwan3 restart") 
+        
+        print(cjson.encode({status="success"}))
+
+    elseif input.action == "set_tracking" then
+        if not input.section or not input.track_ips or not input.interval then
+             print(cjson.encode({status="error", message="Missing tracking fields"}))
+             return
+        end
+
+        local section = input.section:gsub("[^%w_]", "")
+        local interval = tonumber(input.interval)
+        local track_ips = input.track_ips -- Expecting array of strings or comma separated?
+        -- Let's assume input.track_ips is an array from JSON
+        
+        if not section or not interval then
+             print(cjson.encode({status="error", message="Invalid data"}))
+             return
+        end
+
+        -- Clear existing track_ips list
+        os.execute(string.format("uci delete mwan3.%s.track_ip", section))
+        
+        -- Add new track_ips
+        for _, ip in ipairs(track_ips) do
+            -- Basic IP validation (very loose)
+            if ip and #ip > 0 and ip:match("^[%d%.]+$") then
+                os.execute(string.format("uci add_list mwan3.%s.track_ip='%s'", section, ip))
+            end
+        end
+
+        os.execute(string.format("uci set mwan3.%s.interval='%d'", section, interval))
+        os.execute("uci commit mwan3")
+        os.execute("/usr/sbin/mwan3 restart")
+
+        print(cjson.encode({status="success"}))
+
+    else
+        print(cjson.encode({status="error", message="Unknown action"}))
+    end
+end
+
+main()

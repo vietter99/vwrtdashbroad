@@ -56,7 +56,11 @@ const NetworkModule = {
         const container = document.getElementById('network-list');
         if (!container) return;
 
-        if (!interfaces || interfaces.length === 0) {
+        if (interfaces && !Array.isArray(interfaces) && Array.isArray(interfaces.data)) {
+            interfaces = interfaces.data;
+        }
+
+        if (!interfaces || !Array.isArray(interfaces) || interfaces.length === 0) {
             container.innerHTML = '<div class="sys-row" style="justify-content:center; color:#999">Không có kết nối nào</div>';
             return;
         }

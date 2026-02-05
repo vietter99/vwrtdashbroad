@@ -118,6 +118,25 @@ const SidebarModule = {
             return;
         }
 
+        if(featureName === 'network_status') {
+            this.showNetworkStatusModal();
+            return;
+        }
+
+        if(featureName === 'tailscale') {
+            if(typeof TailscaleModule !== 'undefined') {
+                TailscaleModule.showModal();
+            }
+            return;
+        }
+
+        if(featureName === 'mwan3') {
+            if(typeof Mwan3Module !== 'undefined') {
+                Mwan3Module.showModal();
+            }
+            return;
+        }
+
         if(featureName === 'reboot_sch') {
             if(typeof RebootScheduleModule !== 'undefined') {
                 RebootScheduleModule.showModal();
@@ -201,7 +220,7 @@ const SidebarModule = {
     showNetworkStatusModal: function() {
         Modal.show({
             title: "Trạng thái mạng",
-            content: `<div id="modal-net-status" style="min-height:200px; display:flex; flex-direction:column; gap:12px;">
+            content: `<div id="modal-net-status" style="min-height:200px; max-height:70vh; overflow-y:auto; display:flex; flex-direction:column; gap:12px; padding:5px;">
                         <div style="text-align:center; color:#999; padding:20px;">Đang tải dữ liệu...</div>
                       </div>`,
             showCancel: false,
@@ -247,7 +266,11 @@ const SidebarModule = {
                 const container = document.getElementById('modal-net-status');
                 if(!container) return; // Modal closed
 
-                if (!data || data.length === 0) {
+                if (data && !Array.isArray(data) && Array.isArray(data.data)) {
+                    data = data.data;
+                }
+
+                if (!data || !Array.isArray(data) || data.length === 0) {
                     container.innerHTML = '<div style="text-align:center; color:#999;">Không có kết nối nào</div>';
                     return;
                 }

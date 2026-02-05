@@ -99,6 +99,42 @@
                     <a
                         href="#"
                         class="nav-link"
+                        onclick="SidebarModule.showFeature('tailscale')"
+                    >
+                        <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M8 12h8"></path>
+                            <path d="M12 8v8"></path>
+                        </svg>
+                        Tailscale VPN
+                    </a>
+                    <a
+                        href="#"
+                        class="nav-link"
+                        onclick="SidebarModule.showFeature('mwan3')"
+                    >
+                        <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                        </svg>
+                        MultiWAN Manager
+                    </a>
+                    <a
+                        href="#"
+                        class="nav-link"
                         onclick="SidebarModule.showFeature('reboot_sch')"
                     >
                         <svg
@@ -739,7 +775,7 @@
                         </div>
                     </div>
                 </div>
-             </main>
+            </main>
         </div>
         <script src="js/api.js?v=2"></script>
         <script src="js/utils.js?v=2"></script>
@@ -755,6 +791,8 @@
         <script src="js/modules/settings.js?v=2"></script>
         <script src="js/modules/adblock.js?v=6"></script>
         <script src="js/modules/led.js?v=2"></script>
+        <script src="js/modules/tailscale.js?v=1"></script>
+        <script src="js/modules/mwan3.js?v=2"></script>
         <script src="js/modules/reboot_schedule.js?v=3"></script>
         <script src="js/modules/clients_info.js?v=4"></script>
         <script src="js/modules/lan.js?v=12"></script>
