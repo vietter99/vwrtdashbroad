@@ -51,11 +51,12 @@ const Mwan3Module = {
                     [data-theme="dark"] .mw-table th { border-bottom-color: #4a5568; color: #a0aec0; }
                     [data-theme="dark"] .mw-table td { border-bottom-color: #4a5568; color: #e2e8f0; }
                     [data-theme="dark"] h3 { color: #e2e8f0 !important; }
-                    [data-theme="dark"] .mw-guide-box { background: rgba(69, 29, 2, 0.3); border-color: #b45309; color: #cbd5e0; }
-                    [data-theme="dark"] .mw-guide-box strong { color: #f6ad55; }
-                    [data-theme="dark"] .mw-guide-box ul { color: #cbd5e0 !important; }
+                    .mw-guide-header { color: #b45309; }
+                    .mw-guide-ul { color: #78350f; padding-left: 20px; margin: 4px 0 0 0; }
+                    [data-theme="dark"] .mw-guide-box { background: rgba(59, 130, 246, 0.1) !important; border-color: #2b6cb0 !important; color: #e2e8f0 !important; }
+                    [data-theme="dark"] .mw-guide-box strong { color: #63b3ed !important; }
                     [data-theme="dark"] .mw-guide-header { color: #f6ad55 !important; }
-                    [data-theme="dark"] .mw-btn-primary { background: #3182ce; }
+                    [data-theme="dark"] .mw-guide-ul { color: #cbd5e0 !important; }
                     [data-theme="dark"] .mw-status-item { background: #2d3748 !important; border-width: 2px !important; }
                     [data-theme="dark"] .mw-status-item .status-label { color: #e2e8f0 !important; }
                     [data-theme="dark"] .mw-tabs { border-bottom-color: #4a5568; }
@@ -252,22 +253,22 @@ const Mwan3Module = {
                 <div style="margin-top: 10px; display: grid; grid-template-columns: 1fr; gap: 15px;">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                         <div>
-                            <div class="mw-guide-header" style="font-weight: 600; margin-bottom: 4px; color: #b45309;">1. Gộp mạng (Cân bằng tải):</div>
+                            <div class="mw-guide-header" style="font-weight: 600; margin-bottom: 4px;">1. Gộp mạng (Cân bằng tải):</div>
                             <div style="margin-bottom: 6px;">Đặt <strong>Độ ưu tiên bằng nhau</strong> (vd: tất cả là 1).</div>
                             <div style="font-size: 13px;">
                                 Router chia tải theo <strong>Tỷ lệ (Weight)</strong>.<br>
                                 Ví dụ muốn chia <strong>Wan 60% - 5G 40%</strong>:
-                                <ul style="margin: 4px 0 0 20px; color: #78350f;">
+                                <ul class="mw-guide-ul">
                                     <li>Wan: <strong>1000</strong></li>
                                     <li>5G: <strong>700</strong></li>
                                 </ul>
                             </div>
                         </div>
                         <div>
-                            <div class="mw-guide-header" style="font-weight: 600; margin-bottom: 4px; color: #b45309;">2. Chạy dự phòng (Failover):</div>
+                            <div class="mw-guide-header" style="font-weight: 600; margin-bottom: 4px;">2. Chạy dự phòng (Failover):</div>
                             <div>Đặt <strong>Độ ưu tiên khác nhau</strong>.</div>
                             <div style="margin-top: 4px;">Số càng nhỏ càng ưu tiên. Ví dụ:</div>
-                            <ul style="margin: 4px 0 0 20px; color: #78350f;">
+                            <ul class="mw-guide-ul">
                                 <li>Wan chính: nhập <strong>1</strong></li>
                                 <li>Wan phụ: nhập <strong>2</strong> (chỉ chạy khi Wan chính mất)</li>
                             </ul>
@@ -344,9 +345,9 @@ const Mwan3Module = {
         }
         
         html += `</tbody></table></div>
-            <div class="mw-guide-box" style="background: #eff6ff; border-color: #bfdbfe; color: #1e3a8a; margin-top: 15px;">
+            <div class="mw-guide-box">
                 <strong>ℹ️ Lưu ý Tracking:</strong><br>
-                <ul>
+                <ul class="mw-guide-ul">
                     <li>Nhập IP ổn định (như 8.8.8.8, 1.1.1.1). Có thể nhập nhiều IP cách nhau bằng dấu phẩy.</li>
                     <li><strong>Kiểm tra mỗi (giây):</strong> Thường để 3-5 giây. Nhanh quá gây tải, chậm quá thì phát hiện lỗi lâu.</li>
                     <li>Khi Ping thất bại, Router sẽ đánh dấu cổng là <strong>Offline (Đỏ)</strong>.</li>
