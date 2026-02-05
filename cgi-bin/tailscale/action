@@ -95,9 +95,21 @@ function main()
         
         -- Apply changes
         if enabled == "1" then
-            -- Automate Firewall Zone setup if missing
-            local has_fw = exec("uci get firewall.tailscale 2>/dev/null")
-            if not has_fw or has_fw == "" then
+            -- Robust Firewall Zone setup
+            local zones = exec("uci show firewall | grep '=zone' | cut -d'.' -f2 | cut -d'=' -f1")
+            local found_zone = nil
+            if zones then
+                for zone_id in zones:gmatch("[^\n]+") do
+                    local name = exec("uci get firewall." .. zone_id .. ".name 2>/dev/null"):gsub("%s+", "")
+                    if name == "tailscale" then
+                        found_zone = zone_id
+                        break
+                    end
+                end
+            end
+
+            if not found_zone then
+                -- Create clean zone with name as ID for easier management
                 os.execute("uci set firewall.tailscale=zone")
                 os.execute("uci set firewall.tailscale.name='tailscale'")
                 os.execute("uci set firewall.tailscale.input='ACCEPT'")
