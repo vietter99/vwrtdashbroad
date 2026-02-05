@@ -1,7 +1,7 @@
 {
     "dashboard": {
         "version": "1.1.2",
-        "url": "https://github.com/vietter99/vwrtdashbroad/archive/refs/tags/v1.1.1.zip",
-        "log": "- Tối ưu và cải thiện giao diện.\n- Thêm tính năng cân bằng tải.\n- Thêm tính năng tailscale."
+        "url": "https://github.com/vietter99/vwrtdashbroad/archive/refs/tags/v1.1.2.zip",
+        "log": "- Sửa lỗi đèn LED báo mạng (Mobile Poller).\n- Tự động hóa Firewall và Network cho Tailscale."
     }
 }
