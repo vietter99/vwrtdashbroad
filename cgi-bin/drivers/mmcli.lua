@@ -150,7 +150,7 @@ function M.get_sms(config)
 
                 if (text_val ~= "" and text_val ~= "--") or is_status_report then
                     local storage_val = data.sms.properties.storage or "unknown"
-                    if data.sms.properties["pdu-type"] == "submit" then
+                    if data.sms.properties["pdu-type"] == "submit" or data.sms.properties.state == "sent" then
                         type_val = "sent"
                         delivery_status = data.sms.properties["delivery-state"] or "unknown"
                     end
@@ -158,16 +158,18 @@ function M.get_sms(config)
                     if time_val == "--" then time_val = "" 
                     elseif #time_val > 18 then time_val = time_val:sub(1, 19):gsub("T", " ") end
 
-                    table.insert(messages, {
+                    local msg_obj = {
                         index = sms_path,
                         number = sender_val,
                         time = time_val,
                         text = text_val,
                         type = type_val,
+                        direction = type_val, -- Synchronize with sync service
                         storage = storage_val,
                         status = delivery_status,
                         is_status_report = is_status_report
-                    })
+                    }
+                    table.insert(messages, msg_obj)
                 end
             end
         end

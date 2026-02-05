@@ -108,6 +108,7 @@ if result.status == "success" then
             fingerprint = fingerprint,
             timestamp = timestamp,
             content = data.text,
+            direction = "sent", -- Explicit direction
             read = true,
             important = false
         })

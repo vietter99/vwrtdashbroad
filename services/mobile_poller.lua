@@ -7,6 +7,38 @@ package.path = "/www/vwrt/?.lua;" .. package.path
 local constants = require "lib.constants"
 local CACHE_FILE = constants.PATHS.MOBILE_CACHE
 local TEMP_FILE = constants.PATHS.MOBILE_CACHE_TEMP
+local LOCK_FILE = "/tmp/modem_at.lock"
+
+-- Lock helpers (Synced with fm350.lua)
+function acquire_lock()
+    -- Busy wait for lock if exists and not stale
+    for i = 1, 5 do
+        local f = io.open(LOCK_FILE, "r")
+        if f then
+            local ts = tonumber(f:read("*all") or "0")
+            f:close()
+            if os.time() - (ts or 0) < 30 then
+                os.execute("sleep 1")
+            else
+                break
+            end
+        else
+            break
+        end
+    end
+    -- Create lock with timestamp
+    local f = io.open(LOCK_FILE, "w")
+    if f then
+        f:write(tostring(os.time()))
+        f:close()
+        return true
+    end
+    return false
+end
+
+function release_lock()
+    os.remove(LOCK_FILE)
+end
 
 
 
@@ -547,15 +579,17 @@ end
 
 -- Get configured AT port for FM350
 function get_fm350_port()
-    -- Use ttyUSB1 for polling to leave ttyUSB3 for dialing/connection and sending
-    -- This avoids conflict with atc.sh protocol on ttyUSB3
-    if file_exists("/dev/ttyUSB1") then return "/dev/ttyUSB1" end
+    -- SINGLE PORT STRATEGY: ttyUSB1/2 reported as unreliable/zombie.
+    -- Force ttyUSB3 to stay aligned with SMS driver.
     if file_exists("/dev/ttyUSB3") then return "/dev/ttyUSB3" end
+    
+    -- Fallbacks
+    if file_exists("/dev/ttyUSB1") then return "/dev/ttyUSB1" end
     if file_exists("/dev/ttyUSB2") then return "/dev/ttyUSB2" end
     
     local _, dev = find_atc_interface()
     if dev and dev ~= "" and dev ~= "nil" then return dev end
-    return "/dev/ttyUSB1" -- Fallback
+    return "/dev/ttyUSB3" -- Fallback
 end
 
 local fm350_parser = require("services.parsers.fm350_at")
@@ -761,37 +795,37 @@ function main()
                 -- FM350: we skip drain/signal if pending to avoid 'atc' setup conflict
                 -- BUT we don't return nil, so the JSON is still written with static info.
                 if not is_pending then
-                    drain_tty(port)
-                
-                    -- 1. Signal / Cell Info 
-                    local combined_raw = exec_at_tty(port, "AT+GTCCINFO?;+GTCAINFO?;+GTSENRDTEMP=1;+CSQ")
-                    local s1 = fm350_parser.parse_all_signal(combined_raw)
+                    if acquire_lock() then
+                        drain_tty(port)
                     
-                    if s1.full_mode then data_modem.mode = s1.full_mode end
-                    if s1.rsrp then data_modem.rsrp = s1.rsrp end
-                    if s1.rsrq then data_modem.rsrq = s1.rsrq end
-                    if s1.sinr then data_modem.sinr = s1.sinr end
+                        -- 1. Signal / Cell Info 
+                        local combined_raw = exec_at_tty(port, "AT+GTCCINFO?;+GTCAINFO?;+GTSENRDTEMP=1;+CSQ")
+                        local s1 = fm350_parser.parse_all_signal(combined_raw)
+                        
+                        if s1.full_mode then data_modem.mode = s1.full_mode end
+                        if s1.rsrp then data_modem.rsrp = s1.rsrp end
+                        if s1.rsrq then data_modem.rsrq = s1.rsrq end
+                        if s1.sinr then data_modem.sinr = s1.sinr end
 
-                    -- 2. Temp
-                    local temp = fm350_parser.parse_temp(combined_raw)
-                    if temp then data_modem.mtemp = temp end
+                        -- 2. Temp
+                        local temp = fm350_parser.parse_temp(combined_raw)
+                        if temp then data_modem.mtemp = temp end
 
-                    -- 3. Signal Strength & RSSI
-                    local csq_raw = combined_raw
-                    if csq_raw then
-                        local csq = csq_raw:match("%+CSQ:%s*(%d+),")
-                        if csq then
-                            local r = tonumber(csq)
-                            if r and r ~= 99 then
-                                data_modem.rssi = tostring(2 * r - 113)
-                                data_modem.signal = tostring(math.floor((r / 31) * 100))
+                        -- 3. Signal Strength & RSSI
+                        local csq_raw = combined_raw
+                        if csq_raw then
+                            local csq = csq_raw:match("%+CSQ:%s*(%d+),")
+                            if csq then
+                                local r = tonumber(csq)
+                                if r and r ~= 99 then
+                                    data_modem.rssi = tostring(2 * r - 113)
+                                    data_modem.signal = tostring(math.floor((r / 31) * 100))
+                                end
                             end
                         end
-                    end
-                    
-                    -- Fallback signal if CSQ fails
-                    if data_modem.signal == "0" and data_modem.rsrp ~= "-" then
-                        data_modem.signal = tostring(calculate_signal_strength(data_modem.rsrp))
+                        release_lock()
+                    else
+                        log("Poller: Failed to acquire modem lock (skipping FM350 signal iteration)")
                     end
                 end
 

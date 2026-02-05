@@ -16,6 +16,7 @@ end
 local cjson = require "cjson"
 local csrf = require "lib.csrf"
 local constants = require "lib.constants"
+local sms_util = require "lib.sms_util"
 
 local ARCHIVE_FILE = constants.PATHS.SMS_ARCHIVE
 
@@ -104,16 +105,23 @@ if method == "POST" then
                 if conv.messages then
                     for i = #conv.messages, 1, -1 do
                         if conv.messages[i].id == msg_id then
+                            -- IMPORTANT: Keep the fingerprint in synced_ids!
+                            -- This prevents the sync service from re-adding it if it's still on the modem.
+                            if conv.messages[i].fingerprint then
+                                archive.synced_ids[conv.messages[i].fingerprint] = true
+                            end
+                            
                             table.remove(conv.messages, i)
                             deleted_count = deleted_count + 1
-                            
-                            -- IMPORTANT: DO NOT remove from synced_ids here.
-                            -- If we remove it from synced_ids, the background sync service
-                            -- will see it on the modem (if it hasn't been deleted yet)
-                            -- and re-sync it to the archive!
-                            -- The background service will delete it from the modem 
-                            -- because it stays in synced_ids.
                         end
+                    end
+                    
+                    -- Trigger background cleanup for this phone
+                    if deleted_count > 0 then
+                        pcall(function()
+                            local f_req = io.open("/tmp/sms_delete_request", "a")
+                            if f_req then f_req:write(phone .. "\n"); f_req:close() end
+                        end)
                     end
                     
                     -- Clean up empty conversations

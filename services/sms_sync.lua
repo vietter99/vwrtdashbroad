@@ -69,24 +69,21 @@ function load_archive()
     end
     
     local ok, archive = pcall(cjson.decode, content)
-    if ok and archive then
-        if not archive.settings then
-            archive.settings = { max_messages = 50, auto_delete_days = 7 }
-        end
-        if not archive.conversations then
-            archive.conversations = {}
-        end
-        if not archive.synced_ids then
-            archive.synced_ids = {}
-        end
-        return archive
+    if not ok or not archive then
+        archive = {}
     end
     
-    return {
-        settings = { max_messages = 50, auto_delete_days = 7 },
-        conversations = {},
-        synced_ids = {}
-    }
+    -- Ensure all required fields exist
+    if not archive.settings then
+        archive.settings = { max_messages = 50, auto_delete_days = 7 }
+    end
+    if not archive.conversations then
+        archive.conversations = {}
+    end
+    if not archive.synced_ids then
+        archive.synced_ids = {}
+    end
+    return archive
 end
 
 function save_archive(archive)
@@ -128,19 +125,37 @@ function add_to_archive(archive, phone, direction, content, timestamp, msg_id)
         return false 
     end
     
-    -- 2. Deduplication for "SENT" messages
-    if direction == "sent" and (not timestamp or timestamp == "" or timestamp == "--") then
-         if archive.conversations[phone] then
-             local messages = archive.conversations[phone].messages
-             for i = #messages, math.max(1, #messages - 2), -1 do
-                 local prev = messages[i]
-                 if prev.direction == "sent" and prev.content == content then
-                     log("Dedup: Found identical sent message for " .. phone .. ", marking as handled.")
-                     archive.synced_ids[msg_id] = true -- Handle but skip insert
-                     return true -- Return true so it gets saved to disk and deleted from modem
-                 end
-             end
-         end
+    -- 2. Deduplication for "SENT" messages (Smart Match)
+    -- This handles cases where the modem's clock might be slightly off (network sync delay)
+    -- If we just sent a message with identical content, don't add it as a new received message.
+    if archive.conversations[phone] then
+        local messages = archive.conversations[phone].messages
+        -- Look at last 5 messages in this conversation
+        for i = #messages, math.max(1, #messages - 5), -1 do
+            local prev = messages[i]
+            if prev.content == content then
+                -- Match found! Check if it's within a 60-second window or identical fingerprint
+                if prev.fingerprint == msg_id then
+                    log("Dedup: Exact fingerprint match for " .. phone .. ", skipping.")
+                    return false -- Already handled
+                end
+                
+                -- Check direction conflict (Sent by us vs "Received" original copy from modem)
+                if direction == "sent" and prev.direction == "sent" then
+                    log("Dedup: Identical sent message already in archive for " .. phone)
+                    archive.synced_ids[msg_id] = true
+                    return false
+                end
+                
+                -- The "FM350 Ghost" match: Modem reports our sent message as 'received' 
+                -- but we already have it in archive as 'sent'.
+                if direction == "received" and prev.direction == "sent" then
+                   log("Dedup: Modem reported our own sent message as received for " .. phone .. ", merging.")
+                   archive.synced_ids[msg_id] = true
+                   return true -- Mark as handled (so it's deleted from modem) but don't add a new entry
+                end
+            end
+        end
     end
 
     if not archive.conversations[phone] then
@@ -175,7 +190,8 @@ function add_to_archive(archive, phone, direction, content, timestamp, msg_id)
     archive.synced_ids[msg_id] = true
     
     -- Limit messages
-    local max_msg = archive.settings.max_messages or 50
+    local settings = archive.settings or { max_messages = 50 }
+    local max_msg = settings.max_messages or 50
     while #conv.messages > max_msg do
         for i = 1, #conv.messages do
             if not conv.messages[i].important then
@@ -192,11 +208,20 @@ end
 function sync_sms_via_driver(driver_lib)
     log("Syncing SMS via driver (Atomic mode)")
     
-    local config = { driver = "dynamic", modem_index = "0" }
     local ok, result = pcall(driver_lib.get_sms, config)
     
-    if not ok or not result or not result.messages then
-        log("Failed to get SMS from driver")
+    if not ok then
+        log("Driver GET_SMS Error: " .. tostring(result))
+        return 0
+    end
+    
+    if not result or not result.messages then
+        log("Failed to get SMS result from driver (Invalid format)")
+        return 0
+    end
+    
+    if result.status == "busy" then
+        -- Don't log as failure, just return quietly
         return 0
     end
     

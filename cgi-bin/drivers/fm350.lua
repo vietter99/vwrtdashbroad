@@ -89,83 +89,9 @@ local function get_fm350_port(purpose)
     return "/dev/ttyUSB3"
 end
 
--- ===== LOCAL STORAGE FOR SENT MESSAGES =====
-local SENT_FILE = "/etc/vwrt/sms_sent.json"
+-- Local storage for sent messages is deprecated in favor of SMS Archive service
 
-local function read_sent_msgs()
-    local f = io.open(SENT_FILE, "r")
-    if not f then return {} end
-    local content = f:read("*all")
-    f:close()
-    if not content or content == "" then return {} end
-    local ok, data = pcall(json.parse, content)
-    return (ok and data) or {}
-end
-
-local function save_sent_msg(number, text)
-    local msgs = read_sent_msgs()
-    -- Format: 01/02/26 14:30:00 (approx matching modem style dd/mm/yy)
-    local timestamp = os.date("%d/%m/%y %H:%M:%S")
-    local new_msg = {
-        index = "LOCAL_" .. os.time(), -- Unique-ish ID
-        number = number,
-        time = timestamp,
-        text = text,
-        status = "sent",
-        storage = "LOCAL"
-    }
-    table.insert(msgs, new_msg)
-    
-    -- Limit local history to 50
-    if #msgs > 50 then
-        table.remove(msgs, 1) -- Remove oldest
-    end
-    
-    -- Automatic Directory Creation
-    os.execute("mkdir -p /etc/vwrt")
-    
-    local f = io.open(SENT_FILE, "w")
-    if f then
-        f:write(json.stringify(msgs))
-        f:close()
-    end
-end
-
-local function delete_sent_msg(index)
-    if index == "all" then
-        -- Delete all local sent messages
-        local f = io.open(SENT_FILE, "w")
-        if f then
-            f:write(json.stringify({}))
-            f:close()
-        end
-        return true
-    end
-    
-    -- Delete specific message by index
-    local msgs = read_sent_msgs()
-    local found = false
-    local new_msgs = {}
-    
-    for _, msg in ipairs(msgs) do
-        if msg.index ~= index then
-            table.insert(new_msgs, msg)
-        else
-            found = true
-        end
-    end
-    
-    if found then
-        local f = io.open(SENT_FILE, "w")
-        if f then
-            f:write(json.stringify(new_msgs))
-            f:close()
-        end
-        return true
-    end
-    
-    return false
-end
+-- Sentinel for removal
  
 -- Helper: Parse Timestamp to YYYY/MM/DD HH:MM:SS for sorting
 local function parse_time(t_str)
@@ -245,16 +171,24 @@ function M.get_sms(config)
                 if #msgs == 0 and #parsed > 0 then msgs = parsed end
                 
                 for _, msg in ipairs(msgs) do
+                    -- Detect Direction from modem status
+                    local m_type = "received"
+                    local m_status = string.lower(msg.status or "")
+                    if m_status:find("sent") or m_status:find("mo") then
+                        m_type = "sent"
+                    end
+
                     -- Create a signature for deduplication
-                    local sig = (msg.sender or "") .. (msg.timestamp or msg.timestamp or "") .. (msg.content or "")
+                    local sig = (msg.sender or "") .. (msg.timestamp or "") .. (msg.content or "")
                     if not seen_msgs[sig] then
                         table.insert(messages, normalize_msg_obj({
                             index = s .. "_" .. msg.index,
                             number = msg.sender,
                             time = msg.timestamp or msg.date,
                             text = msg.content,
-                            status = "received",
-                            type = "received", -- UI uses this
+                            status = m_status,
+                            type = m_type,
+                            direction = m_type, -- Sync service uses this
                             storage = s,
                             is_status_report = false, -- fm350/sms_tool handle reports differently
                             -- Add fields for stitching
@@ -274,30 +208,7 @@ function M.get_sms(config)
         end
     end
     
-    -- Merge Local Sent Messages
-    local sent_msgs = read_sent_msgs()
-    for _, m in ipairs(sent_msgs) do
-        -- Check if similar message exists in modem list (Deduplication)
-        local is_duplicate = false
-        for _, modem_msg in ipairs(messages) do
-            -- Strict content match (trimmed) + lenient phone match
-            if trim(modem_msg.text) == trim(m.text) then
-                local p1 = m.number:gsub("+84", "0")
-                local p2 = modem_msg.number:gsub("+84", "0")
-                if p1 == p2 then
-                    is_duplicate = true
-                    break
-                end
-            end
-        end
-        
-        if not is_duplicate then
-            -- Ensure local messages have type='sent'
-            m.type = "sent" 
-            m.status = "sent"
-            table.insert(messages, normalize_msg_obj(m)) 
-        end
-    end
+    -- Local storage merging removed (Sync Service handling Archive instead)
     
     -- 1. Merge Multi-part Messages
     local merged_messages = {}
@@ -453,7 +364,7 @@ function M.send_sms(config, number, content)
     
     -- 6. Check result
     if result:find("Ok") or result:find("OK") or result:find("+CMGS") then
-        save_sent_msg(number, content) -- SAVE TO LOCAL STORAGE
+        -- save_sent_msg removed (Archive handles this now)
         return { status = "success" }
     else
         return { status = "error", message = "Gửi thất bại (Native): " .. result:gsub("[\r\n]+", " ") }

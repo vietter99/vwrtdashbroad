@@ -1,0 +1,8 @@
+#!/bin/sh
+# VWRT Services Auto-Enable Script
+# This runs once on first boot or after factory reset
+
+/etc/init.d/mobile_poller enable
+/etc/init.d/sms_sync enable
+
+exit 0
