@@ -232,6 +232,36 @@ const TailscaleModule = {
                 </div>`;
         }
 
+        // Prepare User Info if available
+        let loginStatusHtml = '';
+        if (isRunning && !needsLogin && data.status && data.status.Self && data.status.User) {
+            
+            // Fix: UserID from Lua/cjson might be a float (scientific notation), mismatching the String key.
+            // We search by matching the ID value inside the profile instead.
+            const selfUserId = data.status.Self.UserID;
+            const userProfile = Object.values(data.status.User).find(u => u.ID === selfUserId);
+
+            const displayName = userProfile ? userProfile.DisplayName : 'Unknown';
+            const loginName = userProfile ? userProfile.LoginName : '';
+            
+            loginStatusHtml = `
+                <div class="ts-card" style="margin-top: 15px; border-left: 5px solid #10b981;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <div class="ts-label-main">Login Status</div>
+                            <div class="ts-label-sub" style="color: #059669; font-weight: 700; font-size: 15px;">
+                                ${displayName}
+                            </div>
+                            <div style="font-size: 12px; color: #64748b;">${loginName}</div>
+                        </div>
+                        <button onclick="TailscaleModule.logout()" style="color: #ef4444; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 8px 15px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; transition: all 0.2s;">
+                            Log out and Unbind
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
         container.innerHTML = `
             ${headerBrand}
             
@@ -262,6 +292,8 @@ const TailscaleModule = {
                     </div>
                 </div>
             </div>
+            
+            ${loginStatusHtml}
 
             <button onclick="TailscaleModule.saveConfig()" class="btn-save">
                 Lưu thay đổi
@@ -348,6 +380,38 @@ const TailscaleModule = {
 
         html += `</div>`;
         container.innerHTML = html;
+    },
+    
+    logout: function() {
+        Modal.confirm({
+            title: 'Gỡ tài khoản / Unbind',
+            message: 'Hành động này sẽ:<br>1. Ngắt kết nối Tailscale.<br>2. Xóa VĨNH VIỄN trạng thái đăng nhập.<br>3. Xóa toàn bộ cấu hình mạng liên quan.<br><br><b>Bạn có chắc chắn muốn tiếp tục?</b>',
+            type: 'warning',
+            confirmText: 'Xác nhận gỡ',
+            cancelText: 'Hủy bỏ',
+            onConfirm: () => {
+                if(typeof Toast !== 'undefined') Toast.show("Đang gỡ tài khoản và dọn dẹp...", "info");
+                
+                fetch('/cgi-bin/tailscale/action', {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'logout' })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if(data.status === 'success') {
+                        if(typeof Toast !== 'undefined') Toast.show("Đã gỡ tài khoản thành công!", "success");
+                        // Refresh status to update UI
+                        this.fetchStatus(true);
+                    } else {
+                         if(typeof Toast !== 'undefined') Toast.show("Lỗi: " + data.message, "error");
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    if(typeof Toast !== 'undefined') Toast.show("Lỗi kết nối", "error");
+                });
+            }
+        });
     },
 
     saveConfig: function() {

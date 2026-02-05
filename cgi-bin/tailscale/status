@@ -58,9 +58,36 @@ function main()
     local self_node = tailscale_data.Self
     if type(self_node) ~= "table" then self_node = nil end
 
-    local ip = "-"
+    local ip4 = nil
+    local ip6 = nil
     if self_node and type(self_node.TailscaleIPs) == "table" then
-        ip = self_node.TailscaleIPs[1] or "-"
+        for _, val in ipairs(self_node.TailscaleIPs) do
+            if val:match(":") then
+                ip6 = val
+            else
+                ip4 = val
+            end
+        end
+    end
+
+    -- SELF-HEALING: If IP exists but interface is still 'none' (pending), or IPv6 is missing, update it.
+    if is_running and ip4 and config.enabled then
+        local current_proto = exec("uci -q get network.tailscale.proto"):gsub("%s+", "")
+        local current_ip6 = exec("uci -q get network.tailscale.ip6addr"):gsub("%s+", "")
+        
+        if current_proto == "none" or (ip6 and current_ip6 == "") then
+            os.execute("uci set network.tailscale.proto='static'")
+            os.execute("uci set network.tailscale.ipaddr='" .. ip4 .. "'")
+            os.execute("uci set network.tailscale.netmask='255.255.255.255'")
+            if ip6 then
+                os.execute("uci set network.tailscale.ip6addr='" .. ip6 .. "/128'")
+            end
+            os.execute("uci commit network")
+            os.execute("/etc/init.d/network reload")
+            -- Re-check config after update
+            config.enabled = (get_uci("enabled") == "1")
+            config.port = tonumber(get_uci("port")) or 41641
+        end
     end
 
     local result = {

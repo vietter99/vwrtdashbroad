@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 
-local cjson = require "cjson"
+local json = require "luci.jsonc"
 
 function read_post_body()
     local len = tonumber(os.getenv("CONTENT_LENGTH") or "0")
@@ -17,44 +17,78 @@ function exec(cmd)
 end
 
 function ensure_tailscale_config()
-    -- 1. Network Interface Setup
-    os.execute("uci delete network.tailscale 2>/dev/null")
+    -- Enable/Restart Network/Firewall is handled at the end
+    
+    -- 1. Setup Network Interface (Standard Name)
     os.execute("uci set network.tailscale=interface")
-    os.execute("uci set network.tailscale.proto='none'")
     os.execute("uci set network.tailscale.device='tailscale0'")
+    
+    -- Try to get Tailscale IPs with retries (max 5s)
+    local ip4 = nil
+    local ip6 = nil
+    for i = 1, 5 do
+        local handle = io.popen("tailscale ip 2>/dev/null")
+        local output = handle:read("*a")
+        handle:close()
+        
+        if output and output ~= "" then
+            for line in output:gmatch("[^\r\n]+") do
+                if line:match(":") then
+                    ip6 = line
+                elseif line:match("%d+.%d+.%d+.%d+") then
+                    ip4 = line
+                end
+            end
+        end
+        
+        if ip4 then break end
+        os.execute("sleep 1")
+    end
+    
+    if ip4 then
+        os.execute("uci set network.tailscale.proto='static'")
+        os.execute("uci set network.tailscale.ipaddr='" .. ip4 .. "'")
+        os.execute("uci set network.tailscale.netmask='255.255.255.255'")
+        if ip6 then
+            os.execute("uci set network.tailscale.ip6addr='" .. ip6 .. "/128'")
+        end
+    else
+        -- Pending state
+        os.execute("uci set network.tailscale.proto='none'")
+    end
+    
     os.execute("uci commit network")
 
-    -- 2. Deep Cleanup to avoid conflicts
+    -- 2. Create Firewall Zone and Forwarding
+    -- We use standard names now that init script is safe
     os.execute("uci delete firewall.tailscale 2>/dev/null")
-    os.execute("uci delete firewall.tszone 2>/dev/null")
-    os.execute("uci delete firewall.ts_to_lan 2>/dev/null")
-    os.execute("uci delete firewall.lan_to_ts 2>/dev/null")
+    os.execute("uci set firewall.tailscale=zone")
+    os.execute("uci set firewall.tailscale.name='tailscale'")
+    os.execute("uci set firewall.tailscale.input='ACCEPT'")
+    os.execute("uci set firewall.tailscale.forward='ACCEPT'")
+    os.execute("uci set firewall.tailscale.output='ACCEPT'")
+    os.execute("uci set firewall.tailscale.network='tailscale'")
+    os.execute("uci set firewall.tailscale.masq='1'")
+    os.execute("uci set firewall.tailscale.mtu_fix='1'")
     
-    -- Clean up any nameless forwardings containing tailscale
-    os.execute("for i in $(uci show firewall | grep forwarding | grep tailscale | cut -d'.' -f2 | cut -d'=' -f1); do uci delete firewall.$i 2>/dev/null; done")
-
-    -- 3. Professional Setup
-    os.execute("uci set firewall.tszone=zone")
-    os.execute("uci set firewall.tszone.name='tailscale'")
-    os.execute("uci set firewall.tszone.input='ACCEPT'")
-    os.execute("uci set firewall.tszone.forward='ACCEPT'")
-    os.execute("uci set firewall.tszone.output='ACCEPT'")
-    os.execute("uci set firewall.tszone.network='tailscale'")
-    os.execute("uci set firewall.tszone.masq='1'")
-    os.execute("uci set firewall.tszone.mtu_fix='1'")
-    
-    -- Bidirectional Forwarding
+    -- Forwarding Rule: Tailscale -> LAN
     os.execute("uci set firewall.ts_to_lan=forwarding")
     os.execute("uci set firewall.ts_to_lan.src='tailscale'")
     os.execute("uci set firewall.ts_to_lan.dest='lan'")
     
+    -- Forwarding Rule: LAN -> Tailscale
     os.execute("uci set firewall.lan_to_ts=forwarding")
     os.execute("uci set firewall.lan_to_ts.src='lan'")
     os.execute("uci set firewall.lan_to_ts.dest='tailscale'")
     
+    -- Cleanup old/custom names
+    os.execute("uci delete network.ts_vwrt 2>/dev/null")
+    os.execute("uci delete firewall.ts_vwrt 2>/dev/null")
+    os.execute("uci delete firewall.vwrt_ts 2>/dev/null")
+    
     os.execute("uci commit firewall")
     
-    -- Reload services
+    -- 4. Apply Changes
     os.execute("/etc/init.d/network reload")
     os.execute("/etc/init.d/firewall restart")
 end
@@ -63,16 +97,20 @@ function main()
     local body = read_post_body()
     local request = {}
     if body then
-        pcall(function() request = cjson.decode(body) end)
+        -- Robust logging for debug
+        local f = io.open("/tmp/ts_debug_raw.log", "w")
+        if f then f:write(body); f:close() end
+        request = json.parse(body) or {}
     end
     
     local action = request.action
     local result = { status = "error", message = "Invalid action" }
 
     if action == "start" then
-        ensure_tailscale_config()
         os.execute("/etc/init.d/tailscale enable")
         os.execute("/etc/init.d/tailscale start")
+        -- Apply config AFTER start because init script deletes it on stop/restart
+        ensure_tailscale_config()
         result = { status = "success" }
         
     elseif action == "stop" then
@@ -81,21 +119,39 @@ function main()
         result = { status = "success" }
         
     elseif action == "logout" then
-         os.execute("tailscale logout")
+         -- Hard Reset: Full cleanup and state removal
+         os.execute("/etc/init.d/tailscale stop")
+         
+         -- Remove Tailscale State (Hard Remove Account)
+         os.execute("rm -f /etc/config/tailscaled.state")
+         os.execute("rm -rf /etc/tailscale/*")
+         
+         -- Cleanup Network/Firewall
+         os.execute("uci delete network.tailscale 2>/dev/null")
+         os.execute("uci delete firewall.tailscale 2>/dev/null")
+         os.execute("uci commit network")
+         os.execute("uci commit firewall")
+         os.execute("/etc/init.d/network reload")
+         os.execute("/etc/init.d/firewall restart")
+         
+         -- Restart service to generate new fresh state
+         os.execute("/etc/init.d/tailscale start")
+         
+         -- Recreate network/firewall definitions (they were just deleted)
+         ensure_tailscale_config()
+         
          result = { status = "success" }
 
     elseif action == "get_auth_url" then
-        -- ... (Skipped for brevity)
         local raw = exec("tailscale status --json 2>/dev/null")
         local url = nil
         if raw and raw ~= "" then
-             local ok, data = pcall(cjson.decode, raw)
+             local ok, data = pcall(json.parse, raw)
              if ok and data.AuthURL then
                  url = data.AuthURL
              end
         end
 
-        -- ... (Skipped for brevity)
         if not url then
             os.execute("echo '' > /tmp/tailscale_login.log")
             os.execute("(tailscale up --reset) > /tmp/tailscale_login.log 2>&1 &")
@@ -115,7 +171,6 @@ function main()
             result = { status = "error", message = "Timeout fetching URL" }
         end
     elseif action == "check_auth_url" then
-        -- Poll for URL if not found immediately
          local f = io.open("/tmp/tailscale_login.log", "r")
          local url = nil
          if f then
@@ -138,19 +193,27 @@ function main()
         
         -- Apply changes
         if enabled == "1" then
-            ensure_tailscale_config()
             os.execute("/etc/init.d/tailscale enable")
             os.execute("/etc/init.d/tailscale restart")
+            -- CRITICAL: Apply config AFTER restart because init script deletes it on restart
+            ensure_tailscale_config()
         else
             os.execute("/etc/init.d/tailscale stop")
             os.execute("/etc/init.d/tailscale disable")
+            -- Cleanup on disable as requested
+            os.execute("uci delete network.tailscale 2>/dev/null")
+            os.execute("uci delete firewall.tailscale 2>/dev/null")
+            os.execute("uci commit network")
+            os.execute("uci commit firewall")
+            os.execute("/etc/init.d/network reload")
+            os.execute("/etc/init.d/firewall restart")
         end
         
         result = { status = "success" }
     end
 
     print("Content-type: application/json\n")
-    print(cjson.encode(result))
+    print(json.stringify(result))
 end
 
 main()
