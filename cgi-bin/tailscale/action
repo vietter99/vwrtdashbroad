@@ -16,6 +16,49 @@ function exec(cmd)
     return content
 end
 
+function ensure_tailscale_config()
+    -- 1. Network Interface Setup
+    os.execute("uci delete network.tailscale 2>/dev/null")
+    os.execute("uci set network.tailscale=interface")
+    os.execute("uci set network.tailscale.proto='none'")
+    os.execute("uci set network.tailscale.device='tailscale0'")
+    os.execute("uci commit network")
+
+    -- 2. Deep Cleanup to avoid conflicts
+    os.execute("uci delete firewall.tailscale 2>/dev/null")
+    os.execute("uci delete firewall.tszone 2>/dev/null")
+    os.execute("uci delete firewall.ts_to_lan 2>/dev/null")
+    os.execute("uci delete firewall.lan_to_ts 2>/dev/null")
+    
+    -- Clean up any nameless forwardings containing tailscale
+    os.execute("for i in $(uci show firewall | grep forwarding | grep tailscale | cut -d'.' -f2 | cut -d'=' -f1); do uci delete firewall.$i 2>/dev/null; done")
+
+    -- 3. Professional Setup
+    os.execute("uci set firewall.tszone=zone")
+    os.execute("uci set firewall.tszone.name='tailscale'")
+    os.execute("uci set firewall.tszone.input='ACCEPT'")
+    os.execute("uci set firewall.tszone.forward='ACCEPT'")
+    os.execute("uci set firewall.tszone.output='ACCEPT'")
+    os.execute("uci set firewall.tszone.network='tailscale'")
+    os.execute("uci set firewall.tszone.masq='1'")
+    os.execute("uci set firewall.tszone.mtu_fix='1'")
+    
+    -- Bidirectional Forwarding
+    os.execute("uci set firewall.ts_to_lan=forwarding")
+    os.execute("uci set firewall.ts_to_lan.src='tailscale'")
+    os.execute("uci set firewall.ts_to_lan.dest='lan'")
+    
+    os.execute("uci set firewall.lan_to_ts=forwarding")
+    os.execute("uci set firewall.lan_to_ts.src='lan'")
+    os.execute("uci set firewall.lan_to_ts.dest='tailscale'")
+    
+    os.execute("uci commit firewall")
+    
+    -- Reload services
+    os.execute("/etc/init.d/network reload")
+    os.execute("/etc/init.d/firewall restart")
+end
+
 function main()
     local body = read_post_body()
     local request = {}
@@ -27,8 +70,9 @@ function main()
     local result = { status = "error", message = "Invalid action" }
 
     if action == "start" then
-        os.execute("/etc/init.d/tailscale start")
+        ensure_tailscale_config()
         os.execute("/etc/init.d/tailscale enable")
+        os.execute("/etc/init.d/tailscale start")
         result = { status = "success" }
         
     elseif action == "stop" then
@@ -41,7 +85,7 @@ function main()
          result = { status = "success" }
 
     elseif action == "get_auth_url" then
-        -- 1. Check existing status first
+        -- ... (Skipped for brevity)
         local raw = exec("tailscale status --json 2>/dev/null")
         local url = nil
         if raw and raw ~= "" then
@@ -51,10 +95,9 @@ function main()
              end
         end
 
-        -- 2. If no URL, try to trigger up
+        -- ... (Skipped for brevity)
         if not url then
             os.execute("echo '' > /tmp/tailscale_login.log")
-            -- Use --reset to force new link if needed? Or just up?
             os.execute("(tailscale up --reset) > /tmp/tailscale_login.log 2>&1 &")
             os.execute("sleep 3")
             
@@ -95,40 +138,7 @@ function main()
         
         -- Apply changes
         if enabled == "1" then
-            -- 1. Deep Cleanup to avoid conflicts (Deletes duplicates/bad IDs)
-            os.execute("uci delete firewall.tailscale 2>/dev/null")
-            os.execute("uci delete firewall.tszone 2>/dev/null")
-            os.execute("uci delete firewall.ts_ac_lan 2>/dev/null")
-            os.execute("uci delete firewall.ts_ac_wan 2>/dev/null")
-            os.execute("uci delete firewall.lan_ac_ts 2>/dev/null")
-            os.execute("uci delete firewall.ts_to_lan 2>/dev/null")
-            os.execute("uci delete firewall.lan_to_ts 2>/dev/null")
-            
-            -- Delete any nameless forwardings containing tailscale
-            os.execute("for i in $(uci show firewall | grep forwarding | grep tailscale | cut -d'.' -f2 | cut -d'=' -f1); do uci delete firewall.$i 2>/dev/null; done")
-
-            -- 2. Professional Setup (Best Practices)
-            os.execute("uci set firewall.tszone=zone")
-            os.execute("uci set firewall.tszone.name='tailscale'")
-            os.execute("uci set firewall.tszone.input='ACCEPT'")
-            os.execute("uci set firewall.tszone.forward='ACCEPT'")
-            os.execute("uci set firewall.tszone.output='ACCEPT'")
-            os.execute("uci set firewall.tszone.network='tailscale'")
-            os.execute("uci set firewall.tszone.masq='1'")
-            os.execute("uci set firewall.tszone.mtu_fix='1'")
-            
-            -- Bidirectional Forwarding
-            os.execute("uci set firewall.ts_to_lan=forwarding")
-            os.execute("uci set firewall.ts_to_lan.src='tailscale'")
-            os.execute("uci set firewall.ts_to_lan.dest='lan'")
-            
-            os.execute("uci set firewall.lan_to_ts=forwarding")
-            os.execute("uci set firewall.lan_to_ts.src='lan'")
-            os.execute("uci set firewall.lan_to_ts.dest='tailscale'")
-            
-            os.execute("uci commit firewall")
-            os.execute("/etc/init.d/firewall restart")
-
+            ensure_tailscale_config()
             os.execute("/etc/init.d/tailscale enable")
             os.execute("/etc/init.d/tailscale restart")
         else
