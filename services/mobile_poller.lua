@@ -509,10 +509,19 @@ end
 
 local function check_and_fix_modem_config()
     local current_dev = exec("uci -q get network.5G.device"):gsub("\n", "")
-    if current_dev == "" or current_dev == "nil" then
+    local dev_valid = false
+    
+    -- Check if configured device actually exists
+    if current_dev ~= "" and current_dev ~= "nil" then
+         if file_exists(current_dev) then
+             dev_valid = true
+         end
+    end
+
+    if not dev_valid then
         local detected = find_modem_device()
         if detected then
-            os.execute("logger -t VWRT_POLLER 'Missing device config. Auto-fixing to: " .. detected .. "'")
+            os.execute("logger -t VWRT_POLLER 'Invalid/Missing device config (" .. current_dev .. "). Auto-fixing to: " .. detected .. "'")
             os.execute("uci set network.5G.device='" .. detected .. "' && uci commit network && /etc/init.d/network reload")
             -- Wait for network to settle
             os.execute("sleep 5")
@@ -658,7 +667,7 @@ function main()
                 local sys_uptime = tonumber(uptime_raw) or 0
                 
                 local ping_ok = 0
-                if sys_uptime > 180 then
+                if sys_uptime > 60 then
                      ping_ok = os.execute("ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1")
                      if ping_ok ~= 0 then
                           ping_ok = os.execute("ping -c 1 -W 2 1.1.1.1 >/dev/null 2>&1")
@@ -797,6 +806,14 @@ function main()
                 if not is_pending then
                     if acquire_lock() then
                         drain_tty(port)
+
+                        -- Check and enforce CFUN=1 (Low Power / Offline fix)
+                        local cfun_state = exec_at_tty(port, "AT+CFUN?")
+                        if cfun_state and (cfun_state:find("CFUN: 0") or cfun_state:find("CFUN: 4")) then
+                             os.execute("logger -t VWRT_POLLER 'Modem in Low Power Mode. Forcing Online (CFUN=1)...'")
+                             exec_at_tty(port, "AT+CFUN=1")
+                             os.execute("sleep 2")
+                        end
                     
                         -- 1. Signal / Cell Info 
                         local combined_raw = exec_at_tty(port, "AT+GTCCINFO?;+GTCAINFO?;+GTSENRDTEMP=1;+CSQ")
