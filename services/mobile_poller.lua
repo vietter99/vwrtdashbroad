@@ -636,6 +636,7 @@ function main()
     end
 
     local loop_count = 0
+    local pending_start_time = 0
     while true do
         -- Auto-Healing every 20 cycles (~100 seconds)
         -- Only run if interface is NOT up
@@ -712,6 +713,36 @@ function main()
             -- Detect if 5G interface is setting up. 
             local if_status_raw = exec("ifstatus 5G")
             local is_pending = if_status_raw and if_status_raw:find('"pending": true')
+
+
+
+            -- Stuck Pending Logic (Auto Restart Interface if stuck > 60s using os.time)
+            if is_pending then
+                if pending_start_time == 0 then
+                    pending_start_time = os.time()
+                elseif os.time() - pending_start_time > 60 then
+                    os.execute("logger -t VWRT_POLLER 'Interface 5G stuck in PENDING state (>60s). Hard Resetting...'")
+                    
+                    -- 1. Shutdown Interface (Frees the AT port)
+                    os.execute("ifdown 5G")
+                    os.execute("sleep 5")
+
+                    -- 2. Force Modem Online (Safe now)
+                    local port = get_fm350_port()
+                    if acquire_lock() then
+                        os.execute("logger -t VWRT_POLLER 'Forcing Modem Online (CFUN=1) while interface is down...'")
+                        exec_at_tty(port, "AT+CFUN=1")
+                        release_lock()
+                    end
+                    os.execute("sleep 2")
+
+                    -- 3. Restart Interface
+                    os.execute("ifup 5G")
+                    pending_start_time = 0
+                end
+            else
+                pending_start_time = 0
+            end
 
             local is_fm350 = is_atc_mode() -- Check mode
 
@@ -807,15 +838,15 @@ function main()
                     if acquire_lock() then
                         drain_tty(port)
 
-                        -- Check and enforce CFUN=1 (Low Power / Offline fix)
+                        -- Check and enforce CFUN=1 (Standard maintenance)
                         local cfun_state = exec_at_tty(port, "AT+CFUN?")
                         if cfun_state and (cfun_state:find("CFUN: 0") or cfun_state:find("CFUN: 4")) then
                              os.execute("logger -t VWRT_POLLER 'Modem in Low Power Mode. Forcing Online (CFUN=1)...'")
                              exec_at_tty(port, "AT+CFUN=1")
                              os.execute("sleep 2")
                         end
-                    
-                        -- 1. Signal / Cell Info 
+
+                                -- 1. Signal / Cell Info 
                         local combined_raw = exec_at_tty(port, "AT+GTCCINFO?;+GTCAINFO?;+GTSENRDTEMP=1;+CSQ")
                         local s1 = fm350_parser.parse_all_signal(combined_raw)
                         
@@ -998,7 +1029,9 @@ function main()
                 end
             end
         end
-        local sleep_time = is_fm350 and 15 or 5
+        
+        -- Re-check mode for sleep time (Variable scope fix)
+        local sleep_time = is_atc_mode() and 15 or 5
         os.execute("sleep " .. sleep_time)
     end
 end
