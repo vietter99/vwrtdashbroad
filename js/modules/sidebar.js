@@ -62,6 +62,15 @@ const SidebarModule = {
     showFeature: function(featureName) {
         this.close();
         
+        // Handle Dashboard/Home separately to prevent "Under Development" alert
+        if(featureName === 'dashboard') {
+            // Update active state in UI
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            const dashLink = document.querySelector(`[onclick*="showFeature('dashboard')"]`);
+            if(dashLink) dashLink.classList.add('active');
+            return;
+        }
+
         let title = "";
         let desc = "Tính năng này đang được phát triển.";
         
