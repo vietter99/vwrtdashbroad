@@ -41,7 +41,7 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: "Segoe UI", sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 body {
   background: var(--bg-body);
@@ -212,12 +212,19 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: var(--bg-card);
+  background: rgba(255, 255, 255, 0.8);
   padding: 10px 20px;
   border-radius: 12px;
   box-shadow: var(--shadow);
   margin-bottom: 20px;
   height: 70px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  position: relative;
+  z-index: 899;
+}
+[data-theme="dark"] .top-header {
+  background: rgba(45, 55, 72, 0.8);
 }
 .header-title h1 {
   font-size: 18px;
@@ -312,6 +319,46 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+[data-theme="dark"] .card:hover {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.5; }
+  80% { transform: scale(2.0); opacity: 0; }
+  100% { transform: scale(2.0); opacity: 0; }
+}
+.pulse-dot-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #48bb78;
+  border-radius: 50%;
+  position: relative;
+  z-index: 2;
+}
+.pulse-dot::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 16px;
+  height: 16px;
+  background-color: #48bb78;
+  border-radius: 50%;
+  z-index: 1;
+  animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
 }
 
 .card-header-compact {
@@ -852,10 +899,10 @@ body {
   bottom: 0;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(5px);
-  z-index: 2000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  z-index: 9999;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   opacity: 0;
   visibility: hidden;
   transition: all 0.3s ease;
@@ -868,10 +915,13 @@ body {
   background: var(--bg-card);
   width: 90%;
   max-width: 400px;
-  padding: 30px;
+  height: auto !important;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 25px;
   border-radius: 20px;
   text-align: center;
-  box-shadow: var(--shadow);
+  box-shadow: 0 15px 35px rgba(0,0,0,0.2);
   transform: scale(0.8);
   opacity: 0;
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -1291,21 +1341,38 @@ input:checked + .slider:before {
   /* Fix Popup Mobile */
   .popup-box {
     position: fixed !important;
-    top: 50% !important;
+    top: 70px !important;
     left: 50% !important;
-    transform: translate(-50%, -50%) !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translateX(-50%) !important;
     width: 90vw !important;
     max-width: 350px;
-    max-height: 80vh;
+    max-height: calc(100vh - 90px);
     overflow-y: auto;
     z-index: 99999 !important;
-    box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.5) !important;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5), 0 8px 30px rgba(0,0,0,0.3) !important;
     border-radius: 12px;
+    background: var(--bg-card) !important;
   }
+  
+  /* Mwan3 Mobile Table Override */
+  .mw-table { border-spacing: 0 !important; }
+  .mw-table thead { display: none !important; }
+  .mw-table tbody tr { display: block !important; border: 1px solid var(--border-color) !important; border-radius: 12px !important; padding: 15px !important; margin-bottom: 15px !important; background: var(--bg-card) !important; }
+  .mw-table tbody td { display: flex !important; justify-content: space-between !important; align-items: center !important; padding: 10px 0 !important; border: none !important; border-radius: 0 !important; text-align: right !important; }
+  .mw-table tbody td:not(:last-child) { border-bottom: 1px dashed var(--border-color) !important; }
+  .mw-table tbody td::before { content: attr(data-label); font-weight: 600; color: var(--text-sub); font-size: 13px; text-transform: uppercase; }
+  .mw-table tbody td .mw-input-modern { margin: 0 !important; max-width: 160px !important; text-align: right !important; }
+  .mw-guide-box .mw-guide-ul { padding-left: 20px !important; list-style-position: outside !important; }
+  .mw-status-item { min-width: 0 !important; flex: 1 1 calc(50% - 8px) !important; padding: 12px !important; overflow: hidden !important; }
+  .mw-status-item .status-label { font-size: 16px !important; }
+  .mw-status-item .status-text { white-space: nowrap !important; font-size: 11px !important; }
   .modal-box {
     width: 95%;
-    padding: 15px;
-    max-height: 90vh;
+    padding: 20px;
+    height: auto !important;
+    max-height: 85vh;
     overflow-y: auto;
   }
 
@@ -1591,33 +1658,9 @@ body.dark .custom-select {
   background: #2b6cb0;
 }
 
-/* --- CSS CHO MODAL XÁC NHẬN --- */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-  backdrop-filter: blur(2px);
-}
+/* Removed duplicate modal definitions to prevent conflicts */
 .modal-overlay.hidden {
-  display: none;
-}
-.modal-box {
-  background: var(--bg-card, #2d3748);
-  color: var(--text-main, #fff);
-  padding: 20px;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 400px;
-  text-align: center;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-  border: 1px solid var(--border-color, #4a5568);
+  display: none !important;
 }
 .modal-actions {
   display: flex;
@@ -1704,7 +1747,8 @@ body.dark .custom-select {
 .text-blue { color: #3182ce; }
 
 /* Modal Button Accessibility Fix on Mobile */
+/* Modal Button Accessibility Fix on Mobile */
 @media (max-width: 768px) {
-  .modal-overlay { align-items: flex-start !important; padding: 20px 10px !important; overflow-y: auto !important; }
-  .modal-box { margin-bottom: 50px !important; transform: none !important; opacity: 1 !important; }
+  .modal-overlay { align-items: center !important; justify-content: center !important; padding: 15px !important; }
+  .modal-box { margin-bottom: 0 !important; transform: scale(1) !important; opacity: 1 !important; height: auto !important; }
 }

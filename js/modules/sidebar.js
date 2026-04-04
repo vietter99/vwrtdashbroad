@@ -144,6 +144,15 @@ const SidebarModule = {
             return;
         }
 
+        if(featureName === 'stats') {
+            if(typeof StatsModule !== 'undefined') {
+                StatsModule.showModal();
+            } else {
+                Toast.show("Đang khởi tạo Thống kê...", "info");
+            }
+            return;
+        }
+
 
 
         // Default: Feature not implemented

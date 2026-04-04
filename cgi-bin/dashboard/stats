@@ -121,6 +121,8 @@ function get_other_sys_info()
     -- Dynamic WAN Traffic Aggregation
     local wan_interfaces = {}
     local total_lan = 0
+    local rx_total = 0
+    local tx_total = 0
     local lan_iface_list = ""
 
     -- 1. Find networks in 'wan' zone
@@ -153,6 +155,8 @@ function get_other_sys_info()
         local tx = read_file("/sys/class/net/" .. iface .. "/statistics/tx_bytes")
         if rx or tx then
             total_lan = total_lan + (tonumber(rx) or 0) + (tonumber(tx) or 0)
+            rx_total = rx_total + (tonumber(rx) or 0)
+            tx_total = tx_total + (tonumber(tx) or 0)
             lan_iface_list = lan_iface_list .. (lan_iface_list == "" and "" or "+") .. iface
             found_wan = true
         end
@@ -167,6 +171,8 @@ function get_other_sys_info()
         local rx = read_file("/sys/class/net/" .. fallback_iface .. "/statistics/rx_bytes")
         local tx = read_file("/sys/class/net/" .. fallback_iface .. "/statistics/tx_bytes")
         total_lan = (tonumber(rx) or 0) + (tonumber(tx) or 0)
+        rx_total = (tonumber(rx) or 0)
+        tx_total = (tonumber(tx) or 0)
         lan_iface_list = fallback_iface
     end
     
@@ -175,7 +181,7 @@ function get_other_sys_info()
     local f_mod = io.open("/tmp/sysinfo/model", "r")
     if f_mod then model = f_mod:read("*all"):gsub("\n","") f_mod:close() end
 
-    return { uptime = uptime, temp = degree, lan_total = total_lan, model = model, interface = lan_iface_list }
+    return { uptime = uptime, temp = degree, lan_total = total_lan, rx_total = rx_total, tx_total = tx_total, model = model, interface = lan_iface_list }
 end
 
 -- === DATA COLLECTOR ===
@@ -188,7 +194,9 @@ local sys_data = {
     rom = get_rom(),
     uptime = sys_extra.uptime,
     temp = sys_extra.temp,
-    lan_total = sys_extra.lan_total
+    lan_total = sys_extra.lan_total,
+    rx_total = sys_extra.rx_total,
+    tx_total = sys_extra.tx_total
 }
 
 -- Mobile Data

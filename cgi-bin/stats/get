@@ -1,0 +1,66 @@
+#!/usr/bin/lua
+
+local cjson = require "cjson"
+
+-- Paths
+local history_path = "/usr/lib/vwrt/stats/history.json"
+local today_path = "/tmp/vwrt_stats_today.json"
+local collector_path = "/www/vwrt/cgi-bin/stats/collector.lua"
+
+-- [BOOTSTRAP] Tự động cài đặt khi người dùng mở Dashboard
+local function bootstrap()
+    -- 1. Cấp quyền thực thi cho file collector
+    os.execute("chmod +x " .. collector_path)
+    
+    -- 2. Kiểm tra và cài đặt Cron (lập lịch 5 phút)
+    local check_cron = os.execute("crontab -l 2>/dev/null | grep -q 'collector.lua'")
+    if check_cron ~= 0 then
+        -- Nếu chưa có cron, chèn vào ngay (Chế độ 5 phút cho Bản Chính Thức)
+        os.execute("(crontab -l 2>/dev/null | grep -v 'collector.lua'; echo '*/5 * * * * " .. collector_path .. "') | crontab -")
+    end
+    
+    -- 3. Chạy collector 1 lần để đảm bảo có file dữ liệu ngay
+    if os.execute("ls " .. today_path .. " >/dev/null 2>&1") ~= 0 then
+        os.execute(collector_path)
+    end
+end
+
+-- Helper to read file
+local function read_file(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local s = f:read("*all")
+    f:close()
+    return s
+end
+
+-- --- THỦ TỤC TRẢ VỀ DỮ LIỆU ---
+print("Content-Type: application/json")
+print("Cache-Control: no-cache, no-store, must-revalidate")
+print("Pragma: no-cache")
+print("Expires: 0")
+print("\n")
+
+-- Chạy Bootstrap để đảm bảo hệ thống luôn sẵn sàng
+pcall(bootstrap)
+
+local stats = {
+    today = { traffic = 0, devices = 0, services = {} },
+    history = {}
+}
+
+-- Load Today data
+local today_raw = read_file(today_path)
+if today_raw then
+    local ok, decoded = pcall(cjson.decode, today_raw)
+    if ok then stats.today = decoded end
+end
+
+-- Load History data
+local history_raw = read_file(history_path)
+if history_raw then
+    local ok, decoded = pcall(cjson.decode, history_raw)
+    if ok then stats.history = decoded end
+end
+
+print(cjson.encode({ status = "success", data = stats }))

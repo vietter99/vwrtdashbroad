@@ -55,6 +55,9 @@
     border-radius: 16px;
     width: 90%; 
     max-width: 420px;
+    height: auto !important;
+    max-height: 85vh;
+    overflow-y: auto;
     box-shadow: 0 20px 50px rgba(0,0,0,0.3);
     animation: popupIn 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
 }

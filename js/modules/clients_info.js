@@ -337,7 +337,7 @@ const ClientsModule = {
             maxWidth: "400px",
             showIcon: false,
             content: `
-            <div style="text-align:left;">
+            <div style="text-align:left; min-height:auto;">
                 <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:20px;">
                     <div style="width:60px; height:60px; background:var(--bg-body); border-radius:18px; display:flex; align-items:center; justify-content:center; color:var(--accent-color); margin-bottom:10px;">
                          ${this.getDeviceIcon(client.name).replace('width="20"', 'width="32"').replace('height="20"', 'height="32"')}
@@ -362,13 +362,13 @@ const ClientsModule = {
                         </div>
                         <div>
                             <span style="font-size:11px; color:var(--text-sub); display:block; margin-bottom:2px;">Tổng Data</span>
-                            <span style="font-weight:600;">${VWRT_API.formatBytes(client.total)}</span>
+                            <span style="font-weight:600;">${this.formatBytes(client.total)}</span>
                         </div>
                     </div>
                 </div>
 
                 <div style="display:grid; grid-template-columns:1fr; gap:10px;">
-                    <button class="btn-modal btn-danger" onclick="ClientsModule.toggleBlock('${client.mac}', true)" style="width:100%; justify-content:center; padding:12px;">
+                    <button class="btn-modal btn-danger" onclick="ClientsModule.toggleBlock('${client.mac}', true)" style="width:100%; justify-content:center; padding:12px; border-radius:12px; background:#fff5f5; color:#c53030; border:1px solid #feb2b2; cursor:pointer;">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px;"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
                         Chặn truy cập Internet
                     </button>

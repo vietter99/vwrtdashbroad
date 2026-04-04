@@ -24,7 +24,6 @@ const SettingsModule = {
                     }
                     if(btn) {
                         btn.style.color = "#e53e3e";
-                        btn.style.animation = "pulse 1.5s infinite";
                     }
                 } else {
                     // Already set to stable state by default
@@ -37,16 +36,13 @@ const SettingsModule = {
         const luciPath = `${window.location.protocol}//${window.location.hostname}/cgi-bin/luci`;
 
         container.innerHTML = `
-            <div class="settings-menu" style="background:transparent; padding:5px; gap:15px; color:var(--text-main);">
+            <div class="settings-menu" style="background:transparent; padding:0; gap:15px; color:var(--text-main);">
                 
                 <!-- 1. SYSTEM STATUS CARD (Mint accent, theme aware) -->
                 <div id="sys-status-card" class="setting-card" style="background:var(--card-status-bg, linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%)); border:1px solid var(--card-status-border, #81e6d9); border-radius:12px; padding:15px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
                     <div>
                         <div style="font-size:10px; font-weight:700; color:var(--card-status-label, #2c7a7b); text-transform:uppercase; letter-spacing:0.5px;">Hệ thống & Cập nhật</div>
                         <div style="font-size:15px; font-weight:800; color:var(--card-status-text, #234e52); margin-top:2px;" id="cur-ver-text">Đang tải...</div>
-                        <div style="font-size:11px; color:var(--card-status-sub, #285e61); margin-top:2px; display:flex; align-items:center; gap:4px;" id="update-status-text">
-                            <span style="width:6px; height:6px; background:#38b2ac; border-radius:50%;"></span> Hệ thống ổn định
-                        </div>
                     </div>
                     <button id="btn-check-update" onclick="SettingsModule.showUpdatePopup()" style="width:40px; height:40px; border-radius:10px; background:var(--bg-card); border:none; color:#319795; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,0.05); transition:transform 0.2s;">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
@@ -290,16 +286,16 @@ const SettingsModule = {
         document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
 
         const html = `
-            <div class="modal-overlay active" id="modal-passwd" style="z-index:99999;">
-                <div class="modal-box" style="max-width:350px; background:var(--bg-card); color:var(--text-main);">
-                    <h3 style="color:var(--text-main);">Đổi mật khẩu Admin</h3>
-                    <div style="text-align:left; margin:15px 0;">
-                        <label style="font-size:12px; font-weight:bold; color:var(--text-sub);">Mật khẩu mới:</label>
-                        <input type="password" id="new-pass" placeholder="Nhập pass mới..." style="width:100%; padding:10px; margin-top:5px; border:1px solid var(--border-color); border-radius:8px; background:var(--bg-body); color:var(--text-main); outline:none;">
+            <div class="modal-overlay active" id="modal-passwd" style="z-index:99999; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4); position:fixed; top:0; left:0; width:100%; height:100%;">
+                <div class="modal-box" style="max-width:350px; width:90%; height:auto; padding:20px; border-radius:15px; background:var(--bg-card); color:var(--text-main); position:relative; box-shadow:0 10px 30px rgba(0,0,0,0.1);">
+                    <h3 style="color:var(--text-main); margin:0 0 15px 0; text-align:center;">Đổi mật khẩu Admin</h3>
+                    <div style="text-align:left; margin-bottom:20px;">
+                        <label style="font-size:12px; font-weight:bold; color:var(--text-sub); display:block; margin-bottom:8px;">Mật khẩu mới:</label>
+                        <input type="password" id="new-pass" placeholder="Nhập pass mới..." style="width:100%; padding:12px; border:1px solid var(--border-color); border-radius:10px; background:var(--bg-body); color:var(--text-main); outline:none; box-sizing:border-box;">
                     </div>
-                    <div class="modal-actions">
-                        <button class="btn-modal btn-secondary" onclick="document.getElementById('modal-passwd').remove()">Hủy</button>
-                        <button class="btn-modal btn-primary" onclick="SettingsModule.doChangePassword()">Lưu thay đổi</button>
+                    <div class="modal-actions" style="display:flex; justify-content:center; gap:12px;">
+                        <button class="btn-modal btn-secondary" onclick="document.getElementById('modal-passwd').remove()" style="padding:10px 25px; border-radius:10px; background:rgba(144, 205, 244, 0.1); color:var(--text-sub); border:none;">Hủy</button>
+                        <button class="btn-modal btn-primary" onclick="SettingsModule.doChangePassword()" style="padding:10px 25px; border-radius:10px; background:var(--accent-color); color:white; border:none; box-shadow:0 4px 12px rgba(49,130,206,0.3);">Lưu thay đổi</button>
                     </div>
                 </div>
             </div>

@@ -4,10 +4,14 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>VWRT | Dashboard</title>
-        <link rel="stylesheet" href="css/dashboard.css" />
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="css/dashboard.css?v=2002" />
         <link rel="stylesheet" href="css/toast.css" />
         <link rel="stylesheet" href="css/wifi.css" />
         <link rel="stylesheet" href="css/sms.css" />
+        <link rel="stylesheet" href="css/stats.css?v=2002" />
     </head>
     <body>
         <div class="overlay" id="overlay"></div>
@@ -47,6 +51,23 @@
                             <rect x="3" y="14" width="7" height="7"></rect>
                         </svg>
                         Dashboard
+                    </a>
+                    <a
+                        href="#"
+                        class="nav-link"
+                        onclick="SidebarModule.showFeature('stats')"
+                    >
+                        <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path d="M18 20V10M12 20V4M6 20v-6"></path>
+                        </svg>
+                        Thống kê
                     </a>
                     <a
                         href="#"
@@ -408,6 +429,9 @@
                                             ></div>
                                         </div>
                                     </div>
+                                    <div style="margin-top: 15px; height: 60px;">
+                                        <canvas id="networkSpeedChart"></canvas>
+                                    </div>
                                 </div>
                             </div>
 
@@ -507,6 +531,9 @@
                                                 style="width: 0%"
                                             ></div>
                                         </div>
+                                        <div style="margin-top: 10px; height: 60px;">
+                                            <canvas id="mobileSignalChart"></canvas>
+                                        </div>
                                     </div>
                                     <div class="mob-info-grid">
                                         <div class="mob-box">
@@ -558,44 +585,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="mob-stats-footer">
-                                        <div class="stat-pill-box">
-                                            <span class="mob-stat-lbl"
-                                                >RSRP</span
-                                            ><span
-                                                id="mob-card-rsrp"
-                                                class="mob-stat-val val-green"
-                                                >--</span
-                                            >
-                                        </div>
-                                        <div class="stat-pill-box">
-                                            <span class="mob-stat-lbl"
-                                                >SINR</span
-                                            ><span
-                                                id="mob-card-sinr"
-                                                class="mob-stat-val val-blue"
-                                                >--</span
-                                            >
-                                        </div>
-                                        <div class="stat-pill-box">
-                                            <span class="mob-stat-lbl"
-                                                >RSRQ</span
-                                            ><span
-                                                id="mob-card-rsrq"
-                                                class="mob-stat-val val-purple"
-                                                >--</span
-                                            >
-                                        </div>
-                                        <div class="stat-pill-box">
-                                            <span class="mob-stat-lbl"
-                                                >RSSI</span
-                                            ><span
-                                                id="mob-card-rssi"
-                                                class="mob-stat-val val-orange"
-                                                >--</span
-                                            >
-                                        </div>
-                                    </div>
+                                    <!-- .mob-stats-footer removed for clean minimalist UI -->
                                 </div>
                             </div>
                         </div>
@@ -785,17 +775,20 @@
         <script src="js/modules/theme.js?v=2"></script>
         <script src="js/modules/mobile_info.js?v=4"></script>
         <script src="js/modules/wifi_info.js?v=2"></script>
-        <script src="js/modules/system_info.js?v=2"></script>
+        <script src="js/modules/system_info.js?v=3"></script>
         <script src="js/modules/network_info.js?v=5"></script>
         <script src="js/modules/sms_info.js?v=2"></script>
-        <script src="js/modules/settings.js?v=2"></script>
+        <script src="js/modules/settings.js?v=2000"></script>
         <script src="js/modules/adblock.js?v=6"></script>
         <script src="js/modules/led.js?v=2"></script>
         <script src="js/modules/tailscale.js?v=1"></script>
-        <script src="js/modules/mwan3.js?v=2"></script>
+        <script src="js/modules/mwan3.js?v=9"></script>
+        <script src="js/modules/stats_info.js?v=2000"></script>
         <script src="js/modules/reboot_schedule.js?v=3"></script>
-        <script src="js/modules/clients_info.js?v=4"></script>
+        <script src="js/modules/clients_info.js?v=2000"></script>
         <script src="js/modules/lan.js?v=12"></script>
+        <script src="lib/chart.min.js"></script>
+        <script src="js/modules/charts.js?v=2"></script>
 
         <script src="js/modules/sidebar.js?v=5"></script>
         <script src="js/dashboard.js?v=2"></script>

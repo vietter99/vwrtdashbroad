@@ -231,6 +231,10 @@ const MobileModule = {
             elSigBar.style.width = `${signal}%`;
             if(elSigText) elSigText.innerText = `${signal}%`;
             elSigBar.style.background = signal > 70 ? '#48bb78' : (signal > 30 ? '#ed8936' : '#e53e3e');
+            
+            if (typeof ChartsModule !== 'undefined') {
+                ChartsModule.updateMobileSignal(signal);
+            }
         }
 
         // Update Ping

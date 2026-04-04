@@ -92,6 +92,27 @@ const SystemModule = {
             const totalStr = this.formatBytes(data.rom.total);
             document.getElementById('rom-text').innerText = `${usedStr} / ${totalStr}`;
         }
+
+        // --- 6. Network Speed Chart ---
+        if (typeof ChartsModule !== 'undefined' && data.rx_total !== undefined && data.tx_total !== undefined) {
+            let now = Date.now();
+            if (this.lastRx !== undefined && this.lastTx !== undefined && this.lastTime) {
+                let timeDiff = (now - this.lastTime) / 1000; // seconds
+                if (timeDiff > 0) {
+                    let rxSpeed = Math.max(0, (data.rx_total - this.lastRx) / timeDiff); // Bytes/sec
+                    let txSpeed = Math.max(0, (data.tx_total - this.lastTx) / timeDiff); // Bytes/sec
+                    
+                    // Convert to Mbps: Bytes/sec * 8 / 1024 / 1024
+                    let rxMbps = (rxSpeed * 8 / 1048576).toFixed(2);
+                    let txMbps = (txSpeed * 8 / 1048576).toFixed(2);
+                    
+                    ChartsModule.updateNetworkSpeed(Number(rxMbps), Number(txMbps));
+                }
+            }
+            this.lastRx = data.rx_total;
+            this.lastTx = data.tx_total;
+            this.lastTime = now;
+        }
     },
 
     freeRam: function() {
