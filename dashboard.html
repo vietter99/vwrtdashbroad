@@ -7,11 +7,11 @@
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-        <link rel="stylesheet" href="css/dashboard.css?v=2002" />
+        <link rel="stylesheet" href="css/dashboard.css?v=3000" />
         <link rel="stylesheet" href="css/toast.css" />
         <link rel="stylesheet" href="css/wifi.css" />
         <link rel="stylesheet" href="css/sms.css" />
-        <link rel="stylesheet" href="css/stats.css?v=2002" />
+        <link rel="stylesheet" href="css/stats.css?v=3000" />
     </head>
     <body>
         <div class="overlay" id="overlay"></div>
@@ -297,7 +297,7 @@
                         <div class="cards-track">
                             <div class="card card-system">
                                 <div class="card-header-compact">
-                                    <div class="card-icon-small bg-blue-light">
+                                    <div class="icon-premium icon-grad-blue">
                                         <svg
                                             width="20"
                                             height="20"
@@ -429,164 +429,44 @@
                                             ></div>
                                         </div>
                                     </div>
-                                    <div style="margin-top: 15px; height: 60px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; margin-bottom: 5px; font-size: 11px; font-weight: 700;">
+                                        <span id="sys-rx-speed" style="color: #48bb78;">↓ 0.00 Mbps</span>
+                                        <span id="sys-tx-speed" style="color: #3182ce;">↑ 0.00 Mbps</span>
+                                    </div>
+                                    <div style="height: 60px;">
                                         <canvas id="networkSpeedChart"></canvas>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- CARD MOBILE (Row 1 Right) -->
                             <div
                                 class="card card-system mobile-card-layout"
                                 id="card-mobile"
                             >
-                                <div class="card-header-compact">
-                                    <!-- Clickable area: ONLY the Globe Icon -->
-                                    <div
-                                        style="
-                                            display: flex;
-                                            align-items: center;
-                                            gap: 12px;
-                                            flex: 1;
-                                        "
-                                    >
-                                        <div
-                                            class="card-icon-small bg-green-light"
-                                            onclick="
-                                                MobileModule.showModemDetails()
-                                            "
-                                            style="margin: 0; cursor: pointer"
-                                            title="Xem chi tiết modem"
-                                        >
-                                            <svg
-                                                width="20"
-                                                height="20"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="2"
-                                            >
-                                                <circle
-                                                    cx="12"
-                                                    cy="12"
-                                                    r="10"
-                                                ></circle>
-                                                <line
-                                                    x1="2"
-                                                    y1="12"
-                                                    x2="22"
-                                                    y2="12"
-                                                ></line>
-                                                <path
-                                                    d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
-                                                ></path>
-                                            </svg>
-                                        </div>
-                                        <div
-                                            class="header-text-col"
-                                            style="margin: 0"
-                                        >
-                                            <h3 style="margin: 0">Nhà mạng</h3>
-                                            <div
-                                                class="model-name"
-                                                id="mob-card-operator"
-                                            >
-                                                <div
-                                                    class="skeleton"
-                                                    style="
-                                                        width: 80px;
-                                                        height: 18px;
-                                                    "
-                                                ></div>
+                                <div class="premium-skeleton" style="padding: 18px; width: 100%; box-sizing: border-box; opacity: 0.4;">
+                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                                        <div style="display:flex; align-items:center; gap:12px;">
+                                            <div class="skeleton" style="width:40px; height:40px; border-radius:12px;"></div>
+                                            <div style="display:flex; flex-direction:column; gap:4px;">
+                                                <div class="skeleton" style="width:100px; height:16px;"></div>
+                                                <div class="skeleton" style="width:150px; height:12px;"></div>
                                             </div>
                                         </div>
                                     </div>
-                                    <div
-                                        id="mob-card-type"
-                                        class="mob-badge-right"
-                                    >
-                                        <div
-                                            class="skeleton"
-                                            style="width: 40px; height: 16px"
-                                        ></div>
+                                    <div style="margin-bottom:10px;">
+                                        <div class="skeleton" style="width:100%; height:8px; border-radius:10px;"></div>
+                                    </div>
+                                    <div style="height:45px; margin-bottom:12px;">
+                                        <div class="skeleton" style="width:100%; height:100%; border-radius:8px;"></div>
+                                    </div>
+                                    <div class="mobile-info-grid">
+                                        <div class="grid-item" style="background:var(--icon-bg); border-radius:10px; padding:10px; border:1px solid var(--border-color);"><div class="skeleton" style="width:100%; height:20px;"></div></div>
+                                        <div class="grid-item" style="background:var(--icon-bg); border-radius:10px; padding:10px; border:1px solid var(--border-color);"><div class="skeleton" style="width:100%; height:20px;"></div></div>
+                                        <div class="grid-item" style="background:var(--icon-bg); border-radius:10px; padding:10px; border:1px solid var(--border-color);"><div class="skeleton" style="width:100%; height:20px;"></div></div>
+                                        <div class="grid-item" style="background:var(--icon-bg); border-radius:10px; padding:10px; border:1px solid var(--border-color);"><div class="skeleton" style="width:100%; height:20px;"></div></div>
                                     </div>
                                 </div>
-                                <div class="sys-details-compact">
-                                    <div
-                                        class="sys-progress-group mob-signal-group"
-                                    >
-                                        <div class="sys-row-mini">
-                                            <span class="sys-label"
-                                                >Tín hiệu</span
-                                            ><span
-                                                class="sys-val-mini"
-                                                id="mob-card-signal-text"
-                                                >0%</span
-                                            >
-                                        </div>
-                                        <div class="progress-bg h-8">
-                                            <div
-                                                class="progress-bar bg-green-signal"
-                                                id="mob-card-signal-bar"
-                                                style="width: 0%"
-                                            ></div>
-                                        </div>
-                                        <div style="margin-top: 10px; height: 60px;">
-                                            <canvas id="mobileSignalChart"></canvas>
-                                        </div>
-                                    </div>
-                                    <div class="mob-info-grid">
-                                        <div class="mob-box">
-                                            <div class="mob-label">Band</div>
-                                            <div
-                                                id="mob-card-band"
-                                                class="mob-value"
-                                            >
-                                                <div
-                                                    class="skeleton sk-text"
-                                                ></div>
-                                            </div>
-                                        </div>
-                                        <div class="mob-box">
-                                            <div class="mob-label">
-                                                Nhiệt độ
-                                            </div>
-                                            <div
-                                                id="mob-card-status"
-                                                class="mob-value"
-                                            >
-                                                --
-                                            </div>
-                                        </div>
-                                        <div
-                                            class="mob-box"
-                                            onclick="
-                                                MobileModule.showTTLModal()
-                                            "
-                                            style="cursor: pointer"
-                                        >
-                                            <div class="mob-label">TTL</div>
-                                            <div
-                                                id="mob-card-ttl"
-                                                class="mob-value"
-                                            >
-                                                --
-                                            </div>
-                                        </div>
-                                        <div class="mob-box">
-                                            <div class="mob-label">Ping</div>
-                                            <div
-                                                id="mob-card-ping"
-                                                class="mob-value"
-                                            >
-                                                <div
-                                                    class="skeleton sk-text"
-                                                ></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <!-- .mob-stats-footer removed for clean minimalist UI -->
-                                </div>
+                            </div>
                             </div>
                         </div>
 
@@ -600,16 +480,7 @@
                                 <div class="card">
                                     <div class="card-header-compact">
                                         <div
-                                            class="card-icon-small"
-                                            style="
-                                                background: rgba(
-                                                    237,
-                                                    137,
-                                                    54,
-                                                    0.15
-                                                );
-                                                color: #ed8936;
-                                            "
+                                            class="icon-premium icon-grad-orange"
                                         >
                                             <svg
                                                 width="20"
@@ -673,16 +544,7 @@
                             <div class="card card-system">
                                 <div class="card-header-compact">
                                     <div
-                                        class="card-icon-small"
-                                        style="
-                                            background: rgba(
-                                                49,
-                                                130,
-                                                206,
-                                                0.15
-                                            );
-                                            color: #3182ce;
-                                        "
+                                        class="icon-premium icon-grad-cyan"
                                     >
                                         <svg
                                             width="20"
@@ -773,25 +635,25 @@
         <script src="js/modal.js?v=2"></script>
         <script src="js/modules/header.js?v=2"></script>
         <script src="js/modules/theme.js?v=2"></script>
-        <script src="js/modules/mobile_info.js?v=4"></script>
+        <script src="js/modules/mobile_info.js?v=3000"></script>
         <script src="js/modules/wifi_info.js?v=2"></script>
-        <script src="js/modules/system_info.js?v=3"></script>
-        <script src="js/modules/network_info.js?v=5"></script>
+        <script src="js/modules/system_info.js?v=3000"></script>
+        <script src="js/modules/network_info.js?v=3000"></script>
         <script src="js/modules/sms_info.js?v=2"></script>
-        <script src="js/modules/settings.js?v=2000"></script>
+        <script src="js/modules/settings.js?v=3000"></script>
         <script src="js/modules/adblock.js?v=6"></script>
         <script src="js/modules/led.js?v=2"></script>
         <script src="js/modules/tailscale.js?v=1"></script>
         <script src="js/modules/mwan3.js?v=9"></script>
-        <script src="js/modules/stats_info.js?v=2000"></script>
+        <script src="js/modules/stats_info.js?v=3000"></script>
         <script src="js/modules/reboot_schedule.js?v=3"></script>
-        <script src="js/modules/clients_info.js?v=2000"></script>
+        <script src="js/modules/clients_info.js?v=3000"></script>
         <script src="js/modules/lan.js?v=12"></script>
         <script src="lib/chart.min.js"></script>
         <script src="js/modules/charts.js?v=2"></script>
 
-        <script src="js/modules/sidebar.js?v=2000"></script>
-        <script src="js/dashboard.js?v=2"></script>
+        <script src="js/modules/sidebar.js?v=3000"></script>
+        <script src="js/dashboard.js?v=3000"></script>
         <div
             class="footer-info"
             style="position: fixed; bottom: 10px; left: 0; right: 0"

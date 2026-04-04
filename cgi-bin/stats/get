@@ -60,7 +60,19 @@ end
 local history_raw = read_file(history_path)
 if history_raw then
     local ok, decoded = pcall(cjson.decode, history_raw)
-    if ok then stats.history = decoded end
+    if ok then 
+        stats.history = decoded 
+        -- [RECOVERY] Nếu Today bị mất (do Reboot), khôi phục từ History
+        if (not today_raw or stats.today.traffic == 0) and #stats.history > 0 then
+            local current_day = os.date("%Y-%m-%d")
+            local last_entry = stats.history[#stats.history]
+            if last_entry.date == current_day then
+                stats.today.traffic = last_entry.traffic
+                stats.today.devices = last_entry.devices
+                -- Note: Service breakdown won't be fully recovered but total is saved
+            end
+        end
+    end
 end
 
 print(cjson.encode({ status = "success", data = stats }))

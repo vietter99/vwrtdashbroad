@@ -57,7 +57,7 @@ const WifiModule = {
         if (!container) return;
 
         if (!wifis || wifis.length === 0) {
-            container.innerHTML = '<div class="popup-body">Wifi đang tắt</div>';
+            container.innerHTML = '<div class="popup-body" style="padding:40px; text-align:center; color:var(--text-sub);">Wifi đang tắt</div>';
             return;
         }
 
@@ -86,82 +86,107 @@ const WifiModule = {
         }
 
         let html = `
-            <div class="popup-header-modern" style="align-items: flex-start;">
-                <div class="ph-icon wifi-bg" style="margin-top: 5px;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+            <div class="popup-header-modern" style="padding: 20px; border-bottom: 1px solid var(--border-color); display:flex; align-items:center; gap:15px; background: rgba(255,255,255,0.02);">
+                <div class="ph-icon wifi-bg" style="width:48px; height:48px; border-radius:14px; background: linear-gradient(135deg, #3182ce, #63b3ed); color:white; display:flex; align-items:center; justify-content:center; box-shadow: 0 4px 12px rgba(49, 130, 206, 0.3);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
                 </div>
                 <div class="ph-info">
-                    <h4 style="font-size: 14px; line-height: 1.4; margin-bottom: 2px;">${headerTitle}</h4>
-                    <span>${headerSub}</span>
+                    <h4 style="margin:0; font-size:16px; font-weight:800; color:var(--text-main);">${headerTitle}</h4>
+                    <span style="font-size:12px; color:var(--text-sub); opacity:0.8;">${headerSub}</span>
                 </div>
             </div>
-            <div class="popup-body">
+            <div class="popup-body" style="padding: 20px;">
         `;
 
         wifiList.forEach((group, index) => {
             const passId = `wifi-pass-${index}`;
-            const clientColor = group.totalClients > 0 ? '#3182ce' : '#a0aec0';
+            const isDisabled = !group.items[0].enabled;
             const fmtWidth = (ht) => (ht || '').replace(/[A-Z]+/, '') + 'MHz';
+            
             let tagHtml = '';
-            let metaInfoHtml = ''; 
+            let gridHtml = '';
+            
             if (group.items.length > 1) {
-                tagHtml = `<span class="net-tag" style="background:linear-gradient(90deg, #805ad5, #b794f4); color:white; font-size: 9px;">2.4G + 5G</span>`;
-                const w24 = group.items.find(i => i.band === '2.4GHz');
+                tagHtml = `<span class="net-tag tag-gradient-smart">2.4G + 5G</span>`;
                 const w5 = group.items.find(i => i.band === '5GHz');
+                const w24 = group.items.find(i => i.band === '2.4GHz');
                 
-                metaInfoHtml = `
-                    <div style="font-size: 10px; color: var(--text-sub); margin-bottom: 8px; display:flex; flex-direction:column; gap:2px;">
-                        ${w5 ? `<span style="display:flex; align-items:center; gap:4px;"><span style="width:6px; height:6px; background:#3182ce; border-radius:50%;"></span> 5G: Ch ${w5.channel} (${fmtWidth(w5.conf_htmode)})</span>` : ''}
-                        ${w24 ? `<span style="display:flex; align-items:center; gap:4px;"><span style="width:6px; height:6px; background:#38a169; border-radius:50%;"></span> 2.4G: Ch ${w24.channel} (${fmtWidth(w24.conf_htmode)})</span>` : ''}
+                gridHtml = `
+                    <div class="grid-item">
+                        <span class="grid-label">Channel</span>
+                        <span class="grid-val">${w5 ? '5G:'+w5.channel : ''} ${w24 ? '| 2.4G:'+w24.channel : ''}</span>
+                    </div>
+                    <div class="grid-item">
+                        <span class="grid-label">Bandwidth</span>
+                        <span class="grid-val">${w5 ? fmtWidth(w5.conf_htmode) : '--'}</span>
                     </div>
                 `;
             } else {
                 const item = group.items[0];
-                const colorClass = item.band === '5GHz' ? 'tag-blue' : 'tag-green';
-                tagHtml = `<span class="net-tag ${colorClass}" style="font-size: 9px;">${item.band}</span>`;
+                const cleanBand = item.band.replace(/\(wifi\s*[46]\)/gi, '').trim();
+                const colorClass = item.band === '5GHz' ? 'tag-gradient-blue' : 'tag-gradient-green';
+                tagHtml = `<span class="net-tag ${colorClass}">${cleanBand}</span>`;
                 
-                metaInfoHtml = `
-                    <div style="font-size: 10px; color: var(--text-sub); margin-bottom: 8px; display:flex; align-items:center; gap:5px;">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                        Channel ${item.channel} • ${fmtWidth(item.conf_htmode)}
+                gridHtml = `
+                    <div class="grid-item">
+                        <span class="grid-label">Kênh</span>
+                        <span class="grid-val">Ch ${item.channel || '--'}</span>
+                    </div>
+                    <div class="grid-item">
+                        <span class="grid-label">Băng thông</span>
+                        <span class="grid-val">${fmtWidth(item.conf_htmode)}</span>
                     </div>
                 `;
             }
+
             const mainItem = group.items.find(i => i.band === '5GHz') || group.items[0];
             const dataStr = encodeURIComponent(JSON.stringify(mainItem));
-            
-            // Chống XSS: escape SSID và key
             const safeSSID = window.Security ? Security.escapeHtml(group.ssid) : group.ssid;
             const safeKey = window.Security ? Security.escapeHtml(group.key) : group.key;
 
             html += `
-                <div class="wifi-item">
-                    <div class="wifi-info-row" style="margin-bottom: 2px;">
-                        <span style="display:flex; align-items:center; gap:6px; font-size: 13px;">
-                            ${safeSSID} ${tagHtml}
-                        </span>
+                <div class="wifi-card-modern ${isDisabled ? 'disabled' : ''}">
+                    <!-- Card Header -->
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                        <div style="display:flex; flex-direction:column; gap:4px;">
+                            <span style="font-size:15px; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                                ${safeSSID} ${tagHtml}
+                                ${isDisabled ? '<span class="tag-off">Đã tắt</span>' : ''}
+                            </span>
+                        </div>
                         
-                        <button class="btn-icon-small" onclick="WifiModule.openEditModal('${dataStr}')" title="Cấu hình">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3182ce" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                        </button>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <label class="wifi-switch" title="${group.items[0].enabled ? 'Tắt băng tần' : 'Bật băng tần'}">
+                                <input type="checkbox" ${group.items[0].enabled ? 'checked' : ''} 
+                                    onchange="WifiModule.toggleEnabled('${dataStr}', this.checked)">
+                                <span class="wf-slider"></span>
+                            </label>
+
+                            <button class="btn-icon-small" onclick="WifiModule.openEditModal('${dataStr}')" style="background:var(--icon-bg); border-radius:8px; border:1px solid var(--border-color);">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3182ce" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                            </button>
+                        </div>
                     </div>
 
-                    ${metaInfoHtml}
-                    
-                    <div class="wifi-pass-container">
-                        <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:5px;">
-                            <label style="margin:0; font-size: 11px;">Mật khẩu:</label>
-                            
-                            <div style="font-size:10px; color:${clientColor}; display:flex; align-items:center; gap:3px;">
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                                <strong>${group.totalClients}</strong>
-                            </div>
+                    <!-- Metrics Grid -->
+                    <div class="wifi-grid">
+                        ${gridHtml}
+                        <div class="grid-item">
+                            <span class="grid-label">Thiết bị</span>
+                            <span class="grid-val" style="color:#3182ce;">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:2px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+                                ${group.totalClients}
+                            </span>
                         </div>
+                    </div>
 
-                        <div class="pass-input-group">
-                            <input type="password" value="${safeKey}" id="${passId}" readonly style="font-size: 12px;">
-                            <button class="btn-icon-small" onclick="togglePass('${passId}')">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    <!-- Password Box -->
+                    <div style="margin-top:15px;">
+                        <label style="font-size:10px; color:var(--text-sub); text-transform:uppercase; margin-bottom:6px; display:block; letter-spacing:0.5px;">Mật khẩu Wifi</label>
+                        <div class="wifi-pass-box">
+                            <span id="${passId}">••••••••</span>
+                            <button class="btn-icon-small" onclick="WifiModule.togglePass('${passId}', '${safeKey.replace(/'/g, "\\'")}')" style="color:var(--text-sub); opacity:0.7;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                             </button>
                         </div>
                     </div>
@@ -169,15 +194,27 @@ const WifiModule = {
             `;
         });
 
-        html += `
-
-            </div>
-        `;
-
+        html += `</div>`;
         container.innerHTML = html;
     },
 
-openEditModal: function(dataStr) {
+    togglePass: function(id, actualKey) {
+        const el = document.getElementById(id);
+        if(!el) return;
+        if(el.innerText === '••••••••') {
+            el.innerText = actualKey || "Trống";
+            el.style.fontFamily = 'inherit';
+            el.style.fontWeight = 'bold';
+            el.style.color = '#3182ce';
+        } else {
+            el.innerText = '••••••••';
+            el.style.fontFamily = 'monospace';
+            el.style.fontWeight = 'normal';
+            el.style.color = 'var(--text-main)';
+        }
+    },
+
+    openEditModal: function(dataStr) {
         const w = JSON.parse(decodeURIComponent(dataStr));
         const is5G = w.band === "5GHz";
         
@@ -200,7 +237,8 @@ openEditModal: function(dataStr) {
         if (w.caps && Array.isArray(w.caps) && w.caps.length > 0) {
             w.caps.forEach(opt => {
                 const isSelected = w.conf_htmode === opt.val ? 'selected' : '';
-                modeOptions += `<option value="${opt.val}" ${isSelected}>${opt.label}</option>`;
+                const cleanLabel = opt.label.replace(/\(Wifi\s*[46]\)/gi, '').trim();
+                modeOptions += `<option value="${opt.val}" ${isSelected}>${cleanLabel}</option>`;
             });
         } else {
             modeOptions = `<option value="HT20">HT20 (Mặc định)</option>`;
@@ -216,7 +254,7 @@ openEditModal: function(dataStr) {
                         <div class="modal-icon" style="margin:0; width:40px; height:40px; font-size:20px;">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                         </div>
-                        <h3 id="modal-title" style="margin:0;">Cấu hình ${w.band}</h3>
+                        <h3 id="modal-title" style="margin:0;">Cấu hình ${w.band.replace(/\(wifi\s*6\)/gi, '').trim()}</h3>
                     </div>
                     
                     <div style="display:grid; gap:15px;">
@@ -303,6 +341,43 @@ openEditModal: function(dataStr) {
         })
         .catch(err => {
             if(typeof Toast !== 'undefined') Toast.show("Lỗi khi lưu cấu hình!", "error");
+        });
+    },
+
+    toggleEnabled: function(dataStr, isChecked) {
+        const w = JSON.parse(decodeURIComponent(dataStr));
+        const statusText = isChecked ? "Đang bật..." : "Đang tắt...";
+        if(typeof Toast !== 'undefined') Toast.show(statusText, "info");
+
+        const payload = {
+            section: w.section,
+            device: w.device,
+            ssid: w.ssid,
+            key: w.key,
+            channel: w.conf_channel,
+            htmode: w.conf_htmode,
+            enabled: isChecked
+        };
+
+        if(typeof VWRT_API !== 'undefined' && VWRT_API.csrfToken) {
+            payload.csrf_token = VWRT_API.csrfToken;
+        }
+
+        fetch('/cgi-bin/wifi/set', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.status === 'success') {
+                const msg = isChecked ? "Đã bật WiFi!" : "Đã tắt WiFi!";
+                if(typeof Toast !== 'undefined') Toast.show(msg, "success");
+                setTimeout(() => this.fetchData(), 8000);
+            }
+        })
+        .catch(() => {
+            if(typeof Toast !== 'undefined') Toast.show("Lỗi hạ tầng!", "error");
         });
     }
 };

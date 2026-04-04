@@ -149,53 +149,53 @@ end
 
 function get_wifi_info()
     local wifis = {}
-    local handle = io.popen("iwinfo | grep ESSID")
+    local uci_show = exec("uci show wireless")
     
-    if handle then
-        for line in handle:lines() do
-            local iface = line:match("^(%S+)%s+ESSID")
+    for section in uci_show:gmatch("wireless%.([%w_]+)=wifi%-iface") do
+        local ssid = uci_show:match("wireless%." .. section .. "%.ssid='([^']*)'") or "Hidden"
+        local device = uci_show:match("wireless%." .. section .. "%.device='([^']*)'")
+        
+        if ssid and device then
+            local disabled = uci_show:match("wireless%." .. section .. "%.disabled='([^']*)'")
+            local key = uci_show:match("wireless%." .. section .. "%.key='([^']*)'") or ""
+            local enc = uci_show:match("wireless%." .. section .. "%.encryption='([^']*)'") or "none"
+            local conf_channel = uci_show:match("wireless%." .. device .. "%.channel='([^']*)'") or "auto"
+            local conf_htmode = uci_show:match("wireless%." .. device .. "%.htmode='([^']*)'") or "HT20"
+            local hw_band = uci_show:match("wireless%." .. device .. "%.band='([^']*)'")
             
-            if iface then
-                local info_str = exec("iwinfo " .. iface .. " info")
-                local mode = info_str:match("Mode:%s*([%w]+)")
-                
-                if mode == "Master" then
-                    local ssid = info_str:match('ESSID:%s*"(.*)"') or "Hidden"
-                    local channel = tonumber(info_str:match("Channel:%s*(%d+)")) or 0
-                    local band = (channel > 14) and "5GHz" or "2.4GHz"
-                    
-                    local clients_str = exec("iwinfo " .. iface .. " assoclist")
-                    local client_count = 0
-                    for mac in clients_str:gmatch("%x%x:%x%x:%x%x:%x%x:%x%x:%x%x") do
-                        client_count = client_count + 1
-                    end
-
-                    local config = get_wifi_details_by_ssid(ssid)
-                    
-                    local support_list = get_smart_modes(iface, info_str, band)
-
-                    if config then
-                        table.insert(wifis, {
-                            iface = iface,
-                            ssid = ssid,
-                            band = band,
-                            channel = channel,
-                            clients = client_count,
-                            device = config.device_section,
-                            section = config.iface_section,
-                            key = config.key,
-                            enc = config.enc,
-                            conf_channel = config.conf_channel,
-                            conf_htmode = config.conf_htmode,
-                            enabled = config.enabled,
-                            caps = support_list,
-                            channels = get_channels(iface, band)
-                        })
-                    end
-                end
+            local band = "2.4GHz"
+            if hw_band == "5g" or (tonumber(conf_channel) or 0) > 14 then band = "5GHz" end
+            
+            -- Runtime info (if active)
+            local iface_name = ""
+            local iwinfo_raw = exec("iwinfo")
+            iface_name = iwinfo_raw:match("([%w%.%-]+)%s+ESSID: \"" .. escape_pattern(ssid) .. "\"") or ""
+            
+            local client_count = 0
+            local real_channel = tonumber(conf_channel) or 0
+            if iface_name ~= "" then
+                local assoc = exec("iwinfo " .. iface_name .. " assoclist")
+                for _ in assoc:gmatch("%x%x:%x%x:%x%x:%x%x:%x%x:%x%x") do client_count = client_count + 1 end
+                local info = exec("iwinfo " .. iface_name .. " info")
+                real_channel = tonumber(info:match("Channel:%s*(%d+)")) or real_channel
             end
+
+            table.insert(wifis, {
+                section = section,
+                device = device,
+                ssid = ssid,
+                band = band,
+                channel = real_channel,
+                clients = client_count,
+                key = key,
+                enc = enc,
+                conf_channel = conf_channel,
+                conf_htmode = conf_htmode,
+                enabled = (disabled ~= "1"),
+                caps = (iface_name ~= "") and get_smart_modes(iface_name, exec("iwinfo " .. iface_name .. " info"), band) or {},
+                channels = (iface_name ~= "") and get_channels(iface_name, band) or (band == "5GHz" and {36,40,44,48} or {1,6,11})
+            })
         end
-        handle:close()
     end
     return wifis
 end

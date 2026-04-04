@@ -33,50 +33,73 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // === UNIFIED POLLING (MASTER LOOP) ===
-    let dashboardInterval = null;
-    let errorCount = 0;
+    // === UNIFIED POLLING (MASTER DUAL-LOOP) ===
+    let fastInterval = null;
+    let slowInterval = null;
+    let lastTraffic = { rx: 0, tx: 0, time: 0 };
 
-    function fetchDashboardStats() {
+    function calculateSpeed(currentRx, currentTx) {
+        const now = Date.now();
+        const dt = (now - lastTraffic.time) / 1000;
+        if (dt <= 0 || lastTraffic.time === 0) {
+            lastTraffic = { rx: currentRx, tx: currentTx, time: now };
+            return { rx: 0, tx: 0 };
+        }
+
+        const rxSpeed = (currentRx - lastTraffic.rx) / dt;
+        const txSpeed = (currentTx - lastTraffic.tx) / dt;
+        
+        lastTraffic = { rx: currentRx, tx: currentTx, time: now };
+        return { rx: rxSpeed > 0 ? rxSpeed : 0, tx: txSpeed > 0 ? txSpeed : 0 };
+    }
+
+    function fetchFastStats() {
+        fetch('/cgi-bin/dashboard/stats?fast=1')
+            .then(r => r.json())
+            .then(data => {
+                if (data.sys) {
+                    const speeds = calculateSpeed(data.sys.rx_total, data.sys.tx_total);
+                    data.sys.rx_speed = speeds.rx;
+                    data.sys.tx_speed = speeds.tx;
+                    
+                    if (typeof SystemModule !== 'undefined') SystemModule.render(data.sys, true);
+                    if (typeof MobileModule !== 'undefined' && data.mob) MobileModule.updateFromDashboard(data.mob, true);
+                }
+            })
+            .catch(e => console.error("Fast Poll Error:", e));
+    }
+
+    function fetchFullStats() {
         fetch('/cgi-bin/dashboard/stats')
             .then(r => r.json())
             .then(data => {
-                errorCount = 0; // Reset error count on success
-                if (typeof SystemModule !== 'undefined' && data.sys) {
-                    SystemModule.render(data.sys);
-                }
-                if (typeof MobileModule !== 'undefined' && data.mob) {
-                    MobileModule.updateFromDashboard(data.mob);
-                }
+                if (typeof SystemModule !== 'undefined' && data.sys) SystemModule.render(data.sys, false);
+                if (typeof MobileModule !== 'undefined' && data.mob) MobileModule.updateFromDashboard(data.mob);
             })
-            .catch(e => {
-                console.error("Unified Poll Error:", e);
-                errorCount++;
-                if (errorCount === 3) {
-                    if(typeof Toast !== 'undefined') Toast.show("Mất kết nối với Router...", "error");
-                }
-            });
+            .catch(e => console.error("Full Poll Error:", e));
     }
 
-    function startDashboardLoop() {
-        if (!dashboardInterval) {
-            fetchDashboardStats();
-            dashboardInterval = setInterval(fetchDashboardStats, 3000);
+    function startLoops() {
+        if (!fastInterval) {
+            fetchFastStats();
+            fastInterval = setInterval(fetchFastStats, 1000);
+        }
+        if (!slowInterval) {
+            setTimeout(fetchFullStats, 500); // Stagger slow poll
+            slowInterval = setInterval(fetchFullStats, 5000);
         }
     }
 
-    function stopDashboardLoop() {
-        if (dashboardInterval) {
-            clearInterval(dashboardInterval);
-            dashboardInterval = null;
-        }
+    function stopLoops() {
+        if (fastInterval) { clearInterval(fastInterval); fastInterval = null; }
+        if (slowInterval) { clearInterval(slowInterval); slowInterval = null; }
     }
 
-    // Start Loop
-    startDashboardLoop();
+    // Start Loops
+    startLoops();
     document.addEventListener("visibilitychange", () => {
-        if (document.hidden) stopDashboardLoop();
-        else startDashboardLoop();
+        if (document.hidden) stopLoops();
+        else startLoops();
     });
 
     window.togglePass = function(id) {

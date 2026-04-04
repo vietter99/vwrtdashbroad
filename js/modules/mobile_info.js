@@ -69,11 +69,11 @@ const MobileModule = {
             <div class="popup-body" style="padding: 15px;">
                 <div style="display:flex; align-items:center; background:var(--icon-bg); padding:10px; border-radius:8px; margin-bottom:10px; border: 1px solid var(--border-color);">
                     <div class="signal-visual" id="signal-bars" style="display: flex; align-items: flex-end; gap: 3px; height: 25px;">
-                        <div class="signal-bar b-1" style="width:6px; background:#ddd; border-radius:2px; height:20%;"></div>
-                        <div class="signal-bar b-2" style="width:6px; background:#ddd; border-radius:2px; height:40%;"></div>
-                        <div class="signal-bar b-3" style="width:6px; background:#ddd; border-radius:2px; height:60%;"></div>
-                        <div class="signal-bar b-4" style="width:6px; background:#ddd; border-radius:2px; height:80%;"></div>
-                        <div class="signal-bar b-5" style="width:6px; background:#ddd; border-radius:2px; height:100%;"></div>
+                        <div class="signal-bar b-1" style="height:20%;"></div>
+                        <div class="signal-bar b-2" style="height:40%;"></div>
+                        <div class="signal-bar b-3" style="height:60%;"></div>
+                        <div class="signal-bar b-4" style="height:80%;"></div>
+                        <div class="signal-bar b-5" style="height:100%;"></div>
                     </div>
                     <div class="signal-text-group" style="margin-left: 10px;">
                         <span class="signal-dbm" id="mob-signal" style="font-weight: bold; font-size: 14px; color: var(--text-main);">-- %</span>
@@ -114,13 +114,13 @@ const MobileModule = {
     },
 
     // Unified Dashboard Loop handles fetching
-    updateFromDashboard: function(mobData) {
+    updateFromDashboard: function(mobData, isFast = false) {
         if (!mobData) {
-            this.handleError();
+            if (!isFast) this.handleError();
             return;
         }
         this.errorCount = 0;
-        this.updateUI(mobData);
+        this.updateUI(mobData, isFast);
     },
 
     handleError: function() {
@@ -132,7 +132,13 @@ const MobileModule = {
         }
     },
 
-    updateUI: function(data) {
+    updateUI: function(data, isFast = false) {
+        if (isFast) {
+            // Fast update: Only signal bars & percentage
+            this.updateSignalBars(data);
+            return;
+        }
+
         if ((data.operator_name === "-" || !data.operator_name) && (data.signal === "-" || !data.signal)) {
             return;
         }
@@ -143,6 +149,43 @@ const MobileModule = {
 
         this.updatePopup(data);
         this.updateDashboardCard(data);
+    },
+
+    updateSignalBars: function(data) {
+        let signalPercent = parseInt(data.signal);
+        if (isNaN(signalPercent)) return;
+
+        // 1. Update Card Bar
+        const elSigBar = document.getElementById('mob-card-signal-bar');
+        const elSigText = document.getElementById('mob-card-signal-text');
+        if (elSigBar) {
+            elSigBar.style.width = `${signalPercent}%`;
+            if (elSigText) elSigText.innerText = `${signalPercent}%`;
+            elSigBar.style.background = signalPercent > 70 ? '#48bb78' : (signalPercent > 30 ? '#ed8936' : '#e53e3e');
+        }
+
+        // 2. Update Popup Bars (if open)
+        const bars = document.querySelectorAll('#signal-bars .signal-bar');
+        if (bars.length > 0) {
+            const elSigVal = document.getElementById('mob-signal');
+            if (elSigVal) elSigVal.innerText = signalPercent + "%";
+
+            let level = Math.ceil(signalPercent / 20); 
+            if (level < 1 && signalPercent > 0) level = 1;
+            bars.forEach((b, index) => {
+                b.classList.remove('active', 'bad', 'weak');
+                if (index < level) {
+                    b.classList.add('active');
+                    if (level <= 2) b.classList.add('bad'); 
+                    else if (level <= 3) b.classList.add('weak');
+                }
+            });
+        }
+        
+        // 3. Update Chart
+        if (typeof ChartsModule !== 'undefined') {
+            ChartsModule.updateMobileSignal(signalPercent);
+        }
     },
 
     updatePopup: function(data) {
@@ -183,75 +226,212 @@ const MobileModule = {
         });
     },
 
-    updateDashboardCard: function(mobData) {
+    // Persistent state for expanded panel
+    isModemExpanded: false,
+
+    updateDashboardCard: function(data) {
         const card = document.getElementById('card-mobile');
         if (!card) return;
 
-        // Show card if we have WAN IP (connected) OR operator name OR signal
-        // This ensures visibility immediately after boot once internet is up
-        if (!mobData || (!mobData.wan_ip && !mobData.operator_name && !mobData.signal)) return;
-        if (mobData.wan_ip === "Unknown" && !mobData.operator_name && !mobData.signal) return;
-        
-        card.style.display = 'flex'; 
-
-        const setTxt = (id, txt) => { const e = document.getElementById(id); if(e) e.innerText = txt; };
-
-        // Card header shows Operator name (e.g. VIETTEL)
-        setTxt('mob-card-operator', (mobData.operator_name || "NHÀ MẠNG").toUpperCase());
-        setTxt('mob-card-type', mobData.display_type || "MOBILE");
-        
-        let cleanBand = mobData.display_band || "--";
-        cleanBand = cleanBand.replace(/\s*\([^)]*\)/g, '').trim();
-        setTxt('mob-card-band', cleanBand);
-
-        const elStatusVal = document.getElementById('mob-card-status');
-        if (elStatusVal) {
-            let tempVal = mobData.mtemp || "--";
-            let parsedTemp = parseFloat(tempVal);
-            if (!isNaN(parsedTemp)) {
-                elStatusVal.innerText = parsedTemp + "°C";
-                elStatusVal.style.color = this.getTempColor(parsedTemp); 
-                elStatusVal.style.fontWeight = "bold";
-            } else {
-                elStatusVal.innerText = "--";
-                elStatusVal.style.color = "var(--text-sub)";
-            }
+        // 1. Initial Render (Only if the modern structure doesn't exist yet)
+        if (!card.querySelector('.status-card-inner')) {
+            this.renderInitialCard(card, data);
         }
 
-        setTxt('mob-card-rsrp', (mobData.rsrp || "--") + " dBm");
-        setTxt('mob-card-sinr', (mobData.sinr || "--") + " dB");
-        setTxt('mob-card-rsrq', (mobData.rsrq || "--") + " dB");
-        setTxt('mob-card-rssi', (mobData.rssi || "--") + " dBm");
+        // 2. Data Update (No innerHTML overwrite here to keep chart/panel state)
+        const isp = (data.operator_name || "NHÀ MẠNG").toUpperCase();
+        const mode = (data.display_type || "MOBILE").replace(/\(wifi\s*6\)/gi, '').trim(); 
+        const signal = parseInt(data.signal) || 0;
+        const temp = data.mtemp || "--";
+        const band = (data.display_band || "--").replace(/\s*\([^)]*\)/g, '').trim();
+        const ttl = data.ttl || "64";
+        const ping = (data.ping || "--");
 
+        // Update Header & Badge
+        const elIsp = card.querySelector('.mob-isp-name');
+        if (elIsp) elIsp.innerText = isp;
+        const elMode = card.querySelector('.net-tag');
+        if (elMode) elMode.innerText = mode;
+
+        // Update Signal Bar & Text
         const elSigBar = document.getElementById('mob-card-signal-bar');
         const elSigText = document.getElementById('mob-card-signal-text');
-        if (elSigBar) {
-            let signal = parseInt(mobData.signal);
-            if(isNaN(signal)) signal = 0;
-            elSigBar.style.width = `${signal}%`;
-            if(elSigText) elSigText.innerText = `${signal}%`;
-            elSigBar.style.background = signal > 70 ? '#48bb78' : (signal > 30 ? '#ed8936' : '#e53e3e');
-            
-            if (typeof ChartsModule !== 'undefined') {
-                ChartsModule.updateMobileSignal(signal);
-            }
+        if (elSigBar) elSigBar.style.width = `${signal}%`;
+        if (elSigText) elSigText.innerText = `${signal}%`;
+
+        // Update Grid Values (Order: Band, Temp, TTL, Ping)
+        const gridVals = card.querySelectorAll('.grid-val');
+        if (gridVals.length >= 4) {
+            gridVals[0].innerText = band;
+            gridVals[1].innerText = temp + "°C";
+            gridVals[2].innerText = ttl;
+            gridVals[3].innerText = ping + "ms";
         }
 
-        // Update Ping
+        // Update Chart via ChartsModule (it won't flicker now as canvas is persistent)
+        if (typeof ChartsModule !== 'undefined' && ChartsModule.updateMobileSignal) {
+             ChartsModule.updateMobileSignal(signal);
+        }
+    },
+
+    renderInitialCard: function(card, data) {
+        card.style.display = 'flex';
+        card.style.flexDirection = 'column';
+        card.style.padding = '0'; 
+
+        const isp = (data.operator_name || "NHÀ MẠNG").toUpperCase();
+        const mode = (data.display_type || "MOBILE").replace(/\(wifi\s*6\)/gi, '').trim(); 
+        const signal = parseInt(data.signal) || 0;
+
+        // Show cached modem info if we have it
+        const m = this.modemDetails || {};
+        const modemModel = m.model || m.modem || "Modem";
+        const ownNumber = m.own_number || "SIM Ready";
+
+        card.innerHTML = `
+            <div class="status-card-inner" style="padding: 18px; width: 100%; box-sizing: border-box;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div class="icon-premium icon-grad-green">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 0 20 15.3 15.3 0 0 1 0-20"></path></svg>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:2px;">
+                            <span class="mob-isp-name" style="font-size:14px; font-weight:800; color:var(--text-main);">${isp}</span>
+                            <span class="mob-modem-sub" style="font-size:10px; color:var(--text-sub); font-family:monospace; opacity:0.8;">${modemModel} • ${ownNumber}</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="net-tag tag-blue" style="margin:0; padding:2px 8px; font-size:10px;">${mode}</span>
+                        <button class="btn-icon-small" onclick="MobileModule.toggleModemDetails()" style="background:var(--icon-bg); border-radius:6px; border:1px solid var(--border-color); color:var(--text-sub); width:22px; height:22px; display:flex; align-items:center; justify-content:center;" title="Thông tin chi tiết">
+                            <svg id="mob-chevron" class="chevron-icon ${this.isModemExpanded ? 'rotated' : ''}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                        <span style="font-size:10px; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.5px; font-weight:700;">Tín hiệu mạng</span>
+                        <span id="mob-card-signal-text" style="font-size:12px; font-weight:800; color:#48bb78;">${signal}%</span>
+                    </div>
+                    <div class="p-bar-bg" style="height:6px; background:var(--icon-bg); border-radius:10px; overflow:hidden;">
+                        <div id="mob-card-signal-bar" style="width:${signal}%; height:100%; background:linear-gradient(90deg, #48bb78, #38a169); transition: width 0.8s ease;"></div>
+                    </div>
+                </div>
+
+                <div style="height:45px; margin-bottom:12px; opacity:0.8;">
+                    <canvas id="chart-mobile-canvas"></canvas>
+                </div>
+
+                <div class="mobile-info-grid">
+                    <div class="grid-item" style="background:var(--icon-bg); border-radius:10px; padding:10px; border:1px solid var(--border-color);"><span class="grid-label" style="font-size:9px;">BAND</span><span class="grid-val" style="font-size:11px;">--</span></div>
+                    <div class="grid-item" style="background:var(--icon-bg); border-radius:10px; padding:10px; border:1px solid var(--border-color);"><span class="grid-label" style="font-size:9px;">NHIỆT ĐỘ</span><span class="grid-val" style="color:#ed8936; font-size:11px;">--</span></div>
+                    <div class="grid-item" onclick="MobileModule.showTTLEdit()" style="background:var(--icon-bg); border-radius:10px; padding:10px; border:1px solid var(--border-color); cursor:pointer; position:relative;" title="Nhấn để chỉnh sửa TTL">
+                        <span class="grid-label" style="font-size:9px; display:flex; justify-content:space-between;">TTL <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></span>
+                        <span class="grid-val" id="mob-card-ttl" style="font-size:11px;">--</span>
+                    </div>
+                    <div class="grid-item" style="background:var(--icon-bg); border-radius:10px; padding:10px; border:1px solid var(--border-color);"><span class="grid-label" style="font-size:9px;">PING</span><span class="grid-val" style="color:#3182ce; font-size:11px;">--</span></div>
+                </div>
+
+                <div id="modem-details-panel" class="modem-info-panel" style="padding:0; overflow:hidden;">
+                    <div style="padding:15px; border-top:1px dashed var(--border-color); margin-top:10px;">
+                        <div class="modem-detail-item"><label>IMEI:</label><span id="mob-det-imei">Đang lấy...</span></div>
+                        <div class="modem-detail-item"><label>Firmware:</label><span id="mob-det-fw">Đang lấy...</span></div>
+                        <div class="modem-detail-item"><label>Hãng SX:</label><span id="mob-det-manu">--</span></div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Load modem details into the initial frame
+        if (this.modemDetails) {
+            this.updateModemDetailsUI();
+        } else {
+            fetch('/cgi-bin/mobile/get')
+                .then(res => res.json())
+                .then(res => { 
+                    if(res.status === 'success') {
+                        this.modemDetails = res.data;
+                        this.updateModemDetailsUI();
+                    }
+                });
+        }
+    },
+
+    updateModemDetailsUI: function() {
+        if (!this.modemDetails) return;
+        const m = this.modemDetails;
+        const setSpan = (id, val) => { const e = document.getElementById(id); if(e) e.innerText = val; };
+        setSpan('mob-det-imei', m.imei || "--");
+        setSpan('mob-det-fw', m.firmware || "--");
+        setSpan('mob-det-manu', m.manufacturer || "--");
+        
+        const sub = document.querySelector('.mob-modem-sub');
+        if (sub) sub.innerText = `${m.model || m.modem || "Modem"} • ${m.own_number || "SIM Ready"}`;
+    },
+
+    toggleModemDetails: function() {
+        this.isModemExpanded = !this.isModemExpanded;
+        const panel = document.getElementById('modem-details-panel');
+        if (panel) panel.classList.toggle('expanded');
+        
+        const icon = document.getElementById('mob-chevron');
+        if (icon) icon.classList.toggle('rotated', this.isModemExpanded);
+    },
+
+    restartModem: function() {
+        if (!confirm("Xác nhận khởi động lại kết nối Modem?")) return;
+        
+        const btn = document.getElementById('btn-restart-modem');
+        const statusDiv = document.getElementById('modem-action-status');
+        
+        btn.disabled = true;
+        btn.innerHTML = `<span style="border: 2px solid #fff; border-top: 2px solid transparent; border-radius: 50%; width: 12px; height: 12px; animation: spin 1s linear infinite; display: inline-block; margin-right: 6px;"></span> Đang xử lý...`;
+        
+        statusDiv.style.display = 'block';
+        statusDiv.style.color = 'var(--text-sub)';
+        statusDiv.innerText = "Đang gửi lệnh Restart...";
+
+        const payload = { action: 'restart' };
+        fetch('/cgi-bin/mobile/action', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.status === 'success') {
+                statusDiv.innerText = "Thành công! Modem đang khởi động lại...";
+                statusDiv.style.color = "#48bb78";
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                    btn.disabled = false;
+                    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:6px;"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg> Khởi động lại Modem`;
+                    this.toggleModemDetails();
+                }, 5000);
+            } else {
+                statusDiv.innerText = "Lỗi: " + (data.message || "Không rõ");
+                statusDiv.style.color = "#e53e3e";
+                btn.disabled = false;
+            }
+        })
+        .catch(() => {
+            statusDiv.innerText = "Lỗi kết nối!";
+            statusDiv.style.color = "#e53e3e";
+            btn.disabled = false;
+        });
+    },
+
+    updatePing: function(pingStr) {
         const elPing = document.getElementById('mob-card-ping');
         if (elPing) {
-            if (mobData.ping && mobData.ping !== '-') {
-                elPing.innerText = mobData.ping + " ms";
-                elPing.style.color = this.getPingColor(mobData.ping);
-                elPing.style.fontWeight = "bold";
+            if (pingStr && pingStr !== '-') {
+                elPing.innerText = pingStr + " ms";
+                elPing.style.color = this.getPingColor(pingStr);
             } else {
-                elPing.innerText = "Không có mạng";
-                elPing.style.color = "#e53e3e";
-                elPing.style.fontWeight = "normal";
+                elPing.innerText = "--";
+                elPing.style.color = "var(--text-sub)";
             }
         }
-        
-
     },
 
     fetchTTL: function() {
@@ -476,6 +656,35 @@ const MobileModule = {
                 confirmText: "Áp dụng",
                 cancelText: "Hủy"
             });
+        });
+    },
+
+    showTTLEdit: function() {
+        if (typeof Modal === 'undefined') return;
+        
+        // Use currently displayed TTL from grid or data
+        const current = document.getElementById('mob-card-ttl')?.innerText || "64";
+
+        Modal.show({
+            title: "Cấu hình TTL (IPv4)",
+            content: `
+                <div style="padding: 10px;">
+                    <p style="margin-bottom: 15px; color: var(--text-sub); font-size: 13px;">
+                        Nhập giá trị TTL (thường là <b>64</b> hoặc <b>65</b> để bypass):
+                    </p>
+                    <div style="display:flex; gap:10px; justify-content:center;">
+                        <input type="number" id="modal-ttl-input" placeholder="Ví dụ: 64" value="${current}" 
+                            style="padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; width: 100px; text-align: center; font-weight: bold;">
+                    </div>
+                </div>
+            `,
+            onConfirm: () => {
+               const inp = document.getElementById('modal-ttl-input');
+               const val = inp ? parseInt(inp.value) : 0;
+               this.doSetTTL(val);
+            },
+            confirmText: "Áp dụng",
+            cancelText: "Hủy"
         });
     },
 

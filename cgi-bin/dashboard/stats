@@ -186,44 +186,78 @@ end
 
 -- === DATA COLLECTOR ===
 
-local sys_extra = get_other_sys_info()
-local sys_data = {
-    model = sys_extra.model,
-    cpu = get_cpu_usage(),
-    ram = get_memory(),
-    rom = get_rom(),
-    uptime = sys_extra.uptime,
-    temp = sys_extra.temp,
-    lan_total = sys_extra.lan_total,
-    rx_total = sys_extra.rx_total,
-    tx_total = sys_extra.tx_total
-}
+local query_string = os.getenv("QUERY_STRING") or ""
+local is_fast = query_string:find("fast=1")
+local final = {}
 
--- Mobile Data
-local mob_data = {}
-local mob_content = read_file("/tmp/vwrt_mobile.json")
-if mob_content and mob_content ~= "" then
-    local ok, parsed = pcall(cjson.decode, mob_content)
-    if ok and parsed then 
-        mob_data = parsed 
-        -- Sanitize Mobile Strings
-        if mob_data.operator_name then mob_data.operator_name = sanitize_utf8(mob_data.operator_name) end
-        if mob_data.mode then mob_data.mode = sanitize_utf8(mob_data.mode) end
-
-        -- Fallback Temp if system temp is 0
-        if sys_data.temp == 0 and parsed.mtemp then
-             sys_data.temp = tonumber(parsed.mtemp) or 0
+if is_fast then
+    local rx_total = 0
+    local tx_total = 0
+    local targets = {"eth1", "wan", "eth0", "wwan0", "rmnet_data0"} 
+    for _, iface in ipairs(targets) do
+        local rx = read_file("/sys/class/net/" .. iface .. "/statistics/rx_bytes")
+        local tx = read_file("/sys/class/net/" .. iface .. "/statistics/tx_bytes")
+        if rx or tx then
+            rx_total = rx_total + (tonumber(rx) or 0)
+            tx_total = tx_total + (tonumber(tx) or 0)
         end
     end
+
+    -- Fast-path Mobile Signal Data
+    local mob_data = {}
+    local mob_content = read_file("/tmp/vwrt_mobile.json")
+    if mob_content and mob_content ~= "" then
+        local ok, parsed = pcall(cjson.decode, mob_content)
+        if ok and parsed then 
+            mob_data = {
+                signal = parsed.signal,
+                operator_name = parsed.operator_name,
+                mode = parsed.mode,
+                mtemp = parsed.mtemp
+            }
+        end
+    end
+
+    final = {
+        sys = {
+            cpu = get_cpu_usage(),
+            ram = get_memory(),
+            rx_total = rx_total,
+            tx_total = tx_total,
+            lan_total = rx_total + tx_total,
+            is_fast = true
+        },
+        mob = mob_data
+    }
+else
+    local sys_extra = get_other_sys_info()
+    local sys_data = {
+        model = sys_extra.model,
+        cpu = get_cpu_usage(),
+        ram = get_memory(),
+        rom = get_rom(),
+        uptime = sys_extra.uptime,
+        temp = sys_extra.temp,
+        lan_total = sys_extra.lan_total,
+        rx_total = sys_extra.rx_total,
+        tx_total = sys_extra.tx_total
+    }
+    local mob_data = {}
+    local mob_content = read_file("/tmp/vwrt_mobile.json")
+    if mob_content and mob_content ~= "" then
+        local ok, parsed = pcall(cjson.decode, mob_content)
+        if ok and parsed then 
+            mob_data = parsed 
+            if mob_data.operator_name then mob_data.operator_name = sanitize_utf8(mob_data.operator_name) end
+            if mob_data.mode then mob_data.mode = sanitize_utf8(mob_data.mode) end
+            if sys_data.temp == 0 and parsed.mtemp then
+                 sys_data.temp = tonumber(parsed.mtemp) or 0
+            end
+        end
+    end
+    sys_data.model = sanitize_utf8(sys_data.model)
+    final = { sys = sys_data, mob = mob_data }
 end
-
--- Sanitize System Strings
-sys_data.model = sanitize_utf8(sys_data.model)
-
-local final = {
-    sys = sys_data,
-    mob = mob_data
-}
 
 print("Content-type: application/json\n\n")
 local ok, json = pcall(cjson.encode, final)

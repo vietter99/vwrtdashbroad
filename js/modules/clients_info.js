@@ -89,8 +89,8 @@ const ClientsModule = {
         container.innerHTML = `
             <div class="card">
                 <div class="card-header-compact">
-                    <div class="card-icon-small" style="background: rgba(237, 137, 54, 0.15); color: #ed8936;">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <div class="icon-premium icon-grad-orange">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                             <circle cx="9" cy="7" r="4"></circle>
                             <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>

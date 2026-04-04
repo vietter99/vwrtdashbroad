@@ -32,86 +32,69 @@ const SystemModule = {
         return (d>0 ? `${d}d ` : "") + `${h}h ${m}m`;
     },
 
-    render: function(data) {
-        // --- 1. MODEL NAME ---
-        const elModel = document.getElementById('sys-model');
-        if (elModel && data.model) {
-            elModel.innerText = data.model;
-        }
+    render: function(data, isFast = false) {
+        // --- 1. SYSTEM (Only on Slow Poll) ---
+        if (!isFast) {
+            const elModel = document.getElementById('sys-model');
+            if (elModel && data.model) elModel.innerText = data.model;
 
-        // --- 2. SYSTEM ---
-        const elUptime = document.getElementById('sys-uptime');
-        if(elUptime) elUptime.innerText = this.formatUptime(data.uptime);
-        
-        const elTemp = document.getElementById('sys-temp');
-        if(elTemp) {
-            const tempVal = parseFloat(data.temp);
-            if (!isNaN(tempVal) && tempVal > 0) {
-                elTemp.innerText = `${tempVal}°C`;
-            } else {
-                elTemp.innerText = "--"; 
+            const elUptime = document.getElementById('sys-uptime');
+            if(elUptime) elUptime.innerText = this.formatUptime(data.uptime);
+            
+            const elTemp = document.getElementById('sys-temp');
+            if(elTemp) {
+                const tempVal = parseFloat(data.temp);
+                elTemp.innerText = (!isNaN(tempVal) && tempVal > 0) ? `${tempVal}°C` : "--";
+            }
+
+            const elIp = document.getElementById('sys-public-ip');
+            if (elIp && data.lan_total) elIp.innerText = this.formatBytes(data.lan_total);
+
+            // --- 5. ROM (Only on Slow Poll) ---
+            const elRomBar = document.getElementById('rom-bar');
+            if (elRomBar && data.rom) {
+                elRomBar.style.width = `${data.rom.percent}%`;
+                const usedStr = this.formatBytes(data.rom.used);
+                const totalStr = this.formatBytes(data.rom.total);
+                const elRomText = document.getElementById('rom-text');
+                if (elRomText) elRomText.innerText = `${usedStr} / ${totalStr}`;
             }
         }
 
-        const elIp = document.getElementById('sys-public-ip');
-        if (elIp) {
-            const labelEl = elIp.parentElement.querySelector('.sb-label');
-            if(labelEl) labelEl.innerText = "Data";
-
-            // Hiển thị tổng dung lượng
-            if (data.lan_total) {
-                elIp.innerText = this.formatBytes(data.lan_total);
-            } else {
-                elIp.innerText = "--";
-            }
-        }
-
-        // --- 3. CPU ---
+        // --- 2. CPU (Real-time) ---
         const elCpuBar = document.getElementById('cpu-bar');
         if (elCpuBar) {
             let smoothCpu = Math.round((data.cpu * 0.7) + (this.lastCpu * 0.3));
+            if (isNaN(smoothCpu)) smoothCpu = data.cpu;
             this.lastCpu = smoothCpu;
             elCpuBar.style.width = `${smoothCpu}%`;
             document.getElementById('cpu-text').innerText = `${smoothCpu}%`;
         }
 
-        // --- 4. RAM (Used / Total) ---
+        // --- 3. RAM (Real-time) ---
         const elRamBar = document.getElementById('ram-bar');
-        if (elRamBar) {
+        if (elRamBar && data.ram) {
             elRamBar.style.width = `${data.ram.percent}%`;
             const usedStr = this.formatBytes(data.ram.used);
             const totalStr = this.formatBytes(data.ram.total);
             document.getElementById('ram-text').innerText = `${usedStr} / ${totalStr}`;
         }
 
-        // --- 5. ROM (Used / Total) ---
-        const elRomBar = document.getElementById('rom-bar');
-        if (elRomBar) {
-            elRomBar.style.width = `${data.rom.percent}%`;
-            const usedStr = this.formatBytes(data.rom.used);
-            const totalStr = this.formatBytes(data.rom.total);
-            document.getElementById('rom-text').innerText = `${usedStr} / ${totalStr}`;
-        }
+        // --- 4. Network Speed (Mbps Real-time) ---
+        if (data.rx_speed !== undefined && data.tx_speed !== undefined) {
+             const rxMbps = (data.rx_speed * 8 / 1048576).toFixed(2);
+             const txMbps = (data.tx_speed * 8 / 1048576).toFixed(2);
 
-        // --- 6. Network Speed Chart ---
-        if (typeof ChartsModule !== 'undefined' && data.rx_total !== undefined && data.tx_total !== undefined) {
-            let now = Date.now();
-            if (this.lastRx !== undefined && this.lastTx !== undefined && this.lastTime) {
-                let timeDiff = (now - this.lastTime) / 1000; // seconds
-                if (timeDiff > 0) {
-                    let rxSpeed = Math.max(0, (data.rx_total - this.lastRx) / timeDiff); // Bytes/sec
-                    let txSpeed = Math.max(0, (data.tx_total - this.lastTx) / timeDiff); // Bytes/sec
-                    
-                    // Convert to Mbps: Bytes/sec * 8 / 1024 / 1024
-                    let rxMbps = (rxSpeed * 8 / 1048576).toFixed(2);
-                    let txMbps = (txSpeed * 8 / 1048576).toFixed(2);
-                    
-                    ChartsModule.updateNetworkSpeed(Number(rxMbps), Number(txMbps));
-                }
-            }
-            this.lastRx = data.rx_total;
-            this.lastTx = data.tx_total;
-            this.lastTime = now;
+             // Update Speed Text in Header or Cards
+             const elRx = document.getElementById('sys-rx-speed');
+             const elTx = document.getElementById('sys-tx-speed');
+             if (elRx) elRx.innerText = `↓ ${rxMbps} Mbps`;
+             if (elTx) elTx.innerText = `↑ ${txMbps} Mbps`;
+
+             // Update Chart if available
+             if (typeof ChartsModule !== 'undefined') {
+                 ChartsModule.updateNetworkSpeed(Number(rxMbps), Number(txMbps));
+             }
         }
     },
 

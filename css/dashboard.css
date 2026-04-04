@@ -473,7 +473,7 @@ body {
 }
 .progress-bar {
   height: 100%;
-  transition: width 0.5s;
+  transition: width 0.8s ease-in-out;
 }
 .bg-purple {
   background: linear-gradient(90deg, #805ad5, #b794f4);
@@ -1751,4 +1751,226 @@ body.dark .custom-select {
 @media (max-width: 768px) {
   .modal-overlay { align-items: center !important; justify-content: center !important; padding: 15px !important; }
   .modal-box { margin-bottom: 0 !important; transform: scale(1) !important; opacity: 1 !important; height: auto !important; }
+}
+
+/* Signal Bar Smooth Anim */
+.signal-bar {
+  width: 6px;
+  background: #ddd;
+  border-radius: 2px;
+  transition: background 0.4s ease, transform 0.3s ease;
+}
+.signal-bar.active {
+  background: #48bb78;
+  transform: scaleY(1.1);
+}
+.signal-bar.active.weak { background: #ed8936; }
+.signal-bar.active.bad { background: #e53e3e; }
+
+/* WiFi Toggle Switch - Apple Style */
+.wifi-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+}
+.wifi-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.wf-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e0;
+  transition: .3s;
+  border-radius: 20px;
+}
+.wf-slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+input:checked + .wf-slider {
+  background-color: #48bb78;
+}
+input:checked + .wf-slider:before {
+  transform: translateX(16px);
+}
+
+/* WiFi Item Disabled State */
+.wifi-item.disabled {
+  opacity: 0.6;
+  filter: grayscale(0.8);
+  position: relative;
+  pointer-events: none; /* Only the switch and edit button should work */
+}
+.wifi-item.disabled .btn-icon-small, 
+.wifi-item.disabled .wifi-switch {
+  pointer-events: auto; /* Re-enable for control */
+  filter: grayscale(0);
+}
+.tag-off {
+  background: rgba(229, 62, 62, 0.1);
+  color: #e53e3e;
+  font-size: 9px;
+  font-weight: bold;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 4px;
+}
+
+/* WiFi Premium 2.0 Card Layout */
+.wifi-card-modern {
+  background: var(--bg-card); /* Keep consistent with theme */
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 20px; /* More space between cards */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+.wifi-card-modern:hover {
+  border-color: #3182ce;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
+}
+.wifi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin: 15px 0;
+  padding-top: 15px;
+  border-top: 1px dashed var(--border-color);
+}
+.grid-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+.grid-label {
+  font-size: 10px;
+  color: var(--text-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.grid-val {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+.wifi-pass-box {
+  background: var(--icon-bg);
+  border-radius: 12px;
+  padding: 10px 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--border-color);
+  margin-top: 5px;
+}
+.wifi-pass-box span { font-family: monospace; font-size: 13px; color: var(--text-main); }
+.tag-gradient-green { background: linear-gradient(135deg, #48bb78, #38a169); color: white; }
+.tag-gradient-blue { background: linear-gradient(135deg, #3182ce, #2b6cb0); color: white; }
+.tag-gradient-smart { background: linear-gradient(135deg, #805ad5, #b794f4); color: white; }
+
+/* Disabled State Refinement for 2.0 */
+.wifi-card-modern.disabled {
+  opacity: 0.5;
+  filter: grayscale(0.9);
+}
+.wifi-card-modern.disabled:hover { transform: none; }
+
+/* Mobile Premium 2.0 Card Layout */
+.mobile-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 8px;
+  margin: 15px 0;
+}
+.modem-info-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--icon-bg);
+  border-radius: 12px;
+  border: 1px solid transparent;
+}
+.modem-info-panel.expanded {
+  max-height: 200px;
+  margin-top: 15px;
+  padding: 15px;
+  border-color: var(--border-color);
+}
+.modem-detail-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 11px;
+}
+.modem-detail-item label { color: var(--text-sub); }
+.modem-detail-item span { color: var(--text-main); font-weight: 600; font-family: monospace; }
+.modem-action-btn {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #3182ce, #2b6cb0);
+  color: white;
+  font-weight: bold;
+  font-size: 12px;
+  cursor: pointer;
+  transition: opacity 0.3s;
+}
+.modem-action-btn:hover { opacity: 0.9; }
+.modem-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.chevron-icon {
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.chevron-icon.rotated {
+  transform: rotate(180deg);
+}
+
+/* Premium Icon Gradients 2.0 */
+.icon-premium {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  color: white !important;
+  border: none !important;
+}
+.icon-grad-green {
+  background: linear-gradient(135deg, #48bb78, #38a169);
+  box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
+}
+.icon-grad-blue {
+  background: linear-gradient(135deg, #3182ce, #2b6cb0);
+  box-shadow: 0 4px 12px rgba(49, 130, 206, 0.3);
+}
+.icon-grad-orange {
+  background: linear-gradient(135deg, #ed8936, #dd6b20);
+  box-shadow: 0 4px 12px rgba(237, 137, 54, 0.3);
+}
+.icon-grad-cyan {
+  background: linear-gradient(135deg, #0bc5ea, #00b5d8);
+  box-shadow: 0 4px 12px rgba(11, 197, 234, 0.3);
 }
