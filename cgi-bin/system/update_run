@@ -59,13 +59,28 @@ local function run_update()
     os.execute("rm -rf " .. work_dir)
     os.execute("mkdir -p " .. work_dir)
     
-    -- GitHub Token (Bypassing Secret Scanning)
-    local part1 = "ghp_ZXotzLpMkuNrXef"
-    local part2 = "B3VtkgXXeq719tE3fbvNB"
-    local github_token = part1 .. part2
+    -- Download file metadata
+    local is_zip = url:match("%.zip$") or url:match("/zip/")
+    local out_file = work_dir .. (is_zip and "/update.zip" or "/update.tar.gz")
+
+    -- GitHub Token for Private Repo Support
+    local github_token = "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"
     
-    local dl_cmd = "wget --no-check-certificate --header='Authorization: token " .. github_token .. "' -O " .. out_file .. " '" .. url .. "' >> " .. log_file .. " 2>&1"
+    -- Try fetching WITHOUT token first (Optimistic for Public Repo)
+    local dl_cmd = "wget --no-check-certificate -O " .. out_file .. " '" .. url .. "' >> " .. log_file .. " 2>&1"
     local dl_ret = os.execute(dl_cmd)
+    
+    -- Check initial results
+    local f_check_init = io.open(out_file, "r")
+    local f_size_init = f_check_init and f_check_init:seek("end") or 0
+    if f_check_init then f_check_init:close() end
+
+    -- Fallback to Token if first attempt fails or file is too small (e.g. 404 error page)
+    if dl_ret ~= 0 or f_size_init < 1024 then
+        os.execute("echo 'Public download failed or small file. Retrying with Token...' >> " .. log_file)
+        dl_cmd = "wget --no-check-certificate --header='Authorization: token " .. github_token .. "' -O " .. out_file .. " '" .. url .. "' >> " .. log_file .. " 2>&1"
+        dl_ret = os.execute(dl_cmd)
+    end
     
     -- Check file size
     local f_check = io.open(out_file, "r")
