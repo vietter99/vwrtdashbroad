@@ -68,7 +68,7 @@ const SettingsModule = {
                         <div style="width:36px; height:36px; background:rgba(237, 137, 54, 0.1); border-radius:10px; color:#ed8936; display:flex; align-items:center; justify-content:center;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
                         </div>
-                        <span style="font-size:11px; font-weight:600; color:var(--text-sub);">Restart</span>
+                        <span style="font-size:11px; font-weight:600; color:var(--text-sub);">Khởi động lại</span>
                     </div>
                 </div>
 

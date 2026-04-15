@@ -84,7 +84,7 @@ const RebootScheduleModule = {
         
         if(typeof Modal !== 'undefined') {
             Modal.show({
-                title: "Lịch Reboot",
+                title: "Lịch khởi động lại",
                 content: content,
                 showCancel: false,
                 showIcon: false,

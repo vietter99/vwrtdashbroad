@@ -2,6 +2,6 @@
     "dashboard": {
         "version": "1.1.5",
         "url": "https://github.com/vietter99/vwrtdashbroad/archive/refs/tags/v1.1.5.zip",
-        "log": "- Tối ưu hóa hiệu suất hệ thống.\n- Cải thiện tính ổn định của cơ chế cập nhật."
+        "log": "- Việt hóa toàn bộ giao diện Dashboard & MultiWAN.\n- Đồng bộ hóa các nhãn hệ thống (Khởi động lại).\n- Tối ưu hóa Sidebar và loại bỏ các tính năng thử nghiệm.\n- Cải thiện độ ổn định của cơ chế OTA cho Repo Private."
     }
 }

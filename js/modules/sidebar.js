@@ -69,41 +69,9 @@ const SidebarModule = {
             return;
         }
 
-        let title = "";
-        let desc = "Tính năng này đang được phát triển.";
+
         
-        if(featureName === 'terminal') {
-            if(typeof Modal !== 'undefined') {
-                Modal.show({
-                    title: "Terminal",
-                    content: `<div style="width:100%; height:75vh;">
-                                <iframe src="http://${window.location.hostname}:7681" style="width:100%; height:100%; border:none; background:#000;"></iframe>
-                              </div>`,
-                    showCancel: false,
-                    showIcon: false,
-                    confirmText: "Đóng",
-                    onConfirm: () => {}
-                });
-                
-                // Adjust modal styling for terminal (Dark & Compact)
-                const mBox = document.querySelector('.modal-box');
-                if(mBox) {
-                    mBox.style.maxWidth = "900px";
-                    mBox.style.width = "95%";
-                    mBox.style.background = "#1a1b26";
-                    mBox.style.color = "#c0caf5";
-                    mBox.style.padding = "15px"; // More compact padding
-                    
-                    const title = mBox.querySelector('h3');
-                    if(title) {
-                        title.style.color = "#c0caf5";
-                        title.style.marginTop = "0";
-                        title.style.marginBottom = "10px";
-                    }
-                }
-            }
-            return;
-        }
+
 
         if(featureName === 'adblock') {
             // Open custom AdBlock modal
@@ -157,19 +125,7 @@ const SidebarModule = {
 
 
 
-        // Default: Feature not implemented
-        if(typeof Modal !== 'undefined') {
-            Modal.show({
-                title: title,
-                content: `<div style="text-align:center; padding:20px;">
-                            <div style="font-size:40px; margin-bottom:10px;">🚧</div>
-                            <p>${desc}</p>
-                            <button onclick="document.querySelector('.modal-overlay').remove()" style="margin-top:15px; padding:8px 20px; border:none; background:#3182ce; color:white; border-radius:6px; cursor:pointer;">Đóng</button>
-                          </div>`,
-                showCancel: false,
-                confirmText: "OK"
-            });
-        }
+
     },
 
 

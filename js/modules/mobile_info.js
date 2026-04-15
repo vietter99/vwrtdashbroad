@@ -399,7 +399,7 @@ const MobileModule = {
 
         statusDiv.style.display = 'block';
         statusDiv.style.color = 'var(--text-sub)';
-        statusDiv.innerText = "Đang gửi lệnh Restart...";
+        statusDiv.innerText = "Đang gửi lệnh Khởi động lại...";
 
         const payload = { action: 'restart' };
         fetch('/cgi-bin/mobile/action', {
