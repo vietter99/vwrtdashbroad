@@ -82,11 +82,11 @@ document.addEventListener('DOMContentLoaded', function() {
     function startLoops() {
         if (!fastInterval) {
             fetchFastStats();
-            fastInterval = setInterval(fetchFastStats, 1000);
+            fastInterval = setInterval(fetchFastStats, 3000); // Tăng từ 1s lên 3s để giảm tải CPU
         }
         if (!slowInterval) {
             setTimeout(fetchFullStats, 500); // Stagger slow poll
-            slowInterval = setInterval(fetchFullStats, 5000);
+            slowInterval = setInterval(fetchFullStats, 10000); // Tăng từ 5s lên 10s
         }
     }
 

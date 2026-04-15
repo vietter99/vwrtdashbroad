@@ -655,40 +655,9 @@ function main()
             loop_count = 0
         end
 
-        -- === INTERNET WATCHDOG (AUTO RECONNECT / LITE DETECTOR) ===
-        -- Runs every 30 seconds (Every 6th loop of 5s)
-        if loop_count % 6 == 0 then
-            -- 1. Check if interface intends to be UP
-            local status_check = exec("ifstatus 5G")
-            if status_check and status_check:find('"up": true') then
-                
-                -- 2. Ping Test (Google & Cloudflare)
-                -- Only ping if we have an IP and uptime > 3min
-                local uptime_raw = exec("cut -d. -f1 /proc/uptime")
-                local sys_uptime = tonumber(uptime_raw) or 0
-                
-                local ping_ok = 0
-                if sys_uptime > 60 then
-                     ping_ok = os.execute("ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1")
-                     if ping_ok ~= 0 then
-                          ping_ok = os.execute("ping -c 1 -W 2 1.1.1.1 >/dev/null 2>&1")
-                     end
-                else
-                     -- During boot, we assume OK to avoid restart loop
-                     ping_ok = 0
-                end
-                
-                -- 3. Action on Failure
-                if ping_ok ~= 0 then
-                     -- Double check with longer timeout to avoid false positive
-                     local retry = os.execute("ping -c 1 -W 5 8.8.8.8 >/dev/null 2>&1")
-                     if retry ~= 0 then
-                          exec("logger -t VWRT_WATCHDOG 'Connection Lost confirmed. Restarting 5G interface...'")
-                          os.execute("ifdown 5G; sleep 2; ifup 5G")
-                     end
-                end
-            end
-        end
+        -- === POLLER LITE (ATC Event-Driven Watchdog runs separately) ===
+        -- The ping reconnect logic has been removed and handed over to mm_watchdog.sh
+        -- to achieve true <1s event-driven ATC-style reaction without loop polling overhead.
         -- ===========================================
 
         -- Respect AT Port Lock, but ignore stale locks (> 60s)

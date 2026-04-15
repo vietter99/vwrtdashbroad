@@ -7,14 +7,22 @@ package.path = script_path .. "?.lua;" .. package.path
 local ubus = require "ubus"
 local rate_limit = require "lib.rate_limit"
 
+-- IMPORTANT: Print header FIRST to prevent Bad Gateway on any error
+print("Content-type: application/json\n\n")
+
 -- Read Input
 local len = tonumber(os.getenv("CONTENT_LENGTH") or 0)
-local content = io.read(len)
-local input = cjson.decode(content)
+local content = len > 0 and io.read(len) or ""
+
+-- Safe JSON parse
+local ok, input = pcall(cjson.decode, content)
+if not ok or type(input) ~= "table" then
+    print(cjson.encode({ status = "error", message = "Dữ liệu đăng nhập không hợp lệ" }))
+    os.exit()
+end
+
 local username = input.username or ""
 local password = input.password or ""
-
-print("Content-type: application/json\n\n")
 
 -- 1. Rate Limiting Check (5 attempts / 5 mins)
 -- Get Client IP

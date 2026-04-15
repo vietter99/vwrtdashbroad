@@ -1,19 +1,19 @@
 const MobileModule = {
     errorCount: 0,
 
-    init: function() {
+    init: function () {
         const container = document.getElementById('mobile-popup-content');
         if (container) this.renderTemplate(container);
-        
+
         this.fetchTTL(); // Init TTL value (Keep this separate as it's one-time)
     },
 
-    processNetworkInfo: function(data) {
+    processNetworkInfo: function (data) {
         let rawMode = (data.mode || "").trim();
         let displayType = "MOBILE";
 
         if (rawMode.includes("NR") || rawMode.includes("5G") || rawMode.includes("ENDC")) {
-            displayType = "5G"; 
+            displayType = "5G";
         } else if (rawMode.includes("LTE-A")) {
             displayType = "LTE-A";
         } else if (rawMode.includes("LTE")) {
@@ -31,30 +31,30 @@ const MobileModule = {
         if (!bandText) bandText = "--";
 
         return {
-            type: displayType,          
-            bandText: bandText 
+            type: displayType,
+            bandText: bandText
         };
     },
 
-    getTempColor: function(tempStr) {
+    getTempColor: function (tempStr) {
         let t = parseFloat(tempStr);
         if (isNaN(t)) return "var(--text-sub)";
-        if (t < 50) return "#48bb78"; 
-        if (t < 65) return "#ed8936"; 
-        return "#e53e3e";            
+        if (t < 50) return "#48bb78";
+        if (t < 65) return "#ed8936";
+        return "#e53e3e";
     },
 
-    getPingColor: function(msStr) {
+    getPingColor: function (msStr) {
         let ms = parseFloat(msStr);
         if (isNaN(ms)) return "var(--text-sub)";
         if (ms < 60) return "#48bb78"; // Good (Green)
         if (ms < 150) return "#ed8936"; // Fair (Orange)
         return "#e53e3e"; // Bad (Red)
     },
-    
 
 
-    renderTemplate: function(container) {
+
+    renderTemplate: function (container) {
         container.innerHTML = `
             <div class="popup-header-modern" style="padding: 15px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 10px;">
                 <div class="ph-icon mobile-bg" style="width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white;">
@@ -114,7 +114,7 @@ const MobileModule = {
     },
 
     // Unified Dashboard Loop handles fetching
-    updateFromDashboard: function(mobData, isFast = false) {
+    updateFromDashboard: function (mobData, isFast = false) {
         if (!mobData) {
             if (!isFast) this.handleError();
             return;
@@ -123,7 +123,7 @@ const MobileModule = {
         this.updateUI(mobData, isFast);
     },
 
-    handleError: function() {
+    handleError: function () {
         this.errorCount++;
         if (this.errorCount > 3) {
             const emptyData = { operator_name: "-", signal: "0", mode: "-" };
@@ -132,7 +132,7 @@ const MobileModule = {
         }
     },
 
-    updateUI: function(data, isFast = false) {
+    updateUI: function (data, isFast = false) {
         if (isFast) {
             // Fast update: Only signal bars & percentage
             this.updateSignalBars(data);
@@ -142,7 +142,7 @@ const MobileModule = {
         if ((data.operator_name === "-" || !data.operator_name) && (data.signal === "-" || !data.signal)) {
             return;
         }
-        
+
         const netInfo = this.processNetworkInfo(data);
         data.display_type = netInfo.type;
         data.display_band = netInfo.bandText;
@@ -151,7 +151,7 @@ const MobileModule = {
         this.updateDashboardCard(data);
     },
 
-    updateSignalBars: function(data) {
+    updateSignalBars: function (data) {
         let signalPercent = parseInt(data.signal);
         if (isNaN(signalPercent)) return;
 
@@ -170,57 +170,57 @@ const MobileModule = {
             const elSigVal = document.getElementById('mob-signal');
             if (elSigVal) elSigVal.innerText = signalPercent + "%";
 
-            let level = Math.ceil(signalPercent / 20); 
+            let level = Math.ceil(signalPercent / 20);
             if (level < 1 && signalPercent > 0) level = 1;
             bars.forEach((b, index) => {
                 b.classList.remove('active', 'bad', 'weak');
                 if (index < level) {
                     b.classList.add('active');
-                    if (level <= 2) b.classList.add('bad'); 
+                    if (level <= 2) b.classList.add('bad');
                     else if (level <= 3) b.classList.add('weak');
                 }
             });
         }
-        
+
         // 3. Update Chart
         if (typeof ChartsModule !== 'undefined') {
             ChartsModule.updateMobileSignal(signalPercent);
         }
     },
 
-    updatePopup: function(data) {
-        const setTxt = (id, txt) => { const e = document.getElementById(id); if(e) e.innerText = txt; };
+    updatePopup: function (data) {
+        const setTxt = (id, txt) => { const e = document.getElementById(id); if (e) e.innerText = txt; };
 
         // Popup Title: Hardware Manufacturer (e.g., Fibocom, Dell, Sierra)
         setTxt('mob-operator', data.manufacturer || data.model || "Modem");
         setTxt('mob-mode', data.display_type || "--");
-        
+
         // Popup Details Field: Hãng SX
         setTxt('mob-provider', data.manufacturer || "--");
         setTxt('mob-band-main', data.display_band);
         setTxt('mob-model', data.modem || data.model || "--");
         setTxt('mob-fw', data.firmware || "--");
-        
+
         let signalPercent = parseInt(data.signal);
         if (isNaN(signalPercent)) signalPercent = 0;
         setTxt('mob-signal', signalPercent + "%");
 
         const isReg = data.registration === "1" || data.registration === "5";
         const elStatus = document.getElementById('mob-status');
-        if(elStatus) {
+        if (elStatus) {
             elStatus.innerText = isReg ? "Đã kết nối internet" : "Chưa đăng ký mạng";
             elStatus.style.color = isReg ? "var(--text-sub)" : "#e53e3e";
         }
-        
+
         const bars = document.querySelectorAll('#signal-bars .signal-bar');
-        let level = Math.ceil(signalPercent / 20); 
+        let level = Math.ceil(signalPercent / 20);
         if (level < 1 && signalPercent > 0) level = 1;
         bars.forEach((b, index) => {
             b.className = 'signal-bar ' + (index === 0 ? 'b-1' : index === 1 ? 'b-2' : index === 2 ? 'b-3' : index === 3 ? 'b-4' : 'b-5');
             b.classList.remove('active', 'bad', 'weak');
             if (index < level) {
                 b.classList.add('active');
-                if (level <= 2) b.classList.add('bad'); 
+                if (level <= 2) b.classList.add('bad');
                 else if (level <= 3) b.classList.add('weak');
             }
         });
@@ -229,7 +229,7 @@ const MobileModule = {
     // Persistent state for expanded panel
     isModemExpanded: false,
 
-    updateDashboardCard: function(data) {
+    updateDashboardCard: function (data) {
         const card = document.getElementById('card-mobile');
         if (!card) return;
 
@@ -240,7 +240,7 @@ const MobileModule = {
 
         // 2. Data Update (No innerHTML overwrite here to keep chart/panel state)
         const isp = (data.operator_name || "NHÀ MẠNG").toUpperCase();
-        const mode = (data.display_type || "MOBILE").replace(/\(wifi\s*6\)/gi, '').trim(); 
+        const mode = (data.display_type || "MOBILE").replace(/\(wifi\s*6\)/gi, '').trim();
         const signal = parseInt(data.signal) || 0;
         const temp = data.mtemp || "--";
         const band = (data.display_band || "--").replace(/\s*\([^)]*\)/g, '').trim();
@@ -270,17 +270,17 @@ const MobileModule = {
 
         // Update Chart via ChartsModule (it won't flicker now as canvas is persistent)
         if (typeof ChartsModule !== 'undefined' && ChartsModule.updateMobileSignal) {
-             ChartsModule.updateMobileSignal(signal);
+            ChartsModule.updateMobileSignal(signal);
         }
     },
 
-    renderInitialCard: function(card, data) {
+    renderInitialCard: function (card, data) {
         card.style.display = 'flex';
         card.style.flexDirection = 'column';
-        card.style.padding = '0'; 
+        card.style.padding = '0';
 
         const isp = (data.operator_name || "NHÀ MẠNG").toUpperCase();
-        const mode = (data.display_type || "MOBILE").replace(/\(wifi\s*6\)/gi, '').trim(); 
+        const mode = (data.display_type || "MOBILE").replace(/\(wifi\s*6\)/gi, '').trim();
         const signal = parseInt(data.signal) || 0;
 
         // Show cached modem info if we have it
@@ -348,8 +348,8 @@ const MobileModule = {
         } else {
             fetch('/cgi-bin/mobile/get')
                 .then(res => res.json())
-                .then(res => { 
-                    if(res.status === 'success') {
+                .then(res => {
+                    if (res.status === 'success') {
                         this.modemDetails = res.data;
                         this.updateModemDetailsUI();
                     }
@@ -357,36 +357,46 @@ const MobileModule = {
         }
     },
 
-    updateModemDetailsUI: function() {
+    updateModemDetailsUI: function () {
         if (!this.modemDetails) return;
         const m = this.modemDetails;
-        const setSpan = (id, val) => { const e = document.getElementById(id); if(e) e.innerText = val; };
+        const setSpan = (id, val) => { const e = document.getElementById(id); if (e) e.innerText = val; };
         setSpan('mob-det-imei', m.imei || "--");
         setSpan('mob-det-fw', m.firmware || "--");
         setSpan('mob-det-manu', m.manufacturer || "--");
-        
+
         const sub = document.querySelector('.mob-modem-sub');
         if (sub) sub.innerText = `${m.model || m.modem || "Modem"} • ${m.own_number || "SIM Ready"}`;
     },
 
-    toggleModemDetails: function() {
+    toggleModemDetails: function () {
         this.isModemExpanded = !this.isModemExpanded;
         const panel = document.getElementById('modem-details-panel');
         if (panel) panel.classList.toggle('expanded');
-        
+
         const icon = document.getElementById('mob-chevron');
         if (icon) icon.classList.toggle('rotated', this.isModemExpanded);
     },
 
-    restartModem: function() {
-        if (!confirm("Xác nhận khởi động lại kết nối Modem?")) return;
-        
+    restartModem: function () {
+        if(typeof Modal !== 'undefined') {
+            Modal.confirm(
+                "Khởi động lại Modem",
+                "Xác nhận khởi động lại kết nối Modem?",
+                () => { this.executeRestartModem(); }
+            );
+        } else if(confirm("Xác nhận khởi động lại kết nối Modem?")) {
+            this.executeRestartModem();
+        }
+    },
+
+    executeRestartModem: function () {
         const btn = document.getElementById('btn-restart-modem');
         const statusDiv = document.getElementById('modem-action-status');
-        
+
         btn.disabled = true;
         btn.innerHTML = `<span style="border: 2px solid #fff; border-top: 2px solid transparent; border-radius: 50%; width: 12px; height: 12px; animation: spin 1s linear infinite; display: inline-block; margin-right: 6px;"></span> Đang xử lý...`;
-        
+
         statusDiv.style.display = 'block';
         statusDiv.style.color = 'var(--text-sub)';
         statusDiv.innerText = "Đang gửi lệnh Restart...";
@@ -394,34 +404,34 @@ const MobileModule = {
         const payload = { action: 'restart' };
         fetch('/cgi-bin/mobile/action', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         })
-        .then(res => res.json())
-        .then(data => {
-            if(data.status === 'success') {
-                statusDiv.innerText = "Thành công! Modem đang khởi động lại...";
-                statusDiv.style.color = "#48bb78";
-                setTimeout(() => {
-                    statusDiv.style.display = 'none';
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    statusDiv.innerText = "Thành công! Modem đang khởi động lại...";
+                    statusDiv.style.color = "#48bb78";
+                    setTimeout(() => {
+                        statusDiv.style.display = 'none';
+                        btn.disabled = false;
+                        btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:6px;"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg> Khởi động lại Modem`;
+                        this.toggleModemDetails();
+                    }, 5000);
+                } else {
+                    statusDiv.innerText = "Lỗi: " + (data.message || "Không rõ");
+                    statusDiv.style.color = "#e53e3e";
                     btn.disabled = false;
-                    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:6px;"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg> Khởi động lại Modem`;
-                    this.toggleModemDetails();
-                }, 5000);
-            } else {
-                statusDiv.innerText = "Lỗi: " + (data.message || "Không rõ");
+                }
+            })
+            .catch(() => {
+                statusDiv.innerText = "Lỗi kết nối!";
                 statusDiv.style.color = "#e53e3e";
                 btn.disabled = false;
-            }
-        })
-        .catch(() => {
-            statusDiv.innerText = "Lỗi kết nối!";
-            statusDiv.style.color = "#e53e3e";
-            btn.disabled = false;
-        });
+            });
     },
 
-    updatePing: function(pingStr) {
+    updatePing: function (pingStr) {
         const elPing = document.getElementById('mob-card-ping');
         if (elPing) {
             if (pingStr && pingStr !== '-') {
@@ -434,43 +444,43 @@ const MobileModule = {
         }
     },
 
-    fetchTTL: function() {
+    fetchTTL: function () {
         fetch('/cgi-bin/ttl/index')
             .then(r => r.json())
             .then(d => {
                 const el = document.getElementById('mob-card-ttl');
-                if(el && d.ttl && d.ttl > 0) el.innerText = d.ttl;
+                if (el && d.ttl && d.ttl > 0) el.innerText = d.ttl;
                 else if (el) el.innerText = "--";
-            }).catch(()=>{});
+            }).catch(() => { });
     },
 
-    setTTL: function() {
+    setTTL: function () {
         const el = document.getElementById('inp-ttl');
-        if(!el) return;
+        if (!el) return;
         const val = parseInt(el.value);
-        
+
         if (typeof Toast !== 'undefined') Toast.show("Đang áp dụng TTL...", "info");
 
         fetch('/cgi-bin/ttl/index', {
             method: 'POST',
             body: JSON.stringify({ ttl: val || 0 })
         })
-        .then(r => r.json())
-        .then(d => {
-            if(d.status === 'success') {
-                if (typeof Toast !== 'undefined') Toast.show("Đã set TTL: " + (val || "Disabled"), "success");
-            } else {
-                if (typeof Toast !== 'undefined') Toast.show("Lỗi: " + d.message, "error");
-            }
-        })
-        .catch(() => {
-            if (typeof Toast !== 'undefined') Toast.show("Lỗi kết nối", "error");
-        });
+            .then(r => r.json())
+            .then(d => {
+                if (d.status === 'success') {
+                    if (typeof Toast !== 'undefined') Toast.show("Đã set TTL: " + (val || "Disabled"), "success");
+                } else {
+                    if (typeof Toast !== 'undefined') Toast.show("Lỗi: " + d.message, "error");
+                }
+            })
+            .catch(() => {
+                if (typeof Toast !== 'undefined') Toast.show("Lỗi kết nối", "error");
+            });
     },
 
-    showModemDetails: function() {
+    showModemDetails: function () {
         if (typeof Modal === 'undefined') return;
-        
+
         const loadingId = Modal.show({
             title: " ", // Space to avoid 'Thông báo' default
             content: `
@@ -483,10 +493,10 @@ const MobileModule = {
             .then(r => r.json())
             .then(res => {
                 Modal.close(loadingId);
-                if(res.status === 'success' && res.data) {
+                if (res.status === 'success' && res.data) {
                     const d = res.data;
                     const isConnected = (d.state === 'connected' || d.sub_state === 'connected');
-                    
+
                     const content = `
                         <style>
                             .modal-box h3 { display: none !important; } /* Hide default title */
@@ -597,15 +607,15 @@ const MobileModule = {
                             </div>
                         </div>
                     `;
-                    
+
                     Modal.show({
-                        title: " ", 
+                        title: " ",
                         content: content,
                         showCancel: false,
-                        showConfirm: false 
+                        showConfirm: false
                     });
                 } else {
-                     Modal.show({ title: "Lỗi", content: "Không lấy được thông tin modem." });
+                    Modal.show({ title: "Lỗi", content: "Không lấy được thông tin modem." });
                 }
             })
             .catch(() => {
@@ -613,9 +623,9 @@ const MobileModule = {
             });
     },
 
-    showTTLModal: function() {
+    showTTLModal: function () {
         if (typeof Modal === 'undefined') return;
-        
+
         // Show Loading first
         const loadingId = Modal.show({
             title: "Cấu hình TTL",
@@ -628,10 +638,10 @@ const MobileModule = {
         });
 
         // Fetch current
-        fetch('/cgi-bin/ttl/index').then(r=>r.json()).then(d => {
+        fetch('/cgi-bin/ttl/index').then(r => r.json()).then(d => {
             Modal.close(loadingId);
             const current = (d.ttl && d.ttl > 0) ? d.ttl : "";
-            
+
             Modal.show({
                 title: "Cấu hình TTL (Bypass Hotspot)",
                 content: `
@@ -649,9 +659,9 @@ const MobileModule = {
                     </div>
                 `,
                 onConfirm: () => {
-                   const inp = document.getElementById('modal-ttl-input');
-                   const val = inp ? parseInt(inp.value) : 0;
-                   this.doSetTTL(val);
+                    const inp = document.getElementById('modal-ttl-input');
+                    const val = inp ? parseInt(inp.value) : 0;
+                    this.doSetTTL(val);
                 },
                 confirmText: "Áp dụng",
                 cancelText: "Hủy"
@@ -659,9 +669,9 @@ const MobileModule = {
         });
     },
 
-    showTTLEdit: function() {
+    showTTLEdit: function () {
         if (typeof Modal === 'undefined') return;
-        
+
         // Use currently displayed TTL from grid or data
         const current = document.getElementById('mob-card-ttl')?.innerText || "64";
 
@@ -679,37 +689,37 @@ const MobileModule = {
                 </div>
             `,
             onConfirm: () => {
-               const inp = document.getElementById('modal-ttl-input');
-               const val = inp ? parseInt(inp.value) : 0;
-               this.doSetTTL(val);
+                const inp = document.getElementById('modal-ttl-input');
+                const val = inp ? parseInt(inp.value) : 0;
+                this.doSetTTL(val);
             },
             confirmText: "Áp dụng",
             cancelText: "Hủy"
         });
     },
 
-    doSetTTL: function(val) {
+    doSetTTL: function (val) {
         if (typeof Toast !== 'undefined') Toast.show("Đang áp dụng...", "info");
-        
+
         // Update dashboard UI immediately for responsiveness
         const dashEl = document.getElementById('mob-card-ttl');
-        if(dashEl) dashEl.innerText = val || "--";
+        if (dashEl) dashEl.innerText = val || "--";
 
         fetch('/cgi-bin/ttl/index', {
             method: 'POST',
             body: JSON.stringify({ ttl: val || 0 })
         })
-        .then(r => r.json())
-        .then(d => {
-            if(d.status === 'success') {
-                if (typeof Toast !== 'undefined') Toast.show("Thành công! TTL: " + (val || "Off"), "success");
-            } else {
-                if (typeof Toast !== 'undefined') Toast.show("Lỗi: " + d.message, "error");
-            }
-        })
-        .catch(() => {
-             if (typeof Toast !== 'undefined') Toast.show("Mất kết nối", "error");
-        });
+            .then(r => r.json())
+            .then(d => {
+                if (d.status === 'success') {
+                    if (typeof Toast !== 'undefined') Toast.show("Thành công! TTL: " + (val || "Off"), "success");
+                } else {
+                    if (typeof Toast !== 'undefined') Toast.show("Lỗi: " + d.message, "error");
+                }
+            })
+            .catch(() => {
+                if (typeof Toast !== 'undefined') Toast.show("Mất kết nối", "error");
+            });
     }
 };
 window.MobileModule = MobileModule;

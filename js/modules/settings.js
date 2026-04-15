@@ -36,7 +36,7 @@ const SettingsModule = {
         const luciPath = `${window.location.protocol}//${window.location.hostname}/cgi-bin/luci`;
 
         container.innerHTML = `
-            <div class="settings-menu" style="background:transparent; padding:0; gap:15px; color:var(--text-main);">
+            <div class="settings-menu" style="background:transparent; padding:15px; display:flex; flex-direction:column; gap:15px; color:var(--text-main);">
                 
                 <!-- 1. SYSTEM STATUS CARD (Mint accent, theme aware) -->
                 <div id="sys-status-card" class="setting-card" style="background:var(--card-status-bg, linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%)); border:1px solid var(--card-status-border, #81e6d9); border-radius:12px; padding:15px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
@@ -51,13 +51,7 @@ const SettingsModule = {
 
                 <!-- 2. QUICK ACTIONS GRID -->
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                    <!-- Restart Mobile -->
-                    <div class="action-card" onclick="SettingsModule.restartMobileService()" style="background:var(--bg-card); padding:12px; border-radius:12px; border:1px solid var(--border-color); cursor:pointer; transition:0.2s; display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center;">
-                        <div style="width:36px; height:36px; background:rgba(49, 130, 206, 0.1); border-radius:10px; color:#3182ce; display:flex; align-items:center; justify-content:center;">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                        </div>
-                        <span style="font-size:11px; font-weight:600; color:var(--text-sub);">Reset Mạng</span>
-                    </div>
+                    <!-- Restart Mobile Removed -->
 
                     <!-- Change Pass -->
                     <div class="action-card" onclick="SettingsModule.showPasswordModal()" style="background:var(--bg-card); padding:12px; border-radius:12px; border:1px solid var(--border-color); cursor:pointer; transition:0.2s; display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center;">
@@ -67,13 +61,7 @@ const SettingsModule = {
                         <span style="font-size:11px; font-weight:600; color:var(--text-sub);">Đổi Mật Khẩu</span>
                     </div>
 
-                    <!-- LuCI -->
-                    <a href="${luciPath}" target="_blank" class="action-card" onclick="SettingsModule.closePopup()" style="text-decoration:none; background:var(--bg-card); padding:12px; border-radius:12px; border:1px solid var(--border-color); cursor:pointer; transition:0.2s; display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center;">
-                        <div style="width:36px; height:36px; background:rgba(74, 85, 104, 0.1); border-radius:10px; color:var(--text-sub); display:flex; align-items:center; justify-content:center;">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                        </div>
-                        <span style="font-size:11px; font-weight:600; color:var(--text-sub);">Cài đặt nâng cao</span>
-                    </a>
+                    <!-- LuCI Removed -->
 
                     <!-- Reboot -->
                     <div class="action-card" onclick="SettingsModule.confirmReboot()" style="background:var(--bg-card); padding:12px; border-radius:12px; border:1px solid var(--border-color); cursor:pointer; transition:0.2s; display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center;">
@@ -304,50 +292,7 @@ const SettingsModule = {
         setTimeout(() => document.getElementById('new-pass').focus(), 100);
     },
 
-    restartMobileService: function() {
-        // Anti-spam check (30s cooldown)
-        const lastClick = localStorage.getItem('last_mobile_restart');
-        const now = Date.now();
-        if (lastClick && (now - lastClick < 30000)) {
-            const remain = Math.ceil((30000 - (now - lastClick)) / 1000);
-            if(typeof Toast !== 'undefined') Toast.show(`Vui lòng đợi ${remain}s trước khi thử lại!`, "warning");
-            return;
-        }
 
-        this.closePopup();
-        
-        // Rate limiting: Prevent spam (minimum 60 seconds between restarts)
-        const lastRestart = parseInt(localStorage.getItem('last_mobile_restart') || 0);
-        const timeSinceLastRestart = Date.now() - lastRestart;
-        const minInterval = 60000; // 60 seconds
-        
-        if (timeSinceLastRestart < minInterval) {
-            const remainingSeconds = Math.ceil((minInterval - timeSinceLastRestart) / 1000);
-            if(typeof Toast !== 'undefined') {
-                Toast.show(`⏱️ Vui lòng đợi ${remainingSeconds} giây nữa trước khi khởi động lại.`, "warning");
-            } else {
-                alert(`Vui lòng đợi ${remainingSeconds} giây nữa.`);
-            }
-            return;
-        }
-        
-        if(typeof Modal !== 'undefined') {
-            Modal.confirm(
-                "Khởi động lại kết nối 4G/5G",
-                "Hành động này sẽ tạm ngắt và kết nối lại mạng di động (mất khoảng 15 giây).<br>Bạn có chắc chắn không?",
-                () => {
-                    this.doRestartMobile();
-                }
-            );
-        } else if(confirm("Khởi động lại kết nối (mất 15s)?")) {
-            this.doRestartMobile();
-        }
-    },
-
-    doRestartMobile: function() {
-        localStorage.setItem('last_mobile_restart', Date.now());
-        this.sendAction('restart_mobile');
-    },
 
     doChangePassword: function() {
         const pass = document.getElementById('new-pass').value;

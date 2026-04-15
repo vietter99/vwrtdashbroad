@@ -9,9 +9,7 @@ const SidebarModule = {
         if(overlay) overlay.addEventListener('click', this.close);
         if(closeBtn) closeBtn.addEventListener('click', this.close);
 
-        if(btn) btn.addEventListener('click', this.open);
-        if(overlay) overlay.addEventListener('click', this.close);
-        if(closeBtn) closeBtn.addEventListener('click', this.close);
+
 
         // Removed auto-fetch for sidebar inline display
 
@@ -119,11 +117,6 @@ const SidebarModule = {
             if(typeof LedModule !== 'undefined') {
                 LedModule.showModal();
             }
-            return;
-        }
-
-        if(featureName === 'network_status') {
-            this.showNetworkStatusModal();
             return;
         }
 

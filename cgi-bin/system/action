@@ -58,22 +58,6 @@ elseif action == "reset" then
     send_response("success", "Đang khôi phục cài đặt gốc...")
     os.execute("sleep 2 && firstboot -y && reboot > /dev/null 2>&1 &")
 
-elseif action == "restart_mobile" then
-    send_response("success", "Đang khởi động lại dịch vụ Mobile...")
-    
-    -- 1. Universal Interface Restart
-    os.execute("ifdown 5G; sleep 2; ifup 5G > /dev/null 2>&1 &")
-    
-    -- 2. Service Restart (Both ATC and ModemManager)
-    os.execute("killall atc.sh > /dev/null 2>&1")
-    os.execute("/etc/init.d/modemmanager restart > /dev/null 2>&1")
-    os.execute("killall mobile_poller.lua > /dev/null 2>&1")
-    
-    local cmd = "lua /www/vwrt/services/mobile_poller.lua > /dev/null 2>&1 &"
-    
-    -- Wait 5s for services to get ready
-    os.execute("sleep 5 && " .. cmd)
-
 elseif action == "free_ram" then
     send_response("success", "Đã giải phóng bộ nhớ đệm (Drop Caches).")
     os.execute("sync && echo 3 > /proc/sys/vm/drop_caches")
