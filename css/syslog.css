@@ -1,0 +1,60 @@
+/* ── PREMIUM LOG INTERFACE (VWRT SYSLOG) ── */
+.syslog-terminal {
+    background: rgba(10, 10, 10, 0.7) !important;
+    backdrop-filter: blur(24px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+    font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Menlo', 'Consolas', monospace !important;
+    line-height: 1.6 !important;
+    color: #e2e8f0 !important;
+    padding: 20px !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.2) transparent;
+}
+
+.syslog-log-timestamp { color: #4ade80; font-weight: 600; margin-right: 8px; }
+.syslog-log-service { color: #60a5fa; font-weight: 700; margin-right: 8px; }
+.syslog-log-msg { color: #f1f5f9; }
+
+/* Blinking Pulse Dot */
+.syslog-pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: #4ade80;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+    box-shadow: 0 0 0 rgba(74, 222, 128, 0.4);
+    animation: syslog-pulse 2s infinite;
+}
+
+@keyframes syslog-pulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(74, 222, 128, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+}
+
+/* Glassmorphism Refined Button */
+.syslog-btn-glass {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    padding: 8px 16px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.syslog-btn-glass:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.4);
+}

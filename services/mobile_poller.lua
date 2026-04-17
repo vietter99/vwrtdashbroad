@@ -7,7 +7,7 @@ package.path = "/www/vwrt/?.lua;" .. package.path
 local constants = require "lib.constants"
 local CACHE_FILE = constants.PATHS.MOBILE_CACHE
 local TEMP_FILE = constants.PATHS.MOBILE_CACHE_TEMP
-local LOCK_FILE = "/tmp/modem_at.lock"
+local LOCK_FILE = constants.PATHS.MODEM_AT_LOCK
 
 -- Lock helpers (Synced with fm350.lua)
 function acquire_lock()
@@ -340,7 +340,7 @@ local function calculate_signal_strength(rsrp)
 end
 
 local function apply_auto_led(mode, ping, iface, state)
-    local config_file = "/etc/vwrt_autoled.json"
+    local config_file = constants.PATHS.AUTO_LED_CONFIG
     local f = io.open(config_file, "r")
     if not f then return end
     local content = f:read("*all")
@@ -507,6 +507,25 @@ local function get_interface_ip(iface)
     return nil
 end
 
+local function get_interface_dns(iface)
+    if not iface or iface == "" then return nil end
+    -- We'll try to find the interface in ubus that uses this l3_device
+    local p = io.popen("ubus call network.interface dump")
+    if not p then return nil end
+    local raw = p:read("*a"); p:close()
+    if not raw or raw == "" then return nil end
+    
+    local ok, parsed = pcall(cjson.decode, raw)
+    if not ok or not parsed or not parsed.interface then return nil end
+    
+    for _, item in ipairs(parsed.interface) do
+        if item.l3_device == iface and item['dns-server'] and #item['dns-server'] > 0 then
+            return item['dns-server'][1]
+        end
+    end
+    return nil
+end
+
 local function check_and_fix_modem_config()
     local current_dev = exec("uci -q get network.5G.device"):gsub("\n", "")
     local dev_valid = false
@@ -606,7 +625,7 @@ local fm350_parser = require("services.parsers.fm350_at")
 function main()
     -- Restore LED Config
     local function restore_leds() 
-        local f = io.open("/etc/vwrt_led.json", "r")
+        local f = io.open(constants.PATHS.LED_CONFIG, "r")
         if f then
             local content = f:read("*all")
             f:close()
@@ -661,7 +680,7 @@ function main()
         -- ===========================================
 
         -- Respect AT Port Lock, but ignore stale locks (> 60s)
-        local lock_path = "/tmp/modem_at.lock"
+        local lock_path = constants.PATHS.MODEM_AT_LOCK
         local is_locked = false
         local f = io.open(lock_path, "r")
         if f then
@@ -959,7 +978,9 @@ function main()
 
                 -- 4. Ping (Strictly tied to modem interface with IP)
                 if data_modem.iface and data_modem.wan_ip and data_modem.wan_ip ~= "Unknown" then
-                    local ping_cmd = "ping -c 1 -W 1 -I " .. data_modem.iface .. " 8.8.8.8 2>/dev/null | grep 'time=' | awk -F'time=' '{print $2}' | awk '{print $1}'"
+                    -- Priority: DNS of the modem (best for bypassing SSR Plus+) > 8.8.8.8
+                    local target_host = get_interface_dns(data_modem.iface) or "8.8.8.8"
+                    local ping_cmd = "ping -c 1 -W 1 -I " .. data_modem.iface .. " " .. target_host .. " 2>/dev/null | grep 'time=' | awk -F'time=' '{print $2}' | awk '{print $1}'"
                     local p = io.popen(ping_cmd)
                     if p then
                         local p_val = p:read("*a"); p:close()

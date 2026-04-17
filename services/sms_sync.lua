@@ -288,7 +288,7 @@ function main()
         local archive = load_archive()
         
         -- 1. Check for DELETE requests from Web
-        local f_del = io.open("/tmp/sms_delete_request", "r")
+        local f_del = io.open(constants.PATHS.SMS_DELETE_REQ, "r")
         if f_del then
             local phones = {}
             for line in f_del:lines() do
@@ -296,7 +296,7 @@ function main()
                 if #p > 0 then phones[p] = true end
             end
             f_del:close()
-            os.remove("/tmp/sms_delete_request")
+            os.remove(constants.PATHS.SMS_DELETE_REQ)
             
             for phone, _ in pairs(phones) do
                 log("Processing remote delete request for: " .. phone)
@@ -317,14 +317,14 @@ function main()
         end
 
         -- 2. Clear trigger file before sync
-        os.remove("/tmp/sms_sync_trigger")
+        os.remove(constants.PATHS.SMS_TRIGGER)
         
         local ok, count = pcall(sync_sms_via_driver, driver_lib)
         
         local base_sleep = 60 -- Default interval (Rest mode)
         
         -- Check for recent web activity (last 2 minutes)
-        local f_act = io.open("/tmp/sms_web_activity", "r")
+        local f_act = io.open(constants.PATHS.SMS_ACTIVITY, "r")
         if f_act then
             local last_act = tonumber(f_act:read("*a") or 0)
             f_act:close()
@@ -347,7 +347,7 @@ function main()
         for i = 1, base_sleep do
             os.execute("sleep 1")
             -- If trigger file appears, wake up immediately
-            local f_trig = io.open("/tmp/sms_sync_trigger", "r")
+            local f_trig = io.open(constants.PATHS.SMS_TRIGGER, "r")
             if f_trig then
                 f_trig:close()
                 break

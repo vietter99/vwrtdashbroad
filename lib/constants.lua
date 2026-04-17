@@ -32,6 +32,11 @@ M.PATHS = {
     
     -- System Info
     SYSINFO_MODEL   = "/tmp/sysinfo/model",
+
+    -- SMS Trigger & Communication Files
+    SMS_TRIGGER     = "/tmp/sms_sync_trigger",
+    SMS_ACTIVITY    = "/tmp/sms_web_activity",
+    SMS_DELETE_REQ  = "/tmp/sms_delete_request",
 }
 
 return M

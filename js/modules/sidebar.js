@@ -123,6 +123,13 @@ const SidebarModule = {
             return;
         }
 
+        if(featureName === 'syslog') {
+            if(typeof SyslogModule !== 'undefined') {
+                SyslogModule.showModal();
+            }
+            return;
+        }
+
 
 
 
