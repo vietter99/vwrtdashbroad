@@ -91,18 +91,7 @@ echo "BẮT ĐẦU: Kết nối kho dữ liệu VWRT (Secure Mode)..." > "$LOG_F
         fi
     done
 
-    echo "Cấu hình hệ thống VWRT..." >> "$LOG_FILE"
-    
-    # BẮT BUỘC: Khởi tạo file cấu hình nếu gói không tự tạo (fix lỗi trắng trang)
-    if [ ! -f "/etc/config/shadowsocksr" ]; then
-        echo "Khởi tạo file cấu hình shadowsocksr..." >> "$LOG_FILE"
-        touch /etc/config/shadowsocksr
-        uci -q batch <<EOF
-set shadowsocksr.global=global
-set shadowsocksr.global.enabled=0
-commit shadowsocksr
-EOF
-    fi
+    echo "Hoàn tất cài đặt các thành phần..." >> "$LOG_FILE"
     
     # Hoàn tất: Làm mới hệ thống
     rm -rf /tmp/luci-indexcache
