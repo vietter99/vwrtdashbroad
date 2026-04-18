@@ -5,7 +5,7 @@ echo ''
 # CHUYỂN LOG SANG BỘ NHỚ FLASH ĐỂ KHÔNG MẤT KHI REBOOT
 LOG_FILE='/www/vwrt/vpn_install.log'
 LOCK_FILE='/tmp/vpn_install.lock'
-URL="https://raw.githubusercontent.com/vietter99/vwrtdashbroad/main/vpn"
+URL="https://raw.githubusercontent.com/vietter99/vpnvwrt/master"
 TMP_DIR="/tmp/core_update"
 
 get_action() {
