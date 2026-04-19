@@ -5,6 +5,7 @@ echo ''
 # CHUYỂN LOG SANG BỘ NHỚ FLASH ĐỂ KHÔNG MẤT KHI REBOOT
 LOG_FILE='/www/vwrt/vpn_install.log'
 LOCK_FILE='/tmp/vpn_install.lock'
+DEBUG_LOG='/tmp/vpn_debug.log'
 URL="https://raw.githubusercontent.com/vietter99/vpnvwrt/master"
 TMP_DIR="/tmp/core_update"
 
@@ -37,70 +38,83 @@ if [ -f "$LOCK_FILE" ]; then
 fi
 
 touch "$LOCK_FILE"
-echo "BẮT ĐẦU: Kết nối kho dữ liệu VWRT (Secure Mode)..." > "$LOG_FILE"
+echo "BẮT ĐẦU: Kết nối kho dữ liệu VWRT..." > "$LOG_FILE"
 
 (
     # BẮT BUỘC: Cập nhật danh sách gốc
-    echo "Đang cập nhật danh sách gói từ Server..." >> "$LOG_FILE"
-    opkg update > /dev/null 2>&1
+    echo "Đang chuẩn bị dữ liệu (1/18)..." >> "$LOG_FILE"
+    opkg update > "$DEBUG_LOG" 2>&1
     if [ $? -ne 0 ]; then
-        echo "ERROR: Không thể kết nối Internet để cập nhật opkg!" >> "$LOG_FILE"
+        echo "ERROR: Lỗi đồng bộ hệ thống!" >> "$LOG_FILE"
         rm -f "$LOCK_FILE"
         exit 1
     fi
 
     # Bước 0: Cài đặt các gói nền tảng từ official repo của ImmortalWrt
-    echo "Đang tải các gói nền tảng" >> "$LOG_FILE"
-    opkg install ip-full coreutils-base64 coreutils-nohup luci-compat luci-lib-ipkg jq nping > /dev/null 2>&1
+    echo "Đang chuẩn bị dữ liệu (2/18)..." >> "$LOG_FILE"
+    # Kiểm tra xem các gói nền đã có chưa để tiết kiệm thời gian
+    opkg install ip-full coreutils-base64 coreutils-nohup luci-compat luci-lib-ipkg jq nping >> "$DEBUG_LOG" 2>&1
 
     # Bước 1: Xử lý Dnsmasq (Bắt buộc phải là dnsmasq-full)
     if ! opkg list-installed | grep -q "dnsmasq-full"; then
-        echo "Đang nâng cấp hệ thống DNS (Dnsmasq -> Dnsmasq-Full)..." >> "$LOG_FILE"
-        opkg remove dnsmasq --force-remove > /dev/null 2>&1
-        opkg install dnsmasq-full > /dev/null 2>&1
+        echo "Đang chuẩn bị dữ liệu (3/18)..." >> "$LOG_FILE"
+        opkg remove dnsmasq --force-remove >> "$DEBUG_LOG" 2>&1
+        opkg install dnsmasq-full >> "$DEBUG_LOG" 2>&1
     fi
 
     rm -rf $TMP_DIR && mkdir -p $TMP_DIR
     cd $TMP_DIR
     
-    FILES="libuci-lua_2021-04-14-1_aarch64_cortex-a53.ipk luci-app-ssr-plus_190-r126_all.ipk xray-core_25.12.8-r35_aarch64_cortex-a53.ipk luci-app-mosdns_1.6.16-r18_all.ipk mosdns_5.3.3-r82_aarch64_cortex-a53.ipk dns2socks_2.1-r4_aarch64_cortex-a53.ipk dns2tcp_1.1.2-r2_aarch64_cortex-a53.ipk lua-neturl_1.2.1-r4_all.ipk microsocks_1.0.5-r3_aarch64_cortex-a53.ipk shadowsocks-rust-sslocal_1.24.0-r14_aarch64_cortex-a53.ipk shadowsocks-rust-ssserver_1.24.0-r14_aarch64_cortex-a53.ipk shadowsocksr-libev-ssr-check_2.5.6-r6_aarch64_cortex-a53.ipk shadowsocksr-libev-ssr-local_2.5.6-r6_aarch64_cortex-a53.ipk shadowsocksr-libev-ssr-redir_2.5.6-r6_aarch64_cortex-a53.ipk simple-obfs-client_0.0.5-r4_aarch64_cortex-a53.ipk tcping_0.3-r5_aarch64_cortex-a53.ipk"
+    FILES="luci-app-ssr-plus_190-r126_all.ipk xray-core_25.12.8-r35_aarch64_cortex-a53.ipk luci-app-mosdns_1.6.16-r18_all.ipk mosdns_5.3.3-r82_aarch64_cortex-a53.ipk dns2socks_2.1-r4_aarch64_cortex-a53.ipk dns2tcp_1.1.2-r2_aarch64_cortex-a53.ipk lua-neturl_1.2.1-r4_all.ipk microsocks_1.0.5-r3_aarch64_cortex-a53.ipk shadowsocks-rust-sslocal_1.24.0-r14_aarch64_cortex-a53.ipk shadowsocks-rust-ssserver_1.24.0-r14_aarch64_cortex-a53.ipk shadowsocksr-libev-ssr-check_2.5.6-r6_aarch64_cortex-a53.ipk shadowsocksr-libev-ssr-local_2.5.6-r6_aarch64_cortex-a53.ipk shadowsocksr-libev-ssr-redir_2.5.6-r6_aarch64_cortex-a53.ipk simple-obfs-client_0.0.5-r4_aarch64_cortex-a53.ipk tcping_0.3-r5_aarch64_cortex-a53.ipk"
 
+    COUNT=3
     for file in $FILES; do
-        echo "Đang tải thành phần hệ thống..." >> "$LOG_FILE"
+        COUNT=$((COUNT + 1))
+        
+        # LOG CHI TIẾT SANG FILE TẠM ĐỂ GỠ LỖI SSH
+        DEBUG_LOG='/tmp/vpn_debug.log'
+        
+        # KIỂM TRA THÔNG MINH: Nếu đã có gói rồi thì bỏ qua để tránh tốn bộ nhớ
+        PKG_NAME=$(echo "$file" | cut -d_ -f1)
+        if opkg list-installed | grep -q "$PKG_NAME"; then
+            echo "Đang chuẩn bị dữ liệu ($COUNT/18)..." >> "$LOG_FILE"
+            echo "Skip $PKG_NAME: Already installed" >> "$DEBUG_LOG"
+            continue
+        fi
+
+        echo "Đang chuẩn bị dữ liệu ($COUNT/18)..." >> "$LOG_FILE"
         curl -4 -f -s -L "$URL/$file" -o "$file"
         if [ $? -ne 0 ]; then
-            echo "ERROR: Không thể tải dữ liệu từ Server!" >> "$LOG_FILE"
+            echo "ERROR: Lỗi tải thành phần $COUNT!" >> "$LOG_FILE"
             rm -f "$LOCK_FILE"
             exit 1
         fi
         
         if echo "$file" | grep -q ".ipk"; then
-            echo "Đang giải mã và cài đặt gói..." >> "$LOG_FILE"
-            
-            # ĐỐI VỚI GÓI CHÍNH: Ép cài đặt để bypass lỗi libuci-lua ảo trên bản 24.10
-            if echo "$file" | grep -q "luci-app-ssr-plus"; then
-                opkg install "$file" --force-depends > /dev/null 2>&1
-            else
-                # Các gói khác cài bình thường để đảm bảo ổn định
-                OUT=$(opkg install "$file" 2>&1)
+            # CÀI ĐẶT THÔNG MINH: Thử cài đặt bình thường
+            opkg install "$file" >> "$DEBUG_LOG" 2>&1
+            if [ $? -ne 0 ]; then
+                opkg install "$file" --force-depends >> "$DEBUG_LOG" 2>&1
                 if [ $? -ne 0 ]; then
-                    opkg install "$file" --force-depends > /dev/null 2>&1
+                    echo "ERROR: Lỗi cài thành phần $COUNT!" >> "$LOG_FILE"
+                    rm -f "$LOCK_FILE"
+                    exit 1
                 fi
             fi
             rm -f "$file"
         fi
     done
 
-    echo "Hoàn tất cài đặt các thành phần..." >> "$LOG_FILE"
+    echo "Cài đặt thành công!" >> "$LOG_FILE"
     
     # Hoàn tất: Làm mới hệ thống
     rm -rf /tmp/luci-indexcache
     
     # Khởi động lại các service để nhận diện Menu mới mà không cần REBOOT
-    /etc/init.d/rpcd restart >/dev/null 2>&1
-    /etc/init.d/uhttpd restart >/dev/null 2>&1
+    /etc/init.d/rpcd restart >> "$DEBUG_LOG" 2>&1
+    /etc/init.d/uhttpd restart >> "$DEBUG_LOG" 2>&1
     
-    echo "Dọn dẹp..." >> "$LOG_FILE"
+    echo "Đang tinh chỉnh hệ thống..." >> "$LOG_FILE"
     rm -rf $TMP_DIR
     echo "SUCCESS: Kích hoạt hoàn tất!" >> "$LOG_FILE"
     rm -f "$LOCK_FILE"

@@ -1,0 +1,31 @@
+#!/usr/bin/lua
+
+--[[
+    VWRT STANDALONE SYSLOG BACKEND
+    Độc lập 100% - Không phụ thuộc vào vwrth.lua
+]]
+
+local cjson = require "cjson"
+
+-- Render Headers
+print("Content-type: application/json\n\n")
+
+-- Execute system command to fetch logs
+-- Sử dụng popen để tương thích rộng rãi trên OpenWrt
+local handle = io.popen("logread | tail -n 120 2>/dev/null")
+local log_data = handle:read("*a")
+handle:close()
+
+-- Fallback if empty
+if not log_data or log_data == "" then
+    log_data = "Chưa có nhật ký hệ thống hoặc trình logread không khả dụng."
+end
+
+-- Create JSON Response
+local response = {
+    status = "success",
+    log = log_data
+}
+
+-- Output
+print(cjson.encode(response))
