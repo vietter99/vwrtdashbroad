@@ -26,7 +26,9 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    font-weight: 450; /* Tăng độ đậm cơ bản */
     color: var(--text-main);
+    --ssr-text-secondary: #4A5568; /* Làm xám đậm hơn */
     --ssr-cyan: #06b6d4;
     --ssr-indigo: #6366f1;
     --ssr-gradient: linear-gradient(135deg, #06b6d4, #6366f1);
