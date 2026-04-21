@@ -1,7 +1,7 @@
 {
     "dashboard": {
-        "version": "1.1.5",
-        "url": "https://github.com/vietter99/vwrtdashbroad/archive/refs/tags/v1.1.5.zip",
-        "log": "- Tối ưu hóa hiệu suất hệ thống.\n- Cải thiện tính ổn định của cơ chế cập nhật."
+        "version": "1.1.6",
+        "url": "https://github.com/vietter99/vwrtdashbroad/archive/refs/tags/v1.1.6.zip",
+        "log": "- Tối ưu hóa tốc độ và giao diện Dashboard.\n- Thêm tính năng mới \"Quản lý Proxy\".\n- Tự động hóa và nâng cấp tính năng tự cứu chữa mạng Watchdog."
     }
 }
