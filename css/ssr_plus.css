@@ -26,11 +26,28 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    font-weight: 450; /* Tăng độ đậm cơ bản */
+    font-weight: 500; /* Tăng lên mức trung bình đậm */
     color: var(--text-main);
-    --ssr-text-secondary: #4A5568; /* Làm xám đậm hơn */
+    --ssr-text-secondary: #1A202C; /* Màu xám đen siêu đậm (High Contrast) */
     --ssr-cyan: #06b6d4;
     --ssr-indigo: #6366f1;
+    --text-sub: #1A202C !important; /* Ép màu đậm cho các label nhỏ */
+}
+
+/* ── HI-CONTRAST OVERRIDES FOR DASHBOARD ── */
+.sb-label, .sys-label, .nav-label, .header-title p, .model-name {
+    color: #1A202C !important;
+    font-weight: 700 !important;
+    -webkit-font-smoothing: antialiased;
+}
+
+.sb-val, .sys-val-mini {
+    font-weight: 800 !important;
+}
+
+.nav-link {
+    font-weight: 600 !important;
+}
     --ssr-gradient: linear-gradient(135deg, #06b6d4, #6366f1);
     --ssr-gradient-soft: linear-gradient(135deg, rgba(6,182,212,0.08), rgba(99,102,241,0.08));
     --ssr-gradient-glow: linear-gradient(135deg, rgba(6,182,212,0.15), rgba(99,102,241,0.15));
