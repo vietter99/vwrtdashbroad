@@ -4,24 +4,24 @@
 
 @font-face {
     font-family: 'Inter';
-    src: url('../fonts/InterVariable.woff2') format('woff2');
-    font-weight: 400; /* Regular */
+    src: url('../fonts/Inter-Regular.woff2') format('woff2');
+    font-weight: 400;
     font-style: normal;
     font-display: swap;
 }
 
 @font-face {
     font-family: 'Inter';
-    src: url('../fonts/InterVariable.woff2') format('woff2');
-    font-weight: 600; /* SemiBold */
+    src: url('../fonts/Inter-SemiBold.woff2') format('woff2');
+    font-weight: 600;
     font-style: normal;
     font-display: swap;
 }
 
 @font-face {
     font-family: 'Inter';
-    src: url('../fonts/InterVariable.woff2') format('woff2');
-    font-weight: 700; /* Bold */
+    src: url('../fonts/Inter-Bold.woff2') format('woff2');
+    font-weight: 700;
     font-style: normal;
     font-display: swap;
 }
