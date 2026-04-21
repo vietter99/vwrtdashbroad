@@ -204,7 +204,10 @@ elseif action == "import_nodes" then
     for link in links:gmatch("[^\r\n]+") do
         link = link:gsub("%s+", "")
         if link ~= "" then
-            local sid = "cfg" .. string.sub(vwrth.exec("echo -n '" .. link .. "' | md5sum | cut -d' ' -f1"), 1, 8)
+            -- Tạo SID an toàn không dùng shell exec
+            local sid = "cfg" .. string.sub(vwrth.exec("echo -n '" .. link .. "' | md5sum | cut -d' ' -f1") or "00000000", 1, 8)
+            sid = sid:gsub("%s+", "")
+            
             local proto = link:match("^(%w+)://")
             local cmds = {}
             local success = false
