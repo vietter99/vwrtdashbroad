@@ -21,7 +21,10 @@ function format_dns_for_display(dns_str)
     return table.concat(results, ", ")
 end
 
-local function get_global_sid()
+local function get_global_sid(all)
+    for k, v in pairs(all) do
+        if v.pdnsd_enable then return k end
+    end
     return "@global[0]"
 end
 
@@ -380,7 +383,8 @@ elseif action == "set_time" then
     end
 
 elseif action == "save_config" or action == "set_server" then
-    local sid = get_global_sid()
+    local all_cfg = vwrth.uci_get_all("shadowsocksr")
+    local sid = get_global_sid(all_cfg)
     local target_id = params.id or params.server
     
     if target_id then 
