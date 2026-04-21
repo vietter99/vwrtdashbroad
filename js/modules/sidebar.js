@@ -107,6 +107,13 @@ const SidebarModule = {
             return;
         }
 
+        if(featureName === 'ssr_plus') {
+            if(typeof SSRPlusModule !== 'undefined') {
+                SSRPlusModule.showModal();
+            }
+            return;
+        }
+
         if(featureName === 'reboot_sch') {
             if(typeof RebootScheduleModule !== 'undefined') {
                 RebootScheduleModule.showModal();
