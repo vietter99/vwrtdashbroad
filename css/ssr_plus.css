@@ -28,7 +28,7 @@
 
 .ssr-container {
     padding: 0;
-    font-family: 'Inter', -apple-system, sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
