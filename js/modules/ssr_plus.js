@@ -71,6 +71,7 @@ const SSRPlusModule = {
                     Dịch vụ <b>VWRT Proxy</b> hiện chưa được cài đặt. <br><br>
                     <span style="color: #4fd1c5; font-weight: 700;">• Yêu cầu:</span> Internet ổn định & Trống 50MB ROM.<br>
                     <span style="color: #f56565; font-weight: 700;">• Cảnh báo:</span> Tuyệt đối <b style="color: #f56565;">KHÔNG RÚT NGUỒN</b> khi đang cài.<br>
+                    <span style="color: #6366f1; font-weight: 700;">• Lưu ý:</span> Nhấn <b>Kích hoạt 2 lần</b> nếu thông báo thất bại.<br>
                 </p>
                 <div style="display: flex; gap: 12px; justify-content: center;">
                     <button onclick="SSRPlusModule.confirmInstall()" class="ssr-btn ssr-btn-primary" style="display: flex; align-items: center; gap: 8px; border: none; cursor: pointer;">
@@ -92,7 +93,8 @@ const SSRPlusModule = {
                         <span style="color: #6366f1; font-weight: 700;">1. Yêu cầu ROM:</span> Trống tối thiểu <b style="color: var(--text-primary);">50 MB</b>.<br>
                         <span style="color: #4fd1c5; font-weight: 700;">2. Internet:</span> Yêu cầu kết nối ổn định để tải gói.<br>
                         <span style="color: #f56565; font-weight: 700;">3. CẢNH BÁO:</span> TUYỆT ĐỐI <b style="color: #f56565;">KHÔNG RÚT NGUỒN</b>.<br>
-                        <span style="color: var(--text-sub); font-weight: 700;">4. Hoàn tất:</span> Thiết bị sẽ tự động <b style="color: var(--text-primary);">Reboot</b>.
+                        <span style="color: #6366f1; font-weight: 700;">4. THỰC HIỆN:</span> Vui lòng nhấn cài <b>2 LẦN</b> nếu cần.<br>
+                        <span style="color: var(--text-sub); font-weight: 700;">5. HOÀN TẤT:</span> Thiết bị cần phải <b style="color: var(--text-primary);">REBOOT</b> lại.
                     </p>
                 </div>
             `,
