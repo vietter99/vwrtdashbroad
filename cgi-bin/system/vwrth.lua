@@ -34,7 +34,8 @@ function M.get_params()
     local query_string = os.getenv("QUERY_STRING")
     if query_string and query_string ~= "" then
         for pair in query_string:gmatch("([^&]+)") do
-            local k, v = pair:match("([^=]+)=([^=]*)")
+            -- FIXED: ^([^=]+)=(.*)$ đảm bảo lấy toàn bộ giá trị sau dấu = đầu tiên
+            local k, v = pair:match("^([^=]+)=(.*)$")
             if k then params[k] = url_decode(v or "") end
         end
     end
@@ -46,9 +47,9 @@ function M.get_params()
         if len > 0 then
             local body = io.stdin:read(len)
             if body then
-                -- Xử lý cả form-urlencoded và thô (RAW)
                 for pair in body:gmatch("([^&]+)") do
-                    local k, v = pair:match("([^=]+)=([^=]*)")
+                    -- FIXED: ^([^=]+)=(.*)$ đảm bảo lấy toàn bộ giá trị sau dấu = đầu tiên
+                    local k, v = pair:match("^([^=]+)=(.*)$")
                     if k then params[k] = url_decode(v or "") end
                 end
             end
