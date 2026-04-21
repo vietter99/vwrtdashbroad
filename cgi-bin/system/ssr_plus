@@ -528,6 +528,17 @@ elseif action == "ping" then
         print(vwrth.json_encode({status = "error", message = "Thiếu Host"}))
     end
 
+elseif action == "install" then
+    -- Lệnh kích hoạt và cài đặt Proxy
+    os.execute("/etc/init.d/shadowsocksr enable 2>/dev/null")
+    os.execute("/etc/init.d/shadowsocksr restart 2>/dev/null")
+    -- Kiểm tra lại sau khi cài đặt
+    if os.execute("test -f /etc/config/shadowsocksr") == 0 then
+        print(vwrth.json_encode({status = "success", message = "Đã cài đặt và kích hoạt Proxy thành công!"}))
+    else
+        print(vwrth.json_encode({status = "error", message = "Không tìm thấy gói shadowsocksr-plus trên hệ thống. Vui lòng cài đặt qua OPKG trước."}))
+    end
+
 else
     print(vwrth.json_encode({status = "error", message = "Hành động không xác định"}))
 end
