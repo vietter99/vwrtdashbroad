@@ -21,9 +21,22 @@ function format_dns_for_display(dns_str)
     return table.concat(results, ", ")
 end
 
+local function log_debug(msg)
+    local f = io.open("/tmp/ssr_plus_debug.log", "a")
+    if f then
+        f:write(os.date("%H:%M:%S") .. " [DEBUG] " .. tostring(msg) .. "\n")
+        f:close()
+    end
+end
+
 local function get_global_sid(all)
+    -- Ưu tiên các section có pdnsd_enable (chuẩn LuCI)
     for k, v in pairs(all) do
         if v.pdnsd_enable then return k end
+    end
+    -- Fallback tìm theo global_server nếu pdnsd_enable chưa có
+    for k, v in pairs(all) do
+        if v.global_server then return k end
     end
     return "@global[0]"
 end
@@ -387,9 +400,10 @@ elseif action == "save_config" or action == "set_server" then
     local sid = get_global_sid(all_cfg)
     local target_id = params.id or params.server
     
+    log_debug("Action: " .. action .. " | SID: " .. sid .. " | Target ID: " .. (target_id or "nil"))
+    
     if target_id then 
         vwrth.uci_set("shadowsocksr", sid, "global_server", target_id)
-        -- Đồng bộ UDP theo TCP (Nếu không phải trường hợp đặc biệt)
         vwrth.uci_set("shadowsocksr", sid, "udp_relay_server", target_id)
     end
     if params.enable then vwrth.uci_set("shadowsocksr", sid, "enable_switch", params.enable) end

@@ -17,6 +17,15 @@ end
 
 local M = {}
 
+-- Duy trì 1 cursor duy nhất cho mỗi session (theo chuẩn helloworld/luci)
+local _cursor = nil
+local function get_cursor()
+    if not _cursor and uci_ok then
+        _cursor = uci_lib.cursor()
+    end
+    return _cursor
+end
+
 -- Chức năng URL Decode chuẩn
 local function url_decode(s)
     if not s then return "" end
@@ -34,7 +43,6 @@ function M.get_params()
     local query_string = os.getenv("QUERY_STRING")
     if query_string and query_string ~= "" then
         for pair in query_string:gmatch("([^&]+)") do
-            -- FIXED: ^([^=]+)=(.*)$ đảm bảo lấy toàn bộ giá trị sau dấu = đầu tiên
             local k, v = pair:match("^([^=]+)=(.*)$")
             if k then params[k] = url_decode(v or "") end
         end
@@ -48,7 +56,6 @@ function M.get_params()
             local body = io.stdin:read(len)
             if body then
                 for pair in body:gmatch("([^&]+)") do
-                    -- FIXED: ^([^=]+)=(.*)$ đảm bảo lấy toàn bộ giá trị sau dấu = đầu tiên
                     local k, v = pair:match("^([^=]+)=(.*)$")
                     if k then params[k] = url_decode(v or "") end
                 end
@@ -76,27 +83,26 @@ function M.exec(cmd)
 end
 
 function M.uci_get_all(config)
-    if not uci_ok then return {} end
-    local cursor = uci_lib.cursor()
-    local data = cursor:get_all(config)
-    return data or {}
+    local cursor = get_cursor()
+    if not cursor then return {} end
+    return cursor:get_all(config) or {}
 end
 
 function M.uci_foreach(config, section_type, callback)
-    if not uci_ok then return end
-    local cursor = uci_lib.cursor()
+    local cursor = get_cursor()
+    if not cursor then return end
     cursor:foreach(config, section_type, callback)
 end
 
 function M.uci_set(config, section, option, value)
-    if not uci_ok then return end
-    local cursor = uci_lib.cursor()
+    local cursor = get_cursor()
+    if not cursor then return end
     cursor:set(config, section, option, value)
 end
 
 function M.uci_commit(config)
-    if not uci_ok then return end
-    local cursor = uci_lib.cursor()
+    local cursor = get_cursor()
+    if not cursor then return end
     cursor:commit(config)
 end
 
