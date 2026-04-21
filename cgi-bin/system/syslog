@@ -1,0 +1,33 @@
+#!/usr/bin/lua
+
+-- Standalone Syslog API (v1.8.0 Restore)
+-- No dependencies, no helper.lua, just clean Lua.
+
+local cjson = require "cjson"
+
+-- Simple Query Parser
+local function get_query(key)
+    local query = os.getenv("QUERY_STRING") or ""
+    for k, v in query:gmatch("([^&=?]+)=([^&=?]+)") do
+        if k == key then return v end
+    end
+    return nil
+end
+
+local action = get_query("action")
+
+print("Content-type: application/json\n\n")
+
+if action == "get_log" then
+    -- Get system log purely from logread
+    local handle = io.popen("logread | tail -n 100")
+    local syslog_content = handle:read("*a")
+    handle:close()
+    
+    print(cjson.encode({
+        status = "success", 
+        log = syslog_content or "Không tìm thấy nhật ký hệ thống."
+    }))
+else
+    print(cjson.encode({status = "error", message = "Hành động không hợp lệ."}))
+end

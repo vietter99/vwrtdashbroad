@@ -83,7 +83,7 @@ const SyslogModule = {
         const statusEl = document.getElementById('log-status');
         if(statusEl) statusEl.innerText = "Đang đồng bộ dữ liệu...";
 
-        fetch('/cgi-bin/system/ssr_plus?action=get_log')
+        fetch('/cgi-bin/system/syslog?action=get_log')
             .then(res => res.json())
             .then(data => {
                 if(data.status === "success") {

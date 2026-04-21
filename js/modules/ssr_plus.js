@@ -3,6 +3,8 @@ const SSRPlusModule = {
     clients: [],
     ac_tags: { ac: [], bp: [], fp: [], gm: [] },
     currentTab: 'dashboard',
+    logInterval: null,
+    autoRefreshLog: false,
     listFile: null,
 
     // ── DNS Presets (format matches MOSDNS: tcp://IP:53) ──
@@ -38,7 +40,7 @@ const SSRPlusModule = {
 
     fetchData: function () {
         const container = document.getElementById('ssr-container');
-        fetch('/cgi-bin/system/ssr_plus?action=get_info')
+        fetch('/cgi-bin/ssr/ssr_plus?action=get_info')
             .then(r => r.json())
             .then(d => {
                 if (d.status === 'uninstalled') {
@@ -136,7 +138,7 @@ const SSRPlusModule = {
         };
 
         const pollStatus = () => {
-            fetch('/cgi-bin/system/vpn_installer?action=status')
+            fetch('/cgi-bin/ssr/vpn_installer?action=status')
                 .then(res => res.json())
                 .then(data => {
                     if (data.status === 'running') {
@@ -165,7 +167,7 @@ const SSRPlusModule = {
         };
 
         // START THE PROCESS
-        fetch('/cgi-bin/system/vpn_installer?action=start')
+        fetch('/cgi-bin/ssr/vpn_installer?action=start')
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'started' || data.status === 'running') {
@@ -182,7 +184,7 @@ const SSRPlusModule = {
     },
 
     fetchClients: function () {
-        fetch('/cgi-bin/system/ssr_plus?action=get_clients')
+        fetch('/cgi-bin/ssr/ssr_plus?action=get_clients')
             .then(r => r.json())
             .then(d => {
                 if (d.status === 'success') {
@@ -200,8 +202,9 @@ const SSRPlusModule = {
             { id: 'dashboard', label: '📊 Trạng thái' },
             { id: 'settings', label: '⚙️ Cài đặt chung' },
             { id: 'sub', label: '🔄 Đăng ký' },
-            { id: 'time', label: '🕒 Đồng bộ thời gian' },
-            { id: 'advanced', label: '🚀 Nâng cao' }
+            { id: 'time', label: '🕒 Thời gian' },
+            { id: 'advanced', label: '🚀 Nâng cao' },
+            { id: 'log', label: '📋 Nhật ký' }
         ];
 
         let html = `<div class="ssr-tabs">${tabs.map(t =>
@@ -214,6 +217,7 @@ const SSRPlusModule = {
             case 'advanced': html += this.renderAdvanced(); break;
             case 'sub': html += this.renderSub(); break;
             case 'time': html += this.renderTimeSync(); break;
+            case 'log': html += this.renderLog(); break;
         }
         html += '</div>';
         c.innerHTML = html;
@@ -221,6 +225,7 @@ const SSRPlusModule = {
         if (this.currentTab === 'settings') this.initDnsCombo();
         if (this.currentTab === 'dashboard') this.fetchPings();
         if (this.currentTab === 'time') this.startTimeDisplay(); else this.stopTimeDisplay();
+        if (this.currentTab === 'log') this.startLogAutoRefresh(); else this.stopLogAutoRefresh();
 
         // Mobile: Scroll active tab into view
         setTimeout(() => {
@@ -480,7 +485,10 @@ const SSRPlusModule = {
                         </div>
                         <div class="ssr-form-group">
                             <label class="ssr-label">Áp dụng (Apply)</label>
-                            <input type="text" id="set-noise-apply" class="ssr-input" value="${adv.noise_apply}" placeholder="1-2">
+                            <select id="set-noise-apply" class="ssr-input">
+                                <option value="AsIs" ${adv.noise_apply === 'AsIs' ? 'selected' : ''}>AsIs (Mặc định)</option>
+                                <option value="UseIP" ${adv.noise_apply === 'UseIP' ? 'selected' : ''}>UseIP (Dùng IP)</option>
+                            </select>
                         </div>
                         <div class="ssr-help-text ssr-grid-full">Gợi ý: Nếu không biết rõ, hãy để trống để dùng thông số chuẩn.</div>
                     </div>
@@ -592,7 +600,7 @@ const SSRPlusModule = {
         this.stopTimeDisplay();
 
         const fetchTime = () => {
-            fetch('/cgi-bin/system/ssr_plus?action=get_time')
+            fetch('/cgi-bin/ssr/ssr_plus?action=get_time')
                 .then(r => r.json())
                 .then(d => {
                     this.timeNow = d.now;
@@ -634,7 +642,7 @@ const SSRPlusModule = {
     syncTimeManual: function () {
         const host = document.getElementById('set-time-server').value || 'm.tv360.vn';
         Toast.show('Đang đồng bộ với máy chủ thời gian...', 'info');
-        fetch(`/cgi-bin/system/ssr_plus?action=sync_time&host=${host}`)
+        fetch(`/cgi-bin/ssr/ssr_plus?action=sync_time&host=${host}`)
             .then(r => r.json())
             .then(d => {
                 if (d.status === 'success') {
@@ -654,7 +662,7 @@ const SSRPlusModule = {
         const timeStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
         Toast.show('Đang đồng bộ giờ từ trình duyệt...', 'info');
-        fetch(`/cgi-bin/system/ssr_plus?action=set_time&time=${encodeURIComponent(timeStr)}`)
+        fetch(`/cgi-bin/ssr/ssr_plus?action=set_time&time=${encodeURIComponent(timeStr)}`)
             .then(r => r.json())
             .then(d => {
                 if (d.status === 'success') {
@@ -685,7 +693,7 @@ const SSRPlusModule = {
                 const el = document.getElementById(`ping-${s.id}`);
                 if (!el) return;
                 try {
-                    const r = await fetch(`/cgi-bin/system/ssr_plus?action=ping_node&host=${s.address}&port=${s.port}&type=${s.type}`);
+                    const r = await fetch(`/cgi-bin/ssr/ssr_plus?action=ping_node&host=${s.address}&port=${s.port}&type=${s.type}`);
                     const d = await r.json();
                     if (d.status === 'success' && d.time) {
                         const ms = parseInt(d.time);
@@ -706,7 +714,7 @@ const SSRPlusModule = {
     },
 
     toggleService: function (checked) {
-        fetch(`/cgi-bin/system/ssr_plus?action=toggle&value=${checked ? '1' : '0'}`)
+        fetch(`/cgi-bin/ssr/ssr_plus?action=toggle&value=${checked ? '1' : '0'}`)
             .then(() => {
                 Toast.show('Đang khởi động lại dịch vụ...', 'warning');
                 setTimeout(() => this.fetchData(), 2500);
@@ -724,7 +732,7 @@ const SSRPlusModule = {
 
         Toast.show('⚡ Đang chuyển đổi Node: ' + alias + '...', 'info');
         
-        fetch(`/cgi-bin/system/ssr_plus?action=set_server&id=${id}`)
+        fetch(`/cgi-bin/ssr/ssr_plus?action=set_server&id=${id}`)
             .then(r => r.json())
             .then(d => {
                 if (d.status === 'success') {
@@ -745,7 +753,7 @@ const SSRPlusModule = {
             confirmText: 'Xóa Node',
             onConfirm: () => {
                 Toast.show(`Đang xóa Node ${alias}...`, 'warning');
-                fetch(`/cgi-bin/system/ssr_plus?action=delete_node&id=${id}`)
+                fetch(`/cgi-bin/ssr/ssr_plus?action=delete_node&id=${id}`)
                     .then(r => r.json())
                     .then(d => {
                         if (d.status === 'success') {
@@ -784,7 +792,7 @@ const SSRPlusModule = {
         p.append('action', 'import_nodes');
         p.append('links', urls);
 
-        fetch('/cgi-bin/system/ssr_plus', {
+        fetch('/cgi-bin/ssr/ssr_plus', {
             method: 'POST',
             body: p
         })
@@ -803,7 +811,7 @@ const SSRPlusModule = {
 
     updateSubscription: function () {
         Toast.show('Đang gửi lệnh cập nhật Subscription...', 'info');
-        fetch('/cgi-bin/system/ssr_plus?action=update_sub')
+        fetch('/cgi-bin/ssr/ssr_plus?action=update_sub')
             .then(r => r.json())
             .then(d => {
                 if (d.status === 'success') {
@@ -821,7 +829,7 @@ const SSRPlusModule = {
             message: 'Bạn có chắc chắn muốn xóa toàn bộ các Node được thêm từ Subscription không?',
             onConfirm: () => {
                 Toast.show('Đang xóa...', 'info');
-                fetch('/cgi-bin/system/ssr_plus?action=delete_sub_nodes')
+                fetch('/cgi-bin/ssr/ssr_plus?action=delete_sub_nodes')
                     .then(r => r.json())
                     .then(d => {
                         if (d.status === 'success') {
@@ -903,7 +911,7 @@ const SSRPlusModule = {
         }
 
         Toast.show('Đang lưu cấu hình và khởi động lại dịch vụ...', 'info');
-        fetch('/cgi-bin/system/ssr_plus', {
+        fetch('/cgi-bin/ssr/ssr_plus', {
             method: 'POST',
             body: p
         })
@@ -917,6 +925,98 @@ const SSRPlusModule = {
                 }
             })
             .catch(e => Toast.show('Lỗi kết nối API: ' + e.message, 'error'));
+    },
+
+    // ═══════════════════════  TAB: LOG  ═══════════════════════
+    renderLog: function () {
+        return `
+            <div class="ssr-section">
+                <div class="ssr-section-header">
+                    <div class="ssr-section-title">📋 Nhật ký hoạt động</div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <button onclick="SSRPlusModule.loadLog()" class="ssr-btn ssr-btn-primary">🔄 Làm mới</button>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 12px; border: 1px solid var(--ssr-glass-border);">
+                    <label class="ssr-switch">
+                        <input type="checkbox" id="auto-refresh-log" ${this.autoRefreshLog ? 'checked' : ''} onchange="SSRPlusModule.toggleLogAutoRefresh(this.checked)">
+                        <span class="ssr-slider"></span>
+                    </label>
+                    <span style="font-size: 14px; font-weight: 600; color: var(--text-primary);">Tự động cập nhật (mỗi 5s)</span>
+                    <span id="log-status-tip" style="font-size: 12px; color: var(--text-sub); margin-left: auto;">
+                        ${this.autoRefreshLog ? '🟢 Đang theo dõi...' : '⚪ Đã tạm dừng'}
+                    </span>
+                </div>
+
+                <div class="ssr-log-wrapper" style="position: relative;">
+                    <textarea id="ssr-log-area" readonly 
+                        style="width: 100%; height: 450px; background: #0d1117; color: #e6edf3; border: 1px solid #30363d; border-radius: 12px; padding: 15px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 12px; line-height: 1.6; resize: none; outline: none;"></textarea>
+                </div>
+                <div style="margin-top: 10px; font-size: 11px; color: var(--text-sub);">
+                    * Nhật ký hiển thị 100 dòng mới nhất từ dịch vụ VPN và 50 dòng từ hệ thống.
+                </div>
+            </div>
+        `;
+    },
+
+    loadLog: function () {
+        const area = document.getElementById('ssr-log-area');
+        if (!area) return;
+
+        fetch('/cgi-bin/ssr/ssr_plus?action=get_log')
+            .then(r => r.json())
+            .then(d => {
+                if (d.status === 'success') {
+                    const isAtBottom = area.scrollHeight - area.clientHeight <= area.scrollTop + 50;
+                    area.value = d.log;
+                    if (this.autoRefreshLog || isAtBottom) {
+                        area.scrollTop = area.scrollHeight;
+                    }
+                }
+            });
+    },
+
+    clearLog: function () {
+        Modal.confirm({
+            title: "Xác nhận xóa",
+            content: "Bạn có chắc chắn muốn xóa toàn bộ nhật ký VPN không? Hành động này sẽ xóa tệp tin trên Router.",
+            onConfirm: () => {
+                fetch('/cgi-bin/ssr/ssr_plus?action=clear_log')
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d.status === 'success') {
+                            this.loadLog();
+                            Toast.show(d.message, 'success');
+                        }
+                    });
+            }
+        });
+    },
+
+    toggleLogAutoRefresh: function (val) {
+        this.autoRefreshLog = val;
+        const tip = document.getElementById('log-status-tip');
+        if (tip) tip.textContent = val ? '🟢 Đang theo dõi...' : '⚪ Đã tạm dừng';
+        
+        if (val) {
+            this.startLogAutoRefresh();
+        } else {
+            this.stopLogAutoRefresh();
+        }
+    },
+
+    startLogAutoRefresh: function () {
+        this.stopLogAutoRefresh();
+        this.loadLog();
+        this.logInterval = setInterval(() => this.loadLog(), 5000);
+    },
+
+    stopLogAutoRefresh: function () {
+        if (this.logInterval) {
+            clearInterval(this.logInterval);
+            this.logInterval = null;
+        }
     }
 };
 

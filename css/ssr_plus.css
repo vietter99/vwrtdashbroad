@@ -3,41 +3,46 @@
    ═══════════════════════════════════════════════════ */
 
 @font-face {
-    font-family: 'Inter';
-    src: url('../fonts/Inter-Regular.woff2') format('woff2');
+    font-family: 'Be Vietnam Pro';
+    src: url('../fonts/BeVietnam-Regular.woff2') format('woff2');
     font-weight: 400;
     font-style: normal;
     font-display: swap;
 }
 
 @font-face {
-    font-family: 'Inter';
-    src: url('../fonts/Inter-SemiBold.woff2') format('woff2');
-    font-weight: 600;
+    font-family: 'Be Vietnam Pro';
+    src: url('../fonts/BeVietnam-Medium.woff2') format('woff2');
+    font-weight: 500;
     font-style: normal;
     font-display: swap;
 }
 
 @font-face {
-    font-family: 'Inter';
-    src: url('../fonts/Inter-Bold.woff2') format('woff2');
+    font-family: 'Be Vietnam Pro';
+    src: url('../fonts/BeVietnam-Bold.woff2') format('woff2');
     font-weight: 700;
     font-style: normal;
     font-display: swap;
 }
 
+/* Font fallback strategy */
+:root {
+    --ssr-font: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
 .ssr-container {
     padding: 0;
-    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
+    font-family: var(--ssr-font);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     font-weight: 500; /* Tăng lên mức trung bình đậm */
     color: var(--text-main);
-    --ssr-text-secondary: #1A202C; /* Màu xám đen siêu đậm (High Contrast) */
+    --ssr-text-secondary: var(--text-sub); /* Tự động đổi màu Sáng/Tối theo hệ thống */
     --ssr-cyan: #06b6d4;
     --ssr-indigo: #6366f1;
-    --text-sub: #1A202C !important;
+    --text-sub-vwrth: var(--text-sub);
     --ssr-gradient: linear-gradient(135deg, #06b6d4, #6366f1);
     --ssr-gradient-soft: linear-gradient(135deg, rgba(6,182,212,0.08), rgba(99,102,241,0.08));
     --ssr-gradient-glow: linear-gradient(135deg, rgba(6,182,212,0.15), rgba(99,102,241,0.15));
@@ -47,19 +52,13 @@
     --ssr-radius-sm: 10px;
 }
 
-/* ── HI-CONTRAST OVERRIDES FOR DASHBOARD ── */
-.sb-label, .sys-label, .nav-label, .header-title p, .model-name {
-    color: #1A202C !important;
-    font-weight: 700 !important;
-    -webkit-font-smoothing: antialiased;
-}
-
-.sb-val, .sys-val-mini {
-    font-weight: 800 !important;
-}
-
-.nav-link {
-    font-weight: 600 !important;
+/* ── SSR PLUS MODAL INTERNAL STYLES (v1.8.0 Restore) ── */
+.ssr-section-title {
+    color: var(--ssr-text-secondary);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.1em;
 }
 
 /* ── TAB NAVIGATION ── */
@@ -847,4 +846,56 @@ input:checked + .ssr-slider::before {
     .ssr-time-actions .ssr-btn {
         min-width: 100%;
     }
+}
+
+/* ── LOG VIEWER STYLES (v1.4.1) ── */
+.ssr-switch {
+    position: relative;
+    display: inline-block;
+    width: 34px;
+    height: 18px;
+}
+.ssr-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.ssr-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: var(--ssr-glass-border);
+    transition: .4s;
+    border-radius: 18px;
+}
+.ssr-slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+input:checked + .ssr-slider {
+    background: var(--ssr-gradient);
+}
+input:checked + .ssr-slider:before {
+    transform: translateX(16px);
+}
+
+#ssr-log-area::-webkit-scrollbar {
+    width: 8px;
+}
+#ssr-log-area::-webkit-scrollbar-track {
+    background: #0d1117;
+}
+#ssr-log-area::-webkit-scrollbar-thumb {
+    background: #30363d;
+    border-radius: 4px;
+}
+#ssr-log-area::-webkit-scrollbar-thumb:hover {
+    background: #484f58;
 }

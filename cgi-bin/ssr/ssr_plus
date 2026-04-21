@@ -69,6 +69,8 @@ if action == "get_info" then
         tunnel_dns_raw = tunnel_dns,
         threads = g.threads or "0",
         dports = g.dports or "1",
+        -- Kiểm tra tiến trình thực tế (Sửa lỗi báo cáo trạng thái ảo)
+        running = os.execute("pgrep -x ssr-plus >/dev/null 2>&1 || pgrep -x ssr-redir >/dev/null 2>&1") == 0,
         -- Thêm thông tin thời gian vào data trả về
         time_server = g.time_server or "m.tv360.vn",
         time_startup = g.time_startup or "0",
@@ -168,9 +170,9 @@ elseif action == "ping_node" then
     end
 
 elseif action == "get_log" then
-    -- Lấy nhật ký hệ thống tổng quát (logread)
-    local log = vwrth.exec("logread | tail -n 100")
-    if log == "" then log = "Chưa có nhật ký hệ thống." end
+    -- CHỈ lấy Nhật ký của Proxy (v1.9.3 Fix)
+    local log = vwrth.exec("cat /tmp/ssr_plus_debug.log 2>/dev/null | tail -n 100")
+    if log == "" then log = "Proxy chưa có nhật ký hoạt động." end
     print(vwrth.json_encode({status = "success", log = log}))
 
 elseif action == "delete_server" then
@@ -255,7 +257,7 @@ elseif action == "import_nodes" then
                     if proto == "vless" then
                         table.insert(cmds, string.format("uci set shadowsocksr.%s.type='v2ray'", sid))
                         table.insert(cmds, string.format("uci set shadowsocksr.%s.v2ray_protocol='vless'", sid))
-                        table.insert(cmds, string.format("uci set shadowsocksr.%s.vmess_id='%s'", sid, user))
+                        table.insert(cmds, string.format("uci set shadowsocksr.%s.v2ray_vless_id='%s'", sid, user))
                         table.insert(cmds, string.format("uci set shadowsocksr.%s.vless_encryption='%s'", sid, q.encryption or "none"))
                     else
                         table.insert(cmds, string.format("uci set shadowsocksr.%s.type='trojan'", sid))
@@ -471,29 +473,25 @@ elseif action == "save_config" or action == "set_server" then
     
 
     
-    -- Lưu cấu hình Xray Fragment và UDP Noise (Tab Nâng cao)
+    -- Lưu cấu hình Xray Fragment và UDP Noise (Tab Nâng cao) - CHUẨN LỰA CHỌN HELLOWORLD
     if params.frag_enable then
-        local frag_cmd = ""
-        -- Đảm bảo section tồn tại, nếu không tự động tạo
-        frag_cmd = frag_cmd .. "uci -q get shadowsocksr.@global_xray_fragment[0] >/dev/null || uci add shadowsocksr global_xray_fragment >/dev/null; "
-        frag_cmd = frag_cmd .. "uci set shadowsocksr.@global_xray_fragment[0].fragment='" .. params.frag_enable .. "'; "
-        if params.frag_packets then frag_cmd = frag_cmd .. "uci set shadowsocksr.@global_xray_fragment[0].fragment_packets='" .. params.frag_packets .. "'; " end
-        if params.frag_length then frag_cmd = frag_cmd .. "uci set shadowsocksr.@global_xray_fragment[0].fragment_length='" .. params.frag_length .. "'; " end
-        if params.frag_interval then frag_cmd = frag_cmd .. "uci set shadowsocksr.@global_xray_fragment[0].fragment_interval='" .. params.frag_interval .. "'; " end
-        if params.frag_maxsplit then frag_cmd = frag_cmd .. "uci set shadowsocksr.@global_xray_fragment[0].fragment_maxSplit='" .. params.frag_maxsplit .. "'; " end
-        if params.noise_enable then frag_cmd = frag_cmd .. "uci set shadowsocksr.@global_xray_fragment[0].noise='" .. params.noise_enable .. "'; " end
-        os.execute(frag_cmd)
+        local xf_sid = "@global_xray_fragment[0]"
+        -- Đảm bảo section tồn tại theo chuẩn UCI set
+        vwrth.uci_set("shadowsocksr", xf_sid, "fragment", params.frag_enable)
+        if params.frag_packets then vwrth.uci_set("shadowsocksr", xf_sid, "fragment_packets", params.frag_packets) end
+        if params.frag_length then vwrth.uci_set("shadowsocksr", xf_sid, "fragment_length", params.frag_length) end
+        if params.frag_interval then vwrth.uci_set("shadowsocksr", xf_sid, "fragment_interval", params.frag_interval) end
+        if params.frag_maxsplit then vwrth.uci_set("shadowsocksr", xf_sid, "fragment_maxSplit", params.frag_maxsplit) end
+        
+        vwrth.uci_set("shadowsocksr", xf_sid, "noise", params.noise_enable or "0")
     end
 
     if params.noise_enable then
-        local noise_cmd = ""
-        -- Đảm bảo section tồn tại, nếu không tự động tạo
-        noise_cmd = noise_cmd .. "uci -q get shadowsocksr.@xray_noise_packets[0] >/dev/null || uci add shadowsocksr xray_noise_packets >/dev/null; "
-        if params.noise_type then noise_cmd = noise_cmd .. "uci set shadowsocksr.@xray_noise_packets[0].type='" .. params.noise_type .. "'; " end
-        if params.noise_packet then noise_cmd = noise_cmd .. "uci set shadowsocksr.@xray_noise_packets[0].packet='" .. params.noise_packet .. "'; " end
-        if params.noise_delay then noise_cmd = noise_cmd .. "uci set shadowsocksr.@xray_noise_packets[0].delay='" .. params.noise_delay .. "'; " end
-        if params.noise_apply then noise_cmd = noise_cmd .. "uci set shadowsocksr.@xray_noise_packets[0].domainStrategy='" .. params.noise_apply .. "'; " end
-        os.execute(noise_cmd)
+        local xn_sid = "@xray_noise_packets[0]"
+        if params.noise_type then vwrth.uci_set("shadowsocksr", xn_sid, "type", params.noise_type) end
+        if params.noise_packet then vwrth.uci_set("shadowsocksr", xn_sid, "packet", params.noise_packet) end
+        if params.noise_delay then vwrth.uci_set("shadowsocksr", xn_sid, "delay", params.noise_delay) end
+        if params.noise_apply then vwrth.uci_set("shadowsocksr", xn_sid, "domainStrategy", params.noise_apply) end
     end
     
 
