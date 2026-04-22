@@ -1,5 +1,5 @@
 #!/usr/bin/lua
--- WATCHDOG V2.1.2 (LUA PURE DYNAMIC EDITION - UTF-8 FIXED)
+-- WATCHDOG V2.1.3 (LUA PURE DYNAMIC EDITION - UTF-8 FIXED)
 -- Tự động kiểm tra internet và khôi phục mạng 100% dựa trên thực tế hệ thống
 
 local nixio = require "nixio"
@@ -117,7 +117,7 @@ end
 
 -- --- MAIN LOOP ---
 check_singleton()
-log("Watchdog V2.1.2 đã khởi động (Chế độ Tiếng Việt có dấu).")
+log("Watchdog V2.1.3 đã khởi động.")
 
 local fail_duration = 0
 while true do
