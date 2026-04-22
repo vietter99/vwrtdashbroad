@@ -170,9 +170,9 @@ elseif action == "ping_node" then
     end
 
 elseif action == "get_log" then
-    -- CHỈ lấy Nhật ký của Proxy (v1.9.3 Fix)
-    local log = vwrth.exec("cat /tmp/ssr_plus_debug.log 2>/dev/null | tail -n 100")
-    if log == "" then log = "Proxy chưa có nhật ký hoạt động." end
+    -- Lấy Nhật ký thực tế của Proxy từ Syslog thay vì file tạm
+    local log = vwrth.exec("logread | grep -E -i 'shadowsocksr|ssr-rules|ssrplus' | tail -n 100")
+    if not log or log == "" then log = "Proxy chưa có nhật ký hoạt động." end
     print(vwrth.json_encode({status = "success", log = log}))
 
 elseif action == "delete_server" then
