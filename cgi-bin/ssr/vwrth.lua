@@ -1,5 +1,3 @@
-local nixio = require "nixio"
-
 -- Smart Loading cho UCI
 local uci_ok, uci_lib = pcall(require, "uci")
 if not uci_ok then
@@ -24,6 +22,28 @@ local function get_cursor()
         _cursor = uci_lib.cursor()
     end
     return _cursor
+end
+
+-- Cơ chế Fallback Shell cho UCI khi thiếu thư viện (v1.9.5 Pure Lua)
+local function uci_shell_get_all(config)
+    local data = {}
+    local f = io.popen(string.format("uci show %s 2>/dev/null", config))
+    if f then
+        for line in f:lines() do
+            local section, option, value = line:match("^[^.]+%.([^.=]+)%.([^=]+)=(.*)$")
+            if not section then
+                 section, value = line:match("^[^.]+%.([^.=]+)=(.*)$")
+                 option = ".type"
+            end
+            if section then
+                if not data[section] then data[section] = { [".name"] = section } end
+                if option == ".type" then data[section][option] = value:gsub("^'", ""):gsub("'$", "")
+                else data[section][option] = value:gsub("^'", ""):gsub("'$", "") end
+            end
+        end
+        f:close()
+    end
+    return data
 end
 
 -- Chức năng URL Decode chuẩn
@@ -84,26 +104,42 @@ end
 
 function M.uci_get_all(config)
     local cursor = get_cursor()
-    if not cursor then return {} end
-    return cursor:get_all(config) or {}
+    if cursor then return cursor:get_all(config) or {} end
+    return uci_shell_get_all(config)
 end
 
 function M.uci_foreach(config, section_type, callback)
     local cursor = get_cursor()
-    if not cursor then return end
-    cursor:foreach(config, section_type, callback)
+    if cursor then 
+        cursor:foreach(config, section_type, callback)
+        return
+    end
+    -- Fallback shell foreach
+    local data = uci_shell_get_all(config)
+    for k, v in pairs(data) do
+        if v[".type"] == section_type then
+            callback(v)
+        end
+    end
 end
 
 function M.uci_set(config, section, option, value)
     local cursor = get_cursor()
-    if not cursor then return end
-    cursor:set(config, section, option, value)
+    if cursor then 
+        cursor:set(config, section, option, value)
+        return
+    end
+    -- Fallback shell set
+    os.execute(string.format("uci set %s.%s.%s='%s' 2>/dev/null", config, section, option, tostring(value):gsub("'", "")))
 end
 
 function M.uci_commit(config)
     local cursor = get_cursor()
-    if not cursor then return end
-    cursor:commit(config)
+    if cursor then 
+        cursor:commit(config)
+        return
+    end
+    os.execute(string.format("uci commit %s 2>/dev/null", config))
 end
 
 return M
