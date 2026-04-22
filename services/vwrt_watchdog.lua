@@ -3,7 +3,6 @@
 -- Tự động kiểm tra internet và khôi phục mạng 100% dựa trên thực tế hệ thống
 
 local nixio = require "nixio"
-local uci = require "uci"
 
 -- --- CẤU HÌNH ---
 local CONFIG = {
@@ -51,10 +50,13 @@ local function get_targets()
     if dns and dns ~= "" then table.insert(targets, dns) end
     
     -- 2. Lấy SNI từ SSR Plus (Đồng bộ với mục tiêu của Proxy)
-    local cursor = uci.cursor()
-    local sni = cursor:get("shadowsocksr", "@global[0]", "time_server")
-    if sni and sni ~= "" and sni ~= "nil" then 
-        table.insert(targets, sni) 
+    local handle = io.popen("uci -q get shadowsocksr.@global[0].time_server 2>/dev/null")
+    if handle then
+        local sni = handle:read("*a"):gsub("%s+", "")
+        handle:close()
+        if sni and sni ~= "" and sni ~= "nil" then 
+            table.insert(targets, sni) 
+        end
     end
     
     -- Nếu hoàn toàn không có mục tiêu nào được tìm thấy, mới dùng 8.8.8.8 làm cứu cánh cuối cùng
