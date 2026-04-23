@@ -42,8 +42,12 @@ local function get_global_sid(all)
 end
 
 if action == "get_info" then
-    if os.execute("test -f /etc/config/shadowsocksr") ~= 0 then
-        print(vwrth.json_encode({status = "uninstalled", message = "Tính năng này chưa được kích hoạt."}))
+    -- Kiểm tra cả file cấu hình và file chạy thực tế
+    local has_config = os.execute("test -f /etc/config/shadowsocksr") == 0
+    local has_bin = os.execute("test -f /usr/bin/ssr-redir") == 0
+    
+    if not has_config or not has_bin then
+        print(vwrth.json_encode({status = "uninstalled", message = "Dịch vụ chưa được cài đặt đầy đủ bộ chạy (binaries)."}))
         return
     end
 
