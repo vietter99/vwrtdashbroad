@@ -203,7 +203,7 @@ const SSRPlusModule = {
             { id: 'settings', label: '⚙️ Cài đặt chung' },
             { id: 'sub', label: '🔄 Đăng ký' },
             { id: 'time', label: '🕒 Thời gian' },
-            { id: 'advanced', label: '🚀 Nâng cao' },
+            // { id: 'advanced', label: '🚀 Nâng cao' },
             { id: 'log', label: '📋 Nhật ký' }
         ];
 
@@ -214,7 +214,7 @@ const SSRPlusModule = {
         switch (this.currentTab) {
             case 'dashboard': html += this.renderDashboard(); break;
             case 'settings': html += this.renderSettings(); break;
-            case 'advanced': html += this.renderAdvanced(); break;
+            // case 'advanced': html += this.renderAdvanced(); break;
             case 'sub': html += this.renderSub(); break;
             case 'time': html += this.renderTimeSync(); break;
             case 'log': html += this.renderLog(); break;
