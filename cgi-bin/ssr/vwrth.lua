@@ -56,6 +56,10 @@ local function url_decode(s)
     return s
 end
 
+function M.urldecode(s)
+    return url_decode(s)
+end
+
 function M.get_params()
     local params = {}
     

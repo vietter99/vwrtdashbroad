@@ -7,8 +7,8 @@ local nixio = require "nixio"
 
 -- --- CẤU HÌNH ---
 local CONFIG = {
-    check_interval = 20,     -- Kiểm tra mỗi 20 giây
-    dead_period = 60,        -- Chờ mạng rớt 1 phút (60s) rồi mới restart
+    check_interval = 60,     -- Kiểm tra mỗi 60 giây
+    dead_period = 120,        -- Chờ mạng rớt 2 phút (120s) rồi mới restart
     tcp_port = 53,
     timeout = 3,
     lock_file = "/tmp/vwrt_watchdog.lock",
@@ -16,7 +16,7 @@ local CONFIG = {
 }
 
 local function log(msg)
-    -- Sử dụng logger của hệ thống để ghi lại hoạt động
+    -- Su dung logger cua he thong de ghi lai hoat dong
     os.execute(string.format("logger -t WATCHDOG '%s'", msg))
 end
 
@@ -27,9 +27,9 @@ local function check_singleton()
         local old_pid = f:read("*n")
         f:close()
         if old_pid and nixio.kill(old_pid, 0) then
-            log(string.format("Phát hiện tiến trình cũ (%s), đang khởi động lại...", old_pid))
+            log(string.format("Phat hien tien trinh cu (%s), dang khoi dong lai...", old_pid))
             nixio.kill(old_pid, 9)
-            -- Đợi một chút để tiến trình cũ thực sự thoát
+            -- Doi mot chut de tien trinh cu thuc su thoat
             nixio.nanosleep(1, 0)
         end
     end
@@ -106,25 +106,27 @@ end
 -- --- XỬ LÝ KHI MẠNG RỚT ---
 local function handle_failure(fail_duration)
     if fail_duration >= CONFIG.dead_period then
-        log(string.format("Cảnh báo: Mất Internet liên tục %ds. Đang khởi động lại mạng...", fail_duration))
-        os.execute("/etc/init.d/network restart")
-        -- Đợi mạng ổn định sau khi restart
+        log(string.format("Canh bao: Mat Internet lien tuc %ds. Dang khoi phuc ket noi WAN va Proxy...", fail_duration))
+        -- Chi restart interface 5G va Proxy, khong restart toan bo network de tranh rot Wifi
+        os.execute("ifup 5G")
+        os.execute("/etc/init.d/shadowsocksr restart")
+        -- Doi mot chut de he thong on dinh
         return 0
     else
-        log(string.format("Cảnh báo: Không thể truy cập Internet. Thời gian rớt: %ds (Giới hạn: %ds)", fail_duration, CONFIG.dead_period))
+        log(string.format("Canh bao: Khong the truy cap Internet. Thoi gian rot: %ds (Gioi han: %ds)", fail_duration, CONFIG.dead_period))
         return fail_duration + CONFIG.check_interval
     end
 end
 
 -- --- MAIN LOOP ---
 check_singleton()
-log("Watchdog V2.1.3 đã khởi động.")
+log("Watchdog V2.1.3 da khoi dong.")
 
 local fail_duration = 0
 while true do
     if check_connectivity() then
         if fail_duration > 0 then
-            log(string.format("Thông báo: Internet đã khôi phục sau %ds.", fail_duration))
+            log(string.format("Thong bao: Internet da khoi phuc sau %ds.", fail_duration))
             fail_duration = 0
         end
         -- Ghi trạng thái OK vào status file

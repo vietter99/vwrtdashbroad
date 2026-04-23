@@ -226,62 +226,48 @@ elseif action == "import_nodes" then
     for link in links:gmatch("[^\r\n]+") do
         link = link:gsub("%s+", "")
         if link ~= "" then
-            -- Tạo SID an toàn không dùng shell exec
-            local sid = "cfg" .. string.sub(vwrth.exec("echo -n '" .. link .. "' | md5sum | cut -d' ' -f1") or "00000000", 1, 8)
-            sid = sid:gsub("%s+", "")
-            
-            local proto = link:match("^(%w+)://")
-            local cmds = {}
+            count = count + 1
+            local sid = "cfg" .. string.sub(os.time(), -6) .. count
+            local cmds = { string.format("uci set shadowsocksr.%s=servers", sid) }
             local success = false
             
-            table.insert(cmds, string.format("uci set shadowsocksr.%s=servers", sid))
+            local proto = link:match("^(%w+)://")
             
-            if proto == "vless" or proto == "trojan" then
-                local main, alias = link:match("^%w+://([^#]+)#?(.*)")
-                local host_part, query_str = main:match("([^?]+)%??(.*)")
-                if not host_part then host_part = main; query_str = "" end
-                
-                local user, server_info = host_part:match("([^@]+)@(.+)")
-                if user and server_info then
-                    local host, port = server_info:match("([^:]+):(%d+)")
-                    if not host then host = server_info; port = (proto == "trojan") and "443" or "80" end
-                    
-                    local q = parse_query(query_str)
-                    alias = alias ~= "" and url_decode(alias) or host
-
-                    table.insert(cmds, string.format("uci set shadowsocksr.%s.alias='%s'", sid, alias:gsub("'", "")))
+            if proto == "vless" then
+                -- vless://uuid@host:port?query#alias
+                local uuid, host, port, query, alias = link:match("vless://([^@]+)@([^:]+):([^%?#]+)%??([^#]*)#?(.*)")
+                if uuid and host then
+                    local q = parse_query(query)
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.type='v2ray'", sid))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.v2ray_protocol='vless'", sid))
                     table.insert(cmds, string.format("uci set shadowsocksr.%s.server='%s'", sid, host))
                     table.insert(cmds, string.format("uci set shadowsocksr.%s.server_port='%s'", sid, port))
-                    table.insert(cmds, string.format("uci set shadowsocksr.%s.local_port='1234'", sid))
-                    table.insert(cmds, string.format("uci set shadowsocksr.%s.timeout='300'", sid))
-                    table.insert(cmds, string.format("uci set shadowsocksr.%s.fast_open='0'", sid))
-                    table.insert(cmds, string.format("uci set shadowsocksr.%s.udp_relay='1'", sid))
-                    table.insert(cmds, string.format("uci set shadowsocksr.%s.switch_enable='1'", sid))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.vmess_id='%s'", sid, uuid))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.v2ray_vless_id='%s'", sid, uuid))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.vless_encryption='%s'", sid, q.encryption or "none"))
                     
-                    if proto == "vless" then
-                        table.insert(cmds, string.format("uci set shadowsocksr.%s.type='v2ray'", sid))
-                        table.insert(cmds, string.format("uci set shadowsocksr.%s.v2ray_protocol='vless'", sid))
-                        table.insert(cmds, string.format("uci set shadowsocksr.%s.v2ray_vless_id='%s'", sid, user))
-                        table.insert(cmds, string.format("uci set shadowsocksr.%s.vless_encryption='%s'", sid, q.encryption or "none"))
-                    else
-                        table.insert(cmds, string.format("uci set shadowsocksr.%s.type='trojan'", sid))
-                        table.insert(cmds, string.format("uci set shadowsocksr.%s.password='%s'", sid, user))
-                    end
-
-                    local transport = q.type or "tcp"
-                    if transport == "http" then transport = "h2"
-                    elseif transport == "tcp" or transport == "raw" then transport = "raw" end
+                    local transport = q.type or "raw"
+                    if transport == "tcp" then transport = "raw"
+                    elseif transport == "splithttp" then transport = "xhttp"
+                    elseif transport == "http" then transport = "h2" end
                     table.insert(cmds, string.format("uci set shadowsocksr.%s.transport='%s'", sid, transport))
+                    
+                    local security = q.security or ""
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.tls='%s'", sid, (security == "tls" or security == "xtls") and "1" or "0"))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.reality='%s'", sid, (security == "reality") and "1" or "0"))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.tls_host='%s'", sid, q.sni or ""))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.fingerprint='%s'", sid, q.fp or ""))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.tls_flow='%s'", sid, q.flow or ""))
+                    
+                    if q.alpn and q.alpn ~= "" then table.insert(cmds, string.format("uci set shadowsocksr.%s.tls_alpn='%s'", sid, q.alpn)) end
+                    
+                    local insecure = q.allowInsecure or q.insecure
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.insecure='%s'", sid, (insecure == "1" or insecure == "true") and "1" or "0"))
 
-                    if q.security == "tls" or q.security == "xtls" or q.security == "reality" then
-                        table.insert(cmds, string.format("uci set shadowsocksr.%s.tls='1'", sid))
-                        if q.security == "reality" then 
-                            table.insert(cmds, string.format("uci set shadowsocksr.%s.reality='1'", sid))
-                            if q.pbk then table.insert(cmds, string.format("uci set shadowsocksr.%s.reality_publickey='%s'", sid, q.pbk)) end
-                            if q.sid then table.insert(cmds, string.format("uci set shadowsocksr.%s.reality_shortid='%s'", sid, q.sid)) end
-                        end
-                        if q.sni then table.insert(cmds, string.format("uci set shadowsocksr.%s.tls_host='%s'", sid, q.sni)) end
-                        if q.fp then table.insert(cmds, string.format("uci set shadowsocksr.%s.fingerprint='%s'", sid, q.fp)) end
+                    if security == "reality" then
+                        table.insert(cmds, string.format("uci set shadowsocksr.%s.reality_publickey='%s'", sid, q.pbk and url_decode(q.pbk) or ""))
+                        table.insert(cmds, string.format("uci set shadowsocksr.%s.reality_shortid='%s'", sid, q.sid or ""))
+                        table.insert(cmds, string.format("uci set shadowsocksr.%s.reality_spiderx='%s'", sid, q.spx and url_decode(q.spx) or ""))
                     end
 
                     if transport == "ws" then
@@ -290,9 +276,28 @@ elseif action == "import_nodes" then
                     elseif transport == "h2" then
                         table.insert(cmds, string.format("uci set shadowsocksr.%s.h2_host='%s'", sid, q.host or ""))
                         table.insert(cmds, string.format("uci set shadowsocksr.%s.h2_path='%s'", sid, q.path or "/"))
-                    elseif transport == "grpc" then
-                        table.insert(cmds, string.format("uci set shadowsocksr.%s.serviceName='%s'", sid, q.serviceName or ""))
                     end
+
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.alias='%s'", sid, (alias ~= "" and url_decode(alias) or host):gsub("'", "")))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.local_port='1234'", sid))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.timeout='300'", sid))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.udp_relay='1'", sid))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.switch_enable='1'", sid))
+                    success = true
+                end
+
+            elseif proto == "trojan" then
+                local user, server, port, query, alias = link:match("trojan://([^@]+)@([^:]+):([^%?#]+)%??([^#]*)#?(.*)")
+                if user and server then
+                    local q = parse_query(query)
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.type='trojan'", sid))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.server='%s'", sid, server))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.server_port='%s'", sid, port))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.password='%s'", sid, user))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.tls='1'", sid))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.tls_host='%s'", sid, q.sni or q.peer or ""))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.alias='%s'", sid, (alias ~= "" and url_decode(alias) or server):gsub("'", "")))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.switch_enable='1'", sid))
                     success = true
                 end
                 
@@ -366,6 +371,69 @@ elseif action == "import_nodes" then
                         end
                         success = true
                     end
+                end
+            elseif proto == "vless" then
+                -- vless://uuid@host:port?query#alias
+                local uuid, host, port, query, alias = link:match("vless://([^@]+)@([^:]+):([^%?#]+)%??([^#]*)#?(.*)")
+                if uuid and host then
+                    local q = parse_query(query)
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.type='v2ray'", sid))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.v2ray_protocol='vless'", sid))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.server='%s'", sid, host))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.server_port='%s'", sid, port))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.vmess_id='%s'", sid, uuid))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.v2ray_vless_id='%s'", sid, uuid))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.vless_encryption='%s'", sid, q.encryption or "none"))
+                    
+                    -- Transport Mapping
+                    local transport = q.type or "raw"
+                    if transport == "tcp" then transport = "raw"
+                    elseif transport == "splithttp" then transport = "xhttp"
+                    elseif transport == "http" then transport = "h2" end
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.transport='%s'", sid, transport))
+                    
+                    -- TLS / Reality flags (SSR Plus uses "1" or "0")
+                    local security = q.security or ""
+                    local tls = (security == "tls" or security == "xtls") and "1" or "0"
+                    local reality = (security == "reality") and "1" or "0"
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.tls='%s'", sid, tls))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.reality='%s'", sid, reality))
+                    
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.tls_host='%s'", sid, q.sni or ""))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.fingerprint='%s'", sid, q.fp or ""))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.tls_flow='%s'", sid, q.flow or ""))
+                    
+                    if q.alpn and q.alpn ~= "" then
+                        table.insert(cmds, string.format("uci set shadowsocksr.%s.tls_alpn='%s'", sid, q.alpn))
+                    end
+                    
+                    local insecure = q.allowInsecure or q.insecure
+                    if insecure == "1" or insecure == "true" or insecure == true then
+                        table.insert(cmds, string.format("uci set shadowsocksr.%s.insecure='1'", sid))
+                    else
+                        table.insert(cmds, string.format("uci set shadowsocksr.%s.insecure='0'", sid))
+                    end
+
+                    if security == "reality" then
+                        table.insert(cmds, string.format("uci set shadowsocksr.%s.reality_publickey='%s'", sid, q.pbk and url_decode(q.pbk) or ""))
+                        table.insert(cmds, string.format("uci set shadowsocksr.%s.reality_shortid='%s'", sid, q.sid or ""))
+                        table.insert(cmds, string.format("uci set shadowsocksr.%s.reality_spiderx='%s'", sid, q.spx and url_decode(q.spx) or ""))
+                    end
+
+                    if transport == "ws" then
+                        table.insert(cmds, string.format("uci set shadowsocksr.%s.ws_host='%s'", sid, q.host or ""))
+                        table.insert(cmds, string.format("uci set shadowsocksr.%s.ws_path='%s'", sid, q.path or "/"))
+                    elseif transport == "h2" then
+                        table.insert(cmds, string.format("uci set shadowsocksr.%s.h2_host='%s'", sid, q.host or ""))
+                        table.insert(cmds, string.format("uci set shadowsocksr.%s.h2_path='%s'", sid, q.path or "/"))
+                    end
+
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.alias='%s'", sid, (alias ~= "" and url_decode(alias) or host):gsub("'", "")))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.local_port='1234'", sid))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.timeout='300'", sid))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.udp_relay='1'", sid))
+                    table.insert(cmds, string.format("uci set shadowsocksr.%s.switch_enable='1'", sid))
+                    success = true
                 end
             end
             
@@ -499,25 +567,6 @@ elseif action == "save_config" or action == "set_server" then
     end
     
 
-
-    -- TỰ ĐỘNG VÁ LỖI HỆ THỐNG: Hotfix lỗi gen_config.lua của OpenWrt (Phiên bản v2.0 - Siêu bám dính)
-    -- Sử dụng Lua Pattern để nhận diện xuyên không gian (cả Tab, CRLF, LF)
-    os.execute([[
-    lua -e '
-        local f = io.open("/usr/share/shadowsocksr/gen_config.lua", "r")
-        if f then
-            local data = f:read("*all")
-            f:close()
-            local old_pattern = "settings%s*=%s*%{%s*domainStrategy%s*=%s*%(xray_fragment%.noise%s*==%s*\"1\"%s*and%s*xray_noise%.enabled%s*==%s*\"1\"%)%s*and%s*n_domainstrategy%s*or%s*nil%s*%},"
-            if data:find(old_pattern) then
-                local new_str = "settings = (xray_fragment.noise == \"1\" and xray_noise.enabled == \"1\" and n_domainstrategy and n_domainstrategy ~= \"\") and { domainStrategy = n_domainstrategy } or nil,"
-                data = data:gsub(old_pattern, new_str)
-                local out = io.open("/usr/share/shadowsocksr/gen_config.lua", "w")
-                if out then out:write(data); out:close() end
-            end
-        end
-    '
-    ]])
 
     vwrth.uci_commit("shadowsocksr")
     os.execute("/etc/init.d/shadowsocksr restart >/dev/null 2>&1 &")
