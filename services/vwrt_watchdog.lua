@@ -40,80 +40,69 @@ local function check_singleton()
     end
 end
 
--- --- TỰ ĐỘNG TÌM KIẾM MỤC TIÊU (DYNAMIC DISCOVERY) ---
-local function get_targets()
-    local targets = {}
+-- --- KIEM TRA WAN (MANG GOC) ---
+local function check_wan()
+    local dns = "8.8.8.8"
     
-    -- 1. Lấy DNS nhà mạng từ Interface 5G (Tự tìm)
-    local handle = io.popen("ubus call network.interface.5G status | jsonfilter -e '@[\"dns-server\"][0]' 2>/dev/null")
-    local dns = handle:read("*a"):gsub("%s+", "")
+    -- 1. Lay DNS nha mang bang grep tu cong 5G
+    local handle = io.popen("ubus call network.interface.5G status 2>/dev/null | grep -o '\"[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+\"' | head -n 1 | tr -d '\"'")
+    local parsed_dns = handle:read("*a"):gsub("%s+", "")
     handle:close()
-    if dns and dns ~= "" then table.insert(targets, dns) end
     
-    -- 2. Lấy SNI từ SSR Plus (Đồng bộ với mục tiêu của Proxy)
-    local handle = io.popen("uci -q get shadowsocksr.@global[0].time_server 2>/dev/null")
-    if handle then
-        local sni = handle:read("*a"):gsub("%s+", "")
-        handle:close()
-        if sni and sni ~= "" and sni ~= "nil" then 
-            table.insert(targets, sni) 
-        end
+    if parsed_dns and parsed_dns ~= "" then 
+        dns = parsed_dns 
     end
     
-    -- Nếu hoàn toàn không có mục tiêu nào được tìm thấy, mới dùng 8.8.8.8 làm cứu cánh cuối cùng
-    if #targets == 0 then
-        table.insert(targets, "8.8.8.8")
+    -- 2. Ping DNS nha mang (Hoat dong cho moi nha mang)
+    if os.execute(string.format("ping -c 1 -W 2 '%s' >/dev/null 2>&1", dns)) == 0 then 
+        return true 
     end
     
-    return targets
-end
-
--- --- KIỂM TRA TCP ---
-local function tcp_check(host, port)
-    local socket = nixio.socket("inet", "stream")
-    if not socket then return false end
-    socket:setblocking(false)
-    local success, code, msg = socket:connect(host, port)
-    if not success and code == nixio.const.einprogress then
-        nixio.poll({{fd=socket, events=nixio.poll.POLLOUT}}, CONFIG.timeout * 1000)
-        success = socket:getopt("socket", "error") == 0
+    -- 3. Ping 8.8.8.8 (Dach cho SIM CO DATA, truong hop DNS nha mang khong cho ping)
+    if dns ~= "8.8.8.8" and os.execute("ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1") == 0 then
+        return true
     end
-    socket:close()
-    return success
-end
-
--- --- KIỂM TRA TỔNG THỂ ---
-local function check_connectivity()
-    local targets = get_targets()
-    for _, host in ipairs(targets) do
-        if host:match("^%d+%.%d+%.%d+%.%d+$") then
-            -- Nếu là IP (DNS nhà mạng) -> Thử TCP 53
-            if tcp_check(host, CONFIG.tcp_port) then return true end
-        else
-            -- Nếu là SNI (Tên miền) -> Thử HTTP Head qua curl
-            if os.execute(string.format("curl -I -s -m 5 'http://%s' >/dev/null 2>&1", host)) == 0 then
+    
+    -- 4. Kiem tra SNI cua Proxy (Dach cho SIM HET DATA / Bypass)
+    local global_server = io.popen("uci -q get shadowsocksr.@global[0].global_server 2>/dev/null"):read("*a"):gsub("%s+", "")
+    if global_server and global_server ~= "" and global_server ~= "nil" then
+        local ws_host = io.popen(string.format("uci -q get shadowsocksr.%s.ws_host 2>/dev/null", global_server)):read("*a"):gsub("%s+", "")
+        if ws_host and ws_host ~= "" and ws_host ~= "nil" then
+            if os.execute(string.format("curl -I -s -m 5 'http://%s' >/dev/null 2>&1", ws_host)) == 0 then
                 return true
             end
         end
     end
-    -- Lớp cuối cùng: Ping (Nếu cả TCP và HTTP đều không có trong danh sách)
-    if #targets == 1 and targets[1] == "8.8.8.8" then
-        if os.execute("ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1") == 0 then return true end
+    
+    return false
+end
+
+-- --- KIEM TRA PROXY ---
+local function check_proxy()
+    -- Thu curl mot trang quoc te (qua Proxy)
+    if os.execute("curl -I -s -m 5 'http://www.google.com/generate_204' >/dev/null 2>&1") == 0 then
+        return true
     end
     return false
 end
 
--- --- XỬ LÝ KHI MẠNG RỚT ---
-local function handle_failure(fail_duration)
+-- --- XU LY KHI MANG ROT ---
+local function handle_failure(fail_duration, wan_ok, proxy_ok)
     if fail_duration >= CONFIG.dead_period then
-        log(string.format("Canh bao: Mat Internet lien tuc %ds. Dang khoi phuc ket noi WAN va Proxy...", fail_duration))
-        -- Chi restart interface 5G va Proxy, khong restart toan bo network de tranh rot Wifi
-        os.execute("ifup 5G")
-        os.execute("/etc/init.d/shadowsocksr restart")
-        -- Doi mot chut de he thong on dinh
+        if not wan_ok then
+            log(string.format("Canh bao: Mat Internet WAN lien tuc %ds. Dang khoi phuc ket noi 5G...", fail_duration))
+            -- Chi restart duy nhat cong 5G
+            os.execute("ifup 5G >/dev/null 2>&1")
+            -- Neu 5G rot thi cung nen restart Proxy de dam bao dong bo
+            os.execute("/etc/init.d/shadowsocksr restart")
+        elseif not proxy_ok then
+            log(string.format("Canh bao: Ket noi 5G on dinh nhung Proxy chet %ds. Dang khoi dong lai Proxy...", fail_duration))
+            os.execute("/etc/init.d/shadowsocksr restart")
+        end
         return 0
     else
-        log(string.format("Canh bao: Khong the truy cap Internet. Thoi gian rot: %ds (Gioi han: %ds)", fail_duration, CONFIG.dead_period))
+        log(string.format("Canh bao: Mang khong on dinh (5G: %s, Proxy: %s). Thoi gian rot: %ds (Gioi han: %ds)", 
+            wan_ok and "OK" or "Loi", proxy_ok and "OK" or "Loi", fail_duration, CONFIG.dead_period))
         return fail_duration + CONFIG.check_interval
     end
 end
@@ -124,17 +113,20 @@ log("Watchdog V2.1.3 da khoi dong.")
 
 local fail_duration = 0
 while true do
-    if check_connectivity() then
+    local wan_ok = check_wan()
+    local proxy_ok = check_proxy()
+    
+    if wan_ok and proxy_ok then
         if fail_duration > 0 then
-            log(string.format("Thong bao: Internet da khoi phuc sau %ds.", fail_duration))
+            log(string.format("Thong bao: Internet va Proxy da on dinh sau %ds.", fail_duration))
             fail_duration = 0
         end
-        -- Ghi trạng thái OK vào status file
+        -- Ghi trang thai OK vao status file
         local f = io.open(CONFIG.status_file, "w")
         if f then f:write("OK"); f:close() end
     else
-        fail_duration = handle_failure(fail_duration)
-        -- Ghi trạng thái ERROR vào status file
+        fail_duration = handle_failure(fail_duration, wan_ok, proxy_ok)
+        -- Ghi trang thai ERROR vao status file
         local f = io.open(CONFIG.status_file, "w")
         if f then f:write("ERROR"); f:close() end
     end
