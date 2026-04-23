@@ -73,8 +73,8 @@ if action == "get_info" then
         tunnel_dns_raw = tunnel_dns,
         threads = g.threads or "0",
         dports = g.dports or "1",
-        -- Kiểm tra tiến trình thực tế (Sửa lỗi báo cáo trạng thái ảo)
-        running = (os.execute("pgrep -x ssr-plus >/dev/null 2>&1 || pgrep -x ssr-redir >/dev/null 2>&1 || pgrep -x ssr-local >/dev/null 2>&1") == 0) and 1 or 0,
+        -- Kiểm tra tiến trình thực tế (Sửa lỗi báo cáo trạng thái ảo - Dùng -f cho linh hoạt)
+        running = (os.execute("pgrep -f ssr-plus >/dev/null 2>&1 || pgrep -f ssr-redir >/dev/null 2>&1 || pgrep -f ssr-local >/dev/null 2>&1 || pgrep -f xray >/dev/null 2>&1 || pgrep -f v2ray >/dev/null 2>&1") == 0) and 1 or 0,
         -- Thêm thông tin thời gian vào data trả về
         time_server = g.time_server or "m.tv360.vn",
         time_startup = g.time_startup or "0",
