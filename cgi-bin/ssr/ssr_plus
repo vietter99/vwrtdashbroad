@@ -70,7 +70,7 @@ if action == "get_info" then
         threads = g.threads or "0",
         dports = g.dports or "1",
         -- Kiểm tra tiến trình thực tế (Sửa lỗi báo cáo trạng thái ảo)
-        running = os.execute("pgrep -x ssr-plus >/dev/null 2>&1 || pgrep -x ssr-redir >/dev/null 2>&1") == 0,
+        running = (os.execute("pgrep -x ssr-plus >/dev/null 2>&1 || pgrep -x ssr-redir >/dev/null 2>&1 || pgrep -x ssr-local >/dev/null 2>&1") == 0) and 1 or 0,
         -- Thêm thông tin thời gian vào data trả về
         time_server = g.time_server or "m.tv360.vn",
         time_startup = g.time_startup or "0",
