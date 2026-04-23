@@ -1,5 +1,6 @@
 #!/usr/bin/lua
 -- WATCHDOG V2.1.3 (LUA PURE DYNAMIC EDITION - UTF-8 FIXED)
+-- Last Update: 2026-04-23 12:21 (Force Sync)
 -- Tự động kiểm tra internet và khôi phục mạng 100% dựa trên thực tế hệ thống
 
 local nixio = require "nixio"
