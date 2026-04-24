@@ -9,6 +9,9 @@ local collector_path = "/www/vwrt/cgi-bin/stats/collector.lua"
 
 -- [BOOTSTRAP] Tự động cài đặt khi người dùng mở Dashboard
 local function bootstrap()
+    -- 0. Đảm bảo thư mục lưu trữ tồn tại
+    os.execute("mkdir -p /usr/lib/vwrt/stats/")
+    
     -- 1. Cấp quyền thực thi cho file collector
     os.execute("chmod +x " .. collector_path)
     
