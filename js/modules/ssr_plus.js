@@ -510,7 +510,7 @@ const SSRPlusModule = {
                 <div class="ssr-panel ssr-grid-full">
                     <div class="ssr-panel-title"><span class="ssr-icon">📥</span> Đăng ký Node Thủ Công</div>
                     <div class="ssr-help-text" style="margin-bottom: 20px; color: var(--text-sub);">
-                        Bạn có thể dán trực tiếp một dãy các Node dưới định dạng <strong>vmess://, vless://, ss://, ssr://, trojan://</strong>. Hệ thống sẽ tự động quét và bóc tách dữ liệu tương thích với chuẩn Xray mới nhất.
+                        Vui lòng dán danh sách máy chủ (Node) vào bên dưới (Hỗ trợ định dạng: <strong>vmess://, vless://, ss://, ssr://, trojan://</strong>). Hệ thống sẽ tự động nhận diện và thiết lập cấu hình tốt nhất.
                     </div>
                     <div class="ssr-form-group">
                         <textarea id="import-url-input" class="ssr-list-editor" style="height:250px;" placeholder="Dán link các Node vào đây (Mỗi dòng một link)..."></textarea>
@@ -520,7 +520,7 @@ const SSRPlusModule = {
 
             <div class="ssr-actions">
                 <button class="ssr-btn ssr-btn-primary" onclick="SSRPlusModule.importNodes()">
-                    📥 Bắt đầu Phân tích & Đăng ký
+                    📥 Thêm Node
                 </button>
             </div>
         `;
@@ -931,30 +931,13 @@ const SSRPlusModule = {
     renderLog: function () {
         return `
             <div class="ssr-section">
-                <div class="ssr-section-header">
+                <div class="ssr-section-header" style="margin-bottom: 20px;">
                     <div class="ssr-section-title">📋 Nhật ký hoạt động</div>
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                        <button onclick="SSRPlusModule.loadLog()" class="ssr-btn ssr-btn-primary">🔄 Làm mới</button>
-                    </div>
                 </div>
                 
-                <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 12px; border: 1px solid var(--ssr-glass-border);">
-                    <label class="ssr-switch">
-                        <input type="checkbox" id="auto-refresh-log" ${this.autoRefreshLog ? 'checked' : ''} onchange="SSRPlusModule.toggleLogAutoRefresh(this.checked)">
-                        <span class="ssr-slider"></span>
-                    </label>
-                    <span style="font-size: 14px; font-weight: 600; color: var(--text-primary);">Tự động cập nhật (mỗi 5s)</span>
-                    <span id="log-status-tip" style="font-size: 12px; color: var(--text-sub); margin-left: auto;">
-                        ${this.autoRefreshLog ? '🟢 Đang theo dõi...' : '⚪ Đã tạm dừng'}
-                    </span>
-                </div>
-
                 <div class="ssr-log-wrapper" style="position: relative;">
                     <textarea id="ssr-log-area" readonly 
                         style="width: 100%; height: 450px; background: #0d1117; color: #e6edf3; border: 1px solid #30363d; border-radius: 12px; padding: 15px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 12px; line-height: 1.6; resize: none; outline: none;"></textarea>
-                </div>
-                <div style="margin-top: 10px; font-size: 11px; color: var(--text-sub);">
-                    * Nhật ký hiển thị 100 dòng mới nhất từ dịch vụ VPN và 50 dòng từ hệ thống.
                 </div>
             </div>
         `;
