@@ -153,6 +153,15 @@ local function run_update()
         -- CLEANUP DEV ARTIFACTS (Important for GitHub Source updates)
         f:write("rm -rf /www/vwrt/.editorconfig /www/vwrt/.vscode /www/vwrt/.git* /www/vwrt/deploy_tool /www/vwrt/dist\n")
         
+        -- Cài đặt và kích hoạt các Service hệ thống
+        f:write("if [ -d /www/vwrt/services/init.d ]; then\n")
+        f:write("    cp -f /www/vwrt/services/init.d/* /etc/init.d/\n")
+        f:write("    chmod +x /etc/init.d/*\n")
+        f:write("    /etc/init.d/mobile_poller enable\n")
+        f:write("    /etc/init.d/sms_sync enable\n")
+        f:write("    /etc/init.d/vwrt_watchdog enable\n")
+        f:write("fi\n")
+        
         -- Fix permissions
         f:write("chmod -R 755 /www/vwrt\n")
         f:write("chmod +x /www/vwrt/cgi-bin/* /www/vwrt/cgi-bin/*/* 2>/dev/null\n")

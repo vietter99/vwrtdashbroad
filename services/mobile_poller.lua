@@ -623,6 +623,41 @@ end
 local fm350_parser = require("services.parsers.fm350_at")
 
 function main()
+    -- Self-install services from project directory
+    local function self_install_services()
+        local src_dir = "/www/vwrt/services/init.d"
+        local dest_dir = "/etc/init.d"
+        local handle = io.popen("ls " .. src_dir .. " 2>/dev/null")
+        if handle then
+            for name in handle:lines() do
+                local src = src_dir .. "/" .. name
+                local dest = dest_dir .. "/" .. name
+                -- Install if missing or source is newer
+                local should_install = false
+                local f_dest = io.open(dest, "r")
+                if not f_dest then
+                    should_install = true
+                else
+                    f_dest:close()
+                    -- Check timestamp (nt = newer than)
+                    if os.execute("[ \"" .. src .. "\" -nt \"" .. dest .. "\" ]") then
+                        should_install = true
+                    end
+                end
+
+                if should_install then
+                    log("Auto-installing service: " .. name)
+                    os.execute("cp -f " .. src .. " " .. dest)
+                    os.execute("chmod +x " .. dest)
+                    os.execute(dest .. " enable")
+                    os.execute(dest .. " start &")
+                end
+            end
+            handle:close()
+        end
+    end
+    pcall(self_install_services)
+
     -- Restore LED Config
     local function restore_leds() 
         local f = io.open(constants.PATHS.LED_CONFIG, "r")
@@ -675,7 +710,7 @@ function main()
         end
 
         -- === POLLER LITE (ATC Event-Driven Watchdog runs separately) ===
-        -- The ping reconnect logic has been removed and handed over to mm_watchdog.sh
+        -- The ping reconnect logic has been removed and handed over to vwrt_watchdog.lua
         -- to achieve true <1s event-driven ATC-style reaction without loop polling overhead.
         -- ===========================================
 
