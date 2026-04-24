@@ -710,7 +710,7 @@ function main()
         end
 
         -- === POLLER LITE (ATC Event-Driven Watchdog runs separately) ===
-        -- The ping reconnect logic has been removed and handed over to mm_watchdog.sh
+        -- The ping reconnect logic has been removed and handed over to vwrt_watchdog.lua
         -- to achieve true <1s event-driven ATC-style reaction without loop polling overhead.
         -- ===========================================
 

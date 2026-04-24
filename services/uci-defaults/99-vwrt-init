@@ -4,6 +4,6 @@
 
 /etc/init.d/mobile_poller enable
 /etc/init.d/sms_sync enable
-/etc/init.d/mm_watchdog enable
+
 
 exit 0
