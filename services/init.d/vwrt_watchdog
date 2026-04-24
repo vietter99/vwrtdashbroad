@@ -16,7 +16,7 @@ start_service() {
 }
 
 stop_service() {
-	logger -t WATCHDOG "Ä ang dá»«ng giÃ¡m sÃ¡t..."
+	logger -t WATCHDOG "Đang dừng giám sát..."
 }
 
 reload_service() {
