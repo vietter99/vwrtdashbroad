@@ -791,6 +791,7 @@ const SSRPlusModule = {
         const p = new URLSearchParams();
         p.append('action', 'import_nodes');
         p.append('links', urls);
+        p.append('csrf_token', VWRT_API.csrfToken);
 
         fetch('/cgi-bin/ssr/ssr_plus', {
             method: 'POST',
@@ -857,6 +858,7 @@ const SSRPlusModule = {
     saveConfig: function () {
         const p = new URLSearchParams();
         p.append('action', 'save_config');
+        p.append('csrf_token', VWRT_API.csrfToken);
 
         // Enable from settings tab
         const enableEl = document.getElementById('set-enable');

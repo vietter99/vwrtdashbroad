@@ -401,7 +401,10 @@ const MobileModule = {
         statusDiv.style.color = 'var(--text-sub)';
         statusDiv.innerText = "Đang gửi lệnh Khởi động lại...";
 
-        const payload = { action: 'restart' };
+        const payload = { 
+            action: 'restart',
+            csrf_token: (typeof VWRT_API !== 'undefined') ? VWRT_API.csrfToken : ''
+        };
         fetch('/cgi-bin/mobile/action', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

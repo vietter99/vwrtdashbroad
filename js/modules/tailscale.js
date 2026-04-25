@@ -394,7 +394,10 @@ const TailscaleModule = {
                 
                 fetch('/cgi-bin/tailscale/action', {
                     method: 'POST',
-                    body: JSON.stringify({ action: 'logout' })
+                    body: JSON.stringify({ 
+                        action: 'logout',
+                        csrf_token: VWRT_API.csrfToken
+                    })
                 })
                 .then(res => res.json())
                 .then(data => {
@@ -432,7 +435,8 @@ const TailscaleModule = {
             body: JSON.stringify({
                 action: 'save_config',
                 enabled: enabled,
-                port: port
+                port: port,
+                csrf_token: VWRT_API.csrfToken
             })
         })
         .then(res => res.json())
@@ -468,7 +472,10 @@ const TailscaleModule = {
 
          fetch('/cgi-bin/tailscale/action', {
             method: 'POST',
-            body: JSON.stringify({ action: 'get_auth_url' })
+            body: JSON.stringify({ 
+                action: 'get_auth_url',
+                csrf_token: VWRT_API.csrfToken
+            })
         })
         .then(res => res.json())
         .then(data => {

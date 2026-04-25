@@ -268,7 +268,8 @@ const Mwan3Module = {
                 action: 'set_member',
                 name: name,
                 metric: metric,
-                weight: weight
+                weight: weight,
+                csrf_token: VWRT_API.csrfToken
             })
         })
         .then(res => res.json())
