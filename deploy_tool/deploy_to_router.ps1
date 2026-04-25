@@ -38,7 +38,7 @@ function Publish-File {
 }
 
 # 1. Folders to process
-$folders = @(".", "cgi-bin", "services", "lib", "js", "css", "img", "deploy_tool/etc/config")
+$folders = @(".", "cgi-bin", "services", "lib", "js", "css", "img")
 $deployCount = 0
 
 foreach ($folder in $folders) {
@@ -50,34 +50,22 @@ foreach ($folder in $folders) {
             
             if ($_.LastWriteTime -gt $lastSyncTime) {
                 $relativePath = $_.FullName.Substring($localRoot.Path.Length + 1).Replace("\", "/")
+                $remotePath = "$remoteRoot/$relativePath"
                 
-                # Handling for specialized paths
-                if ($relativePath.StartsWith("services/init.d/")) {
-                    $remotePath = "/etc/init.d/$($_.Name)"
-                    Publish-File $_.FullName $remotePath
-                    ssh -o StrictHostKeyChecking=no "$routerUser@$routerIp" "chmod +x $remotePath; $remotePath enable"
-                } elseif ($relativePath.StartsWith("deploy_tool/etc/config/")) {
-                    $remotePath = "/etc/config/$($_.Name)"
-                    Publish-File $_.FullName $remotePath
-                } else {
-                    $remotePath = "$remoteRoot/$relativePath"
-                    # Prevent root files from being put into wrong subfolders if we are in "." loop
-                    if ($folder -eq "." -and $_.Directory.Name -ne (Split-Path $localRoot -Leaf)) { return }
-                    
-                    Publish-File $_.FullName $remotePath
-                }
+                # Prevent root files from being put into wrong subfolders if we are in "." loop
+                if ($folder -eq "." -and $_.Directory.Name -ne (Split-Path $localRoot -Leaf)) { return }
+                
+                Publish-File $_.FullName $remotePath
                 $deployCount++
             }
         }
     }
 }
 
-# 2. Cleanup and Finish
+# 2. Finish
 if ($deployCount -gt 0) {
-    Write-Host "Setting final permissions and restarting services..." -ForegroundColor Yellow
-    ssh -o StrictHostKeyChecking=no "$routerUser@$routerIp" "chmod -R +x $remoteRoot/cgi-bin; rm -rf /tmp/luci-indexcache; /etc/init.d/uhttpd restart"
     Get-Date | Out-File $syncMarker
-    Write-Host "`n>>> $deployCount files deployed successfully!" -ForegroundColor Green
+    Write-Host "`n>>> $deployCount files copied successfully!" -ForegroundColor Green
 } else {
-    Write-Host "`n>>> No changes detected. Router is already in sync." -ForegroundColor Gray
+    Write-Host "`n>>> No changes detected." -ForegroundColor Gray
 }

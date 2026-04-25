@@ -6,5 +6,16 @@
 /etc/init.d/sms_sync enable
 /etc/init.d/vwrt_watchdog enable
 
+# Initialize Watchdog config if not exists
+if [ ! -f /etc/config/vwrt_watchdog ]; then
+    cat <<EOF > /etc/config/vwrt_watchdog
+config watchdog 'settings'
+	option mobile_check '1'
+	option proxy_check '0'
+	option interval '30'
+	option dead_period '120'
+	option status_file '/tmp/vwrt_watchdog.status'
+EOF
+fi
 
 exit 0
