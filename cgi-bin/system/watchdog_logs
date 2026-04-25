@@ -1,0 +1,10 @@
+#!/usr/bin/lua
+local function get_logs()
+    local handle = io.popen("logread | grep WATCHDOG | tail -n 50")
+    local logs = handle:read("*a")
+    handle:close()
+    return logs
+end
+
+print("Content-Type: text/plain\n")
+print(get_logs())

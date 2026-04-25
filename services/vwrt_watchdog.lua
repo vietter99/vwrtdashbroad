@@ -1,8 +1,4 @@
 #!/usr/bin/lua
--- WATCHDOG V2.1.3 (LUA PURE DYNAMIC EDITION - UTF-8 FIXED)
--- Last Update: 2026-04-23 12:21 (Force Sync)
--- Tự động kiểm tra internet và khôi phục mạng 100% dựa trên thực tế hệ thống
-
 local nixio = require "nixio"
 
 -- --- CẤU HÌNH ---
@@ -16,8 +12,9 @@ local CONFIG = {
 }
 
 local function log(msg)
-    -- Su dung logger cua he thong de ghi lai hoat dong
-    os.execute(string.format("logger -t WATCHDOG '%s'", msg))
+    -- Sử dụng logger của hệ thống (Bao bọc trong ngoặc kép để an toàn UTF-8)
+    os.execute(string.format("logger -t WATCHDOG \"%s\"", msg))
+    print(string.format("[%s] %s", os.date("%Y-%m-%d %H:%M:%S"), msg))
 end
 
 -- --- SINGLETON (CHỐNG CHẠY ĐÈ) ---
@@ -27,13 +24,12 @@ local function check_singleton()
         local old_pid = f:read("*n")
         f:close()
         if old_pid and nixio.kill(old_pid, 0) then
-            log(string.format("Phat hien tien trinh cu (%s), dang khoi dong lai...", old_pid))
+            log(string.format("Phát hiện tiến trình cũ (%s), đang khởi động lại...", old_pid))
             nixio.kill(old_pid, 9)
-            -- Doi mot chut de tien trinh cu thuc su thoat
             nixio.nanosleep(1, 0)
         end
     end
-    f = io.open("/tmp/vwrt_watchdog.lock", "w")
+    f = io.open(CONFIG.lock_file, "w")
     if f then
         f:write(tostring(nixio.getpid()))
         f:close()
@@ -42,7 +38,6 @@ end
 
 -- --- CONFIGURATION ---
 local function get_uci_config()
-    -- Check if config exists, if not, create default
     local check = io.popen("uci -q get vwrt_watchdog.settings 2>/dev/null")
     local exists = check:read("*a")
     check:close()
@@ -53,7 +48,7 @@ local function get_uci_config()
             f:write("config watchdog 'settings'\n")
             f:write("\toption mobile_check '1'\n")
             f:write("\toption proxy_check '0'\n")
-            f:write("\toption interval '30'\n")
+            f:write("\toption interval '60'\n")
             f:write("\toption dead_period '120'\n")
             f:write("\toption status_file '/tmp/vwrt_watchdog.status'\n")
             f:close()
@@ -77,107 +72,115 @@ local function get_uci_config()
     handle:close()
 
     return {
-        mobile_check = (mobile_check ~= "0"), -- Mac dinh la Bat (tru khi sếp gạt sang Tat)
-        proxy_check = (proxy_check == "1"),  -- Mac dinh la Tat
+        mobile_check = (mobile_check ~= "0"),
+        proxy_check = (proxy_check == "1"),
         check_interval = interval,
         dead_period = dead_period,
         status_file = "/tmp/vwrt_watchdog.status"
     }
 end
 
-local CONFIG = get_uci_config()
+local CONFIG_UCI = get_uci_config()
 
--- --- KIEM TRA WAN (MANG DI DONG) ---
+-- --- KIỂM TRA WAN (MẠNG DI ĐỘNG) ---
 local function check_wan()
-    if not CONFIG.mobile_check then return true end
+    if not CONFIG_UCI.mobile_check then return true end
 
     local dns = "8.8.8.8"
-    
-    -- 1. Thử lấy DNS của giao diện mạng di động 5G
     local iface = "5G"
     local handle = io.popen("ubus call network.interface." .. iface .. " status 2>/dev/null")
     local status = handle:read("*a")
     handle:close()
     
     if status and status ~= "" then
-        local parsed_dns = status:match('\"[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+\"')
-        if parsed_dns then 
-            dns = parsed_dns:gsub('\"', '')
+        local dns_section = status:match('"dns%-server":%s*%[%s*"([^"]+)"')
+        if dns_section then 
+            dns = dns_section
         end
     end
     
-    -- 2. Ping DNS (Hoạt động cho mọi nhà mạng)
-    if os.execute(string.format("ping -c 1 -W 2 '%s' >/dev/null 2>&1", dns)) == 0 then 
+    log(string.format("1. Đang kiểm tra DNS nhà mạng: %s", dns))
+    if os.execute(string.format("ping -c 1 -W 2 -I wwan0 '%s' >/dev/null 2>&1", dns)) == 0 then 
+        log(" -> Kết quả: Thành công (DNS nhà mạng OK)")
         return true 
+    else
+        log(" -> Kết quả: Thất bại (Không thể kết nối tới DNS nhà mạng)")
     end
     
-    -- 3. Ping 8.8.8.8
-    if dns ~= "8.8.8.8" and os.execute("ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1") == 0 then
-        return true
+    if dns ~= "8.8.8.8" then
+        log("2. Đang kiểm tra DNS dự phòng: 8.8.8.8")
+        if os.execute("ping -c 1 -W 2 -I wwan0 8.8.8.8 >/dev/null 2>&1") == 0 then
+            log(" -> Kết quả: Thành công (Mạng vẫn sống qua DNS dự phòng)")
+            return true
+        else
+            log(" -> Kết quả: Thất bại (Cả DNS nhà mạng và dự phòng đều chết)")
+        end
     end
     
     return false
 end
 
--- --- KIEM TRA PROXY ---
+-- --- KIỂM TRA PROXY ---
 local function check_proxy()
-    if not CONFIG.proxy_check then return true end
+    if not CONFIG_UCI.proxy_check then return true end
 
-    -- Thử curl một trang quốc tế (qua Proxy)
+    log("3. Đang kiểm tra kết nối Proxy quốc tế...")
     if os.execute("curl -I -s -m 5 'http://www.google.com/generate_204' >/dev/null 2>&1") == 0 then
+        log(" -> Kết quả: Thành công (Proxy hoạt động tốt)")
         return true
     end
+    log(" -> Kết quả: Thất bại (Proxy bị treo hoặc lỗi)")
     return false
 end
 
--- --- XU LY KHI MANG ROT ---
+-- --- XỬ LÝ KHI MẠNG RỚT ---
 local function handle_failure(fail_duration, wan_ok, proxy_ok)
-    if fail_duration >= CONFIG.dead_period then
+    if fail_duration >= CONFIG_UCI.dead_period then
         if not wan_ok then
-            log(string.format("Canh bao: Mat Internet Di dong lien tuc %ds. Dang khoi phuc ket noi...", fail_duration))
+            log(string.format("Cảnh báo: Mất Internet Di động liên tục %ds. Đang khôi phục kết nối...", fail_duration))
             os.execute("ifup 5G >/dev/null 2>&1")
             os.execute("/etc/init.d/shadowsocksr restart 2>/dev/null")
         elseif not proxy_ok then
-            log(string.format("Canh bao: Ket noi Di dong on dinh nhung Proxy chet %ds. Dang khoi dong lai Proxy...", fail_duration))
+            log(string.format("Cảnh báo: Kết nối Di động ổn định nhưng Proxy chết %ds. Đang khởi động lại Proxy...", fail_duration))
             os.execute("/etc/init.d/shadowsocksr restart 2>/dev/null")
         end
         return 0
     else
-        log(string.format("Canh bao: Mang khong on dinh (Di dong: %s, Proxy: %s). Thoi gian rot: %ds (Gioi han: %ds)", 
-            wan_ok and "OK" or "Loi", proxy_ok and "OK" or "Loi", fail_duration, CONFIG.dead_period))
-        return fail_duration + CONFIG.check_interval
+        local wan_status = not CONFIG_UCI.mobile_check and "Tắt" or (wan_ok and "OK" or "Lỗi")
+        local proxy_status = not CONFIG_UCI.proxy_check and "Tắt" or (proxy_ok and "OK" or "Lỗi")
+        
+        log(string.format("Cảnh báo: Mạng không ổn định (Di động: %s, Proxy: %s). Thời gian rớt: %ds (Giới hạn: %ds)", 
+            wan_status, proxy_status, fail_duration, CONFIG_UCI.dead_period))
+        return fail_duration + CONFIG_UCI.check_interval
     end
 end
 
--- --- MAIN LOOP ---
+-- --- VÒNG LẶP CHÍNH ---
 check_singleton()
 
-if not CONFIG.mobile_check and not CONFIG.proxy_check then
-    log("He thong tu dong phuc hoi mang dang tam dung.")
+if not CONFIG_UCI.mobile_check and not CONFIG_UCI.proxy_check then
+    log("Hệ thống tự động phục hồi mạng đang tạm dừng.")
 else
-    log("He thong tu dong phuc hoi mang da san sang.")
+    log("Hệ thống tự động phục hồi mạng đã sẵn sàng.")
 end
 
 local fail_duration = 0
 while true do
-    -- Refresh config each loop if needed, or just rely on service restart
-    -- For performance, we keep the config loaded unless service restarts
-    
     local wan_ok = check_wan()
     local proxy_ok = check_proxy()
     
     if wan_ok and proxy_ok then
         if fail_duration > 0 then
-            log(string.format("Thong bao: Internet va Proxy da on dinh sau %ds.", fail_duration))
+            log(string.format("Thông báo: Internet và Proxy đã ổn định sau %ds.", fail_duration))
             fail_duration = 0
         end
-        local f = io.open(CONFIG.status_file, "w")
+        local f = io.open(CONFIG_UCI.status_file, "w")
         if f then f:write("OK"); f:close() end
     else
         fail_duration = handle_failure(fail_duration, wan_ok, proxy_ok)
-        local f = io.open(CONFIG.status_file, "w")
+        local f = io.open(CONFIG_UCI.status_file, "w")
         if f then f:write("ERROR"); f:close() end
     end
     
-    nixio.nanosleep(CONFIG.check_interval, 0)
+    nixio.nanosleep(CONFIG_UCI.check_interval, 0)
 end
