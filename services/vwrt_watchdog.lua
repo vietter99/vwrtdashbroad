@@ -42,6 +42,24 @@ end
 
 -- --- CONFIGURATION ---
 local function get_uci_config()
+    -- Check if config exists, if not, create default
+    local check = io.popen("uci -q get vwrt_watchdog.settings 2>/dev/null")
+    local exists = check:read("*a")
+    check:close()
+
+    if exists == "" then
+        local f = io.open("/etc/config/vwrt_watchdog", "w")
+        if f then
+            f:write("config watchdog 'settings'\n")
+            f:write("\toption mobile_check '1'\n")
+            f:write("\toption proxy_check '0'\n")
+            f:write("\toption interval '30'\n")
+            f:write("\toption dead_period '120'\n")
+            f:write("\toption status_file '/tmp/vwrt_watchdog.status'\n")
+            f:close()
+        end
+    end
+
     local handle = io.popen("uci -q get vwrt_watchdog.settings.mobile_check 2>/dev/null")
     local mobile_check = handle:read("*a"):gsub("%s+", "")
     handle:close()
