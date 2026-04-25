@@ -1,0 +1,75 @@
+#!/usr/bin/lua
+
+-- Dynamic Path Resolution
+local source = debug.getinfo(1).source
+local script_path = source:match("@?(.*[\\/])")
+if script_path then
+    local cgi_root = script_path:match("(.*cgi%-bin/)")
+    if cgi_root then
+        package.path = cgi_root .. "?.lua;" .. package.path
+    end
+end
+if not package.path:find("/www/vwrt/cgi-bin") then
+    package.path = "/www/vwrt/cgi-bin/?.lua;" .. package.path
+end
+
+local cjson = require "cjson"
+local csrf = require "lib.csrf"
+local uci = require("luci.model.uci").cursor()
+
+print("Content-type: application/json\n")
+
+local function get_config()
+    local data = {
+        mobile_check = uci:get("vwrt_watchdog", "settings", "mobile_check") or "1",
+        proxy_check = uci:get("vwrt_watchdog", "settings", "proxy_check") or "0",
+        interval = uci:get("vwrt_watchdog", "settings", "interval") or "30",
+        dead_period = uci:get("vwrt_watchdog", "settings", "dead_period") or "120"
+    }
+    print(cjson.encode({ status = "success", data = data }))
+end
+
+local function set_config()
+    local content_length = tonumber(os.getenv("CONTENT_LENGTH") or 0)
+    if content_length == 0 then
+        print(cjson.encode({ status = "error", message = "No input" }))
+        return
+    end
+
+    local body = io.read(content_length)
+    local ok, req = pcall(cjson.decode, body)
+    if not ok or not req then
+        print(cjson.encode({ status = "error", message = "Invalid JSON" }))
+        return
+    end
+
+    -- CSRF Validation
+    if not csrf.validate_token(req.csrf_token) then
+        print(cjson.encode({ status = "error", message = "Invalid CSRF Token" }))
+        return
+    end
+
+    if req.mobile_check then uci:set("vwrt_watchdog", "settings", "mobile_check", req.mobile_check) end
+    if req.proxy_check then uci:set("vwrt_watchdog", "settings", "proxy_check", req.proxy_check) end
+    if req.interval then uci:set("vwrt_watchdog", "settings", "interval", req.interval) end
+    if req.dead_period then uci:set("vwrt_watchdog", "settings", "dead_period", req.dead_period) end
+
+    uci:commit("vwrt_watchdog")
+    
+    -- Restart watchdog service to apply
+    os.execute("/etc/init.d/watchdog restart >/dev/null 2>&1")
+    -- If using custom lua service directly
+    os.execute("pgrep -f vwrt_watchdog.lua | xargs kill -9 >/dev/null 2>&1")
+    os.execute("/usr/bin/lua /www/vwrt/services/vwrt_watchdog.lua &")
+
+    print(cjson.encode({ status = "success", message = "Đã lưu cấu hình Watchdog" }))
+end
+
+local method = os.getenv("REQUEST_METHOD")
+if method == "GET" then
+    get_config()
+elseif method == "POST" then
+    set_config()
+else
+    print(cjson.encode({ status = "error", message = "Method not allowed" }))
+end

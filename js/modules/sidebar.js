@@ -137,6 +137,13 @@ const SidebarModule = {
             return;
         }
 
+        if(featureName === 'watchdog') {
+            if(typeof WatchdogModule !== 'undefined') {
+                WatchdogModule.showModal();
+            }
+            return;
+        }
+
 
 
 
