@@ -463,7 +463,10 @@ const MobileModule = {
 
         fetch('/cgi-bin/ttl/index', {
             method: 'POST',
-            body: JSON.stringify({ ttl: val || 0 })
+            body: JSON.stringify({ 
+                ttl: val || 0,
+                csrf_token: (typeof VWRT_API !== 'undefined') ? VWRT_API.csrfToken : ''
+            })
         })
             .then(r => r.json())
             .then(d => {
@@ -707,7 +710,10 @@ const MobileModule = {
 
         fetch('/cgi-bin/ttl/index', {
             method: 'POST',
-            body: JSON.stringify({ ttl: val || 0 })
+            body: JSON.stringify({ 
+                ttl: val || 0,
+                csrf_token: (typeof VWRT_API !== 'undefined') ? VWRT_API.csrfToken : ''
+            })
         })
             .then(r => r.json())
             .then(d => {
