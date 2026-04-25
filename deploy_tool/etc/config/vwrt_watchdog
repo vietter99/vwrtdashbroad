@@ -1,6 +1,0 @@
-config watchdog 'settings'
-	option mobile_check '1'
-	option proxy_check '0'
-	option interval '30'
-	option dead_period '120'
-	option status_file '/tmp/vwrt_watchdog.status'
