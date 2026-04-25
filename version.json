@@ -1,7 +1,7 @@
 {
     "dashboard": {
-        "version": "1.1.6",
-        "url": "https://github.com/vietter99/vwrtdashbroad/archive/refs/tags/v1.1.6.zip",
-        "log": "- Thêm tính năng cập nhật phiên bản.\n- Tối ưu hóa hiệu suất hệ thống."
+        "version": "1.1.7",
+        "url": "https://github.com/vietter99/vwrtdashbroad/archive/refs/tags/v1.1.7.zip",
+        "log": "- Thêm tính năng phục hồi kết nối internet.\n- Tối ưu hóa hiệu suất hệ thống."
     }
 }
