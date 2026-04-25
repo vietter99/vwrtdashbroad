@@ -86,14 +86,14 @@ elseif method == "POST" then
         -- Generate content
         -- Using the specific chain format requested by user
         local content = string.format([[
-    chain mangle_postrouting_ttl%d {
-        type filter hook postrouting priority 300; policy accept;
-        counter ip ttl set %d
-    }
-    chain mangle_prerouting_ttl%d {
-        type filter hook prerouting priority 300; policy accept;
-        counter ip ttl set %d
-    }
+chain mangle_postrouting_ttl%d {
+    type filter hook postrouting priority 300; policy accept;
+    counter ip ttl set %d
+}
+chain mangle_prerouting_ttl%d {
+    type filter hook prerouting priority 300; policy accept;
+    counter ip ttl set %d
+}
 ]], ttl, ttl, ttl, ttl)
 
         local f = io.open(NFT_FILE, "w")
