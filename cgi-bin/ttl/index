@@ -33,7 +33,7 @@ function send_json(data)
 end
 
 -- Path to nft file
-local NFT_FILE = "/etc/nftables.d/10-ttl-fix.nft"
+local NFT_FILE = "/etc/nftables.d/10-custom-filter-chains.nft"
 
 local method = os.getenv("REQUEST_METHOD")
 
