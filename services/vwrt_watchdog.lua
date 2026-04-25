@@ -59,8 +59,8 @@ local function get_uci_config()
     handle:close()
 
     return {
-        mobile_check = (mobile_check == "1"),
-        proxy_check = (proxy_check == "1"),
+        mobile_check = (mobile_check ~= "0"), -- Mac dinh la Bat (tru khi sếp gạt sang Tat)
+        proxy_check = (proxy_check == "1"),  -- Mac dinh la Tat
         check_interval = interval,
         dead_period = dead_period,
         status_file = "/tmp/vwrt_watchdog.status"
