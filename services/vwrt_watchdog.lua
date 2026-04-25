@@ -51,11 +51,11 @@ local function get_uci_config()
     handle:close()
 
     handle = io.popen("uci -q get vwrt_watchdog.settings.interval 2>/dev/null")
-    local interval = tonumber(handle:read("*a") or "30")
+    local interval = tonumber((handle:read("*a"):gsub("%s+", ""))) or 30
     handle:close()
 
     handle = io.popen("uci -q get vwrt_watchdog.settings.dead_period 2>/dev/null")
-    local dead_period = tonumber(handle:read("*a") or "120")
+    local dead_period = tonumber((handle:read("*a"):gsub("%s+", ""))) or 120
     handle:close()
 
     return {
