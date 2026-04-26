@@ -536,6 +536,13 @@ elseif action == "save_config" or action == "set_server" then
     if params.time_server then vwrth.uci_set("shadowsocksr", sid, "time_server", params.time_server) end
     if params.time_startup then vwrth.uci_set("shadowsocksr", sid, "time_startup", params.time_startup) end
     if params.time_cron then vwrth.uci_set("shadowsocksr", sid, "time_cron", params.time_cron) end
+
+    -- Cập nhật file khởi động rc.local
+    os.execute("sed -i '/timewrt/d' /etc/rc.local")
+    if params.time_startup == "1" then
+        local server = params.time_server or ""
+        os.execute("sed -i '/exit 0/i /www/vwrt/cgi-bin/system/timewrt " .. server .. " &' /etc/rc.local")
+    end
     
 
     
