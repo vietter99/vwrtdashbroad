@@ -154,10 +154,10 @@ end
 local target = arg[1]
 local mode = arg[2]
 
-if not target or target == "" then
-    print("\nSử dụng: timewrt <host> [cron]")
-    print("Ví dụ: timewrt tv360.vn\n")
-    os.exit(1)
+-- Nếu không nhập host, lấy mặc định từ danh sách dự phòng (m.tv360.vn)
+if not target or target == "" or target == "cron" then
+    if target == "cron" then mode = "cron" end
+    target = fallback_hosts[1]
 end
 
 if mode == "cron" then
