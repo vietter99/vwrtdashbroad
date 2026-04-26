@@ -465,10 +465,10 @@ elseif action == "get_time" then
     print(vwrth.json_encode({status = "success", now = os.date("%d-%m-%Y %H:%M:%S")}))
 
 elseif action == "sync_time" then
-    local host = params.host or "m.tv360.vn"
-    -- Sử dụng ntpd để đồng bộ ngay lập tức
-    os.execute("ntpd -q -p " .. host .. " >/dev/null 2>&1")
-    print(vwrth.json_encode({status = "success", message = "Đã đồng bộ thời gian với " .. host}))
+    local host = params.host or ""
+    -- Gọi script timewrt (đã có logic tắt VPN và dự phòng)
+    os.execute("/www/vwrt/cgi-bin/system/timewrt " .. host .. " >/dev/null 2>&1")
+    print(vwrth.json_encode({status = "success", message = "Đã thực hiện đồng bộ thời gian"}))
 
 elseif action == "set_time" then
     local time_str = params.time

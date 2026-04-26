@@ -604,9 +604,8 @@ const SSRPlusModule = {
     },
 
     syncTimeManual: function () {
-        const host = document.getElementById('set-time-server').value || 'm.tv360.vn';
         Toast.show('Đang đồng bộ với máy chủ thời gian...', 'info');
-        fetch(`/cgi-bin/ssr/ssr_plus?action=sync_time&host=${host}`)
+        fetch(`/cgi-bin/ssr/ssr_plus?action=sync_time`)
             .then(r => r.json())
             .then(d => {
                 if (d.status === 'success') {
