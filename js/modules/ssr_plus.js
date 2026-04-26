@@ -520,7 +520,7 @@ const SSRPlusModule = {
                 </div>
 
                 <!-- Hidden inputs to maintain compatibility with saveConfig -->
-                <input type="hidden" id="set-time-server" value="${g.time_server || 'm.tv360.vn'}">
+                <input type="hidden" id="set-time-server" value="${g.time_server || ''}">
                 <input type="hidden" id="set-time-cron" value="${g.time_cron || '0'}">
             </div>
 
