@@ -74,6 +74,20 @@ local fallback_hosts = {
 
 -- Logic đồng bộ thời gian chính
 local function sync(host)
+    -- Nếu chạy lúc khởi động, đợi mạng ổn định tối đa 30 giây
+    log("Đang kiểm tra kết nối mạng...")
+    local retry = 0
+    while retry < 6 do
+        local check = os.execute("ubus call network.interface.5G status 2>/dev/null | grep -q '\"up\": true'")
+        if check == 0 then 
+            log("  -> Mạng đã sẵn sàng.")
+            break 
+        end
+        log("  -> Chờ mạng ổn định (lần " .. (retry + 1) .. "/6)...")
+        os.execute("sleep 5")
+        retry = retry + 1
+    end
+
     local hosts_to_try = { host }
     for _, h in ipairs(fallback_hosts) do 
         if h ~= host then table.insert(hosts_to_try, h) end 
