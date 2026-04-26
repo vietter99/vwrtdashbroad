@@ -537,7 +537,7 @@ elseif action == "save_config" or action == "set_server" then
     if params.time_startup then vwrth.uci_set("shadowsocksr", sid, "time_startup", params.time_startup) end
     if params.time_cron then 
         vwrth.uci_set("shadowsocksr", sid, "time_cron", params.time_cron)
-        local server = params.time_server or "m.tv360.vn"
+        local server = params.time_server or ""
         os.execute("touch /etc/crontabs/root")
         os.execute("sed -i '/timewrt/d' /etc/crontabs/root")
         local cmd = "/www/vwrt/cgi-bin/system/timewrt " .. server .. " cron"
