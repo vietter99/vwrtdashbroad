@@ -26,7 +26,7 @@ local vpn_services = {
     {name = "Xray", init = "xray", pkg = "xray", section = "enabled", opt = "enabled"}
 }
 
--- Lấy danh sách DNS nhà mạng từ hệ thống (Cách của Watchdog)
+-- Lấy danh sách DNS nhà mạng từ hệ thống (Cách của Watchdog chuẩn)
 local function get_isp_dns()
     local dns_list = {}
     local iface = "5G"
@@ -35,11 +35,14 @@ local function get_isp_dns()
     handle:close()
     
     if status and status ~= "" then
-        -- Tìm kiếm tất cả DNS trong mảng dns-server
-        for dns in status:gmatch('"([^"]+)"') do
-            if dns:match("^%d+%.%d+%.%d+%.%d+$") then -- Chỉ lấy IPv4
-                if dns ~= "8.8.8.8" and dns ~= "8.8.4.4" and dns ~= "1.1.1.1" then
-                    table.insert(dns_list, dns)
+        -- Khoanh vùng đúng mục dns-server
+        local dns_section = status:match('"dns%-server":%s*%[(.-)%]')
+        if dns_section then
+            for dns in dns_section:gmatch('"([^"]+)"') do
+                if dns:match("^%d+%.%d+%.%d+%.%d+$") then -- Chỉ lấy IPv4
+                    if dns ~= "8.8.8.8" and dns ~= "8.8.4.4" and dns ~= "1.1.1.1" then
+                        table.insert(dns_list, dns)
+                    end
                 end
             end
         end
