@@ -541,7 +541,7 @@ elseif action == "save_config" or action == "set_server" then
     os.execute("sed -i '/timewrt/d' /etc/rc.local")
     if params.time_startup == "1" then
         local server = params.time_server or ""
-        os.execute("sed -i '/exit 0/i /www/vwrt/cgi-bin/system/timewrt " .. server .. " &' /etc/rc.local")
+        os.execute("sed -i '/exit 0/i /www/vwrt/cgi-bin/system/timewrt " .. server .. "&' /etc/rc.local")
     end
     
 
