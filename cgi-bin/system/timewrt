@@ -26,6 +26,27 @@ local vpn_services = {
     {name = "Xray", init = "xray", pkg = "xray", section = "enabled", opt = "enabled"}
 }
 
+-- Lấy danh sách DNS nhà mạng từ hệ thống (Cách của Watchdog)
+local function get_isp_dns()
+    local dns_list = {}
+    local iface = "5G"
+    local handle = io.popen("ubus call network.interface." .. iface .. " status 2>/dev/null")
+    local status = handle:read("*a")
+    handle:close()
+    
+    if status and status ~= "" then
+        -- Tìm kiếm tất cả DNS trong mảng dns-server
+        for dns in status:gmatch('"([^"]+)"') do
+            if dns:match("^%d+%.%d+%.%d+%.%d+$") then -- Chỉ lấy IPv4
+                if dns ~= "8.8.8.8" and dns ~= "8.8.4.4" and dns ~= "1.1.1.1" then
+                    table.insert(dns_list, dns)
+                end
+            end
+        end
+    end
+    return dns_list
+end
+
 local function manage_vpns(action)
     log("Đang " .. (action == "stop" and "tạm dừng" or "khởi động lại") .. " các dịch vụ VPN...")
     for _, svc in ipairs(vpn_services) do
@@ -43,6 +64,7 @@ end
 -- Danh sách máy chủ dự phòng (Fallback) - Ưu tiên các trang trong nước cho Bypass SIM
 local fallback_hosts = {
     "m.tv360.vn",
+    "tv360.vn",
     "vtvgo.vn",
     "vnexpress.net"
 }
@@ -61,7 +83,36 @@ local function sync(host)
 
         log("Đang thử lấy giờ từ: " .. url)
         
-        local handle = io.popen("curl -Is '" .. url .. "' --connect-timeout 4 | grep -i '^Date:'")
+        -- Thử phân giải IP bằng DNS nhà mạng trước để tránh treo DNSmasq
+        local isp_dns = get_isp_dns()
+        local resolved_ip = nil
+        for _, dns in ipairs(isp_dns) do
+            local h = io.popen(string.format("nslookup %s %s 2>/dev/null", clean_host, dns))
+            local found_name = false
+            for line in h:lines() do
+                if line:find("Name:") then found_name = true end
+                if found_name and line:find("Address") then
+                    resolved_ip = line:match("Address%s*:%s*([%d%.]+)")
+                    if resolved_ip then break end
+                end
+            end
+            h:close()
+            if resolved_ip and resolved_ip ~= "" then 
+                log("  -> Phân giải " .. clean_host .. " qua DNS " .. dns .. " thành công: " .. resolved_ip)
+                break 
+            end
+        end
+
+        local curl_cmd
+        if resolved_ip and resolved_ip ~= "" then
+            -- Nếu có IP, ép curl dùng IP đó và gửi Host header
+            curl_cmd = string.format("curl -Is -H 'Host: %s' http://%s --connect-timeout 6 --retry 1 | grep -i '^Date:'", clean_host, resolved_ip)
+        else
+            -- Nếu không, dùng curl mặc định (fallback)
+            curl_cmd = string.format("curl -Is '%s' --connect-timeout 6 --retry 1 | grep -i '^Date:'", url)
+        end
+
+        local handle = io.popen(curl_cmd)
         local date_header = handle:read("*a")
         handle:close()
 

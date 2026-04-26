@@ -73,35 +73,49 @@ if action == "get_info" then
         tunnel_dns_raw = tunnel_dns,
         threads = g.threads or "0",
         dports = g.dports or "1",
-        -- Kiểm tra tiến trình thực tế (Sửa lỗi báo cáo trạng thái ảo - Dùng -f cho linh hoạt)
-        running = (os.execute("pgrep -f ssr-plus >/dev/null 2>&1 || pgrep -f ssr-redir >/dev/null 2>&1 || pgrep -f ssr-local >/dev/null 2>&1 || pgrep -f xray >/dev/null 2>&1 || pgrep -f v2ray >/dev/null 2>&1") == 0) and 1 or 0,
         -- Thêm thông tin thời gian vào data trả về
         time_server = g.time_server or "m.tv360.vn",
         time_startup = g.time_startup or "0",
         time_cron = g.time_cron or "0"
     }
+    data.running = (os.execute("ps | grep -v grep | grep -E 'ssr-rules|xray|v2ray' >/dev/null 2>&1") == 0) and 1 or 0
 
 
 
-    -- Get Advanced (Fragment & Noise)
-    local xfrag = {}
-    vwrth.uci_foreach("shadowsocksr", "global_xray_fragment", function(s) xfrag = s end)
-    local xnoise = {}
-    vwrth.uci_foreach("shadowsocksr", "xray_noise_packets", function(s) xnoise = s end)
+    -- Get Sniffing Config
+    local sniff_data = { inbound = "1", outbound = "0", domains_excluded = {} }
+    local sf = io.open("/etc/vwrt_sniffing.json", "r")
+    if sf then
+        local sc = sf:read("*all"); sf:close()
+        local sok, sp = pcall(vwrth.json_decode or require("cjson").decode, sc)
+        if sok and sp then sniff_data = sp end
+    else
+        -- Nếu chưa có file lưu trữ, đọc trực tiếp từ file gốc gen_config.lua
+        local gf = io.open("/usr/share/shadowsocksr/gen_config.lua", "r")
+        if gf then
+            local content = gf:read("*all"); gf:close()
+            -- Tìm inbound (enabled)
+            local in_val = content:match('sniffing%s*=%s*{%s*enabled%s*=%s*(%w+)')
+            if in_val then sniff_data.inbound = (in_val == "true") and "1" or "0" end
+            
+            -- Tìm outbound (enable - dùng phương pháp tìm đoạn sau inbound)
+            local first_pos = content:find('sniffing%s*=%s*{%s*enabled')
+            if first_pos then
+                local after_first = content:sub(first_pos + 1)
+                local out_val = after_first:match('sniffing%s*=%s*{%s*enable%s*=%s*(%w+)')
+                if out_val then sniff_data.outbound = (out_val == "true") and "1" or "0" end
+            end
 
-    data.adv = {
-        frag_enable = xfrag.fragment or "0",
-        frag_packets = xfrag.fragment_packets or "",
-        frag_length = xfrag.fragment_length or "",
-        frag_interval = xfrag.fragment_interval or "",
-        frag_maxsplit = xfrag.fragment_maxSplit or "",
-
-        noise_enable = xfrag.noise or "0",
-        noise_type = xnoise.type or "",
-        noise_packet = xnoise.packet or "",
-        noise_delay = xnoise.delay or "",
-        noise_apply = xnoise.applyto or ""
-    }
+            -- Tìm domains_excluded hiện có trong file gốc
+            local domains_block = content:match('domainsExcluded%s*=%s*{(.-)}')
+            if domains_block then
+                for d in domains_block:gmatch('"(.-)"') do
+                    table.insert(sniff_data.domains_excluded, d)
+                end
+            end
+        end
+    end
+    data.sniffing = sniff_data
 
     -- Get Servers
     vwrth.uci_foreach("shadowsocksr", "servers", function(s)
@@ -114,7 +128,6 @@ if action == "get_info" then
         })
     end)
 
-    data.running = (os.execute("/usr/bin/pgrep -x xray >/dev/null") or os.execute("/usr/bin/pgrep -x v2ray >/dev/null") or os.execute("/usr/bin/pgrep -f ssr-redir >/dev/null")) and 1 or 0
     print(vwrth.json_encode(data))
 
 elseif action == "ping_node" then
@@ -175,7 +188,7 @@ elseif action == "ping_node" then
 
 elseif action == "get_log" then
     -- Lấy Nhật ký thực tế của Proxy từ Syslog thay vì file tạm
-    local log = vwrth.exec("logread | grep -E -i 'shadowsocksr|ssr-rules|ssrplus' | tail -n 100")
+    local log = vwrth.exec("logread | grep -E -i 'shadowsocksr|ssr-rules|ssrplus|timewrt' | tail -n 100")
     if not log or log == "" then log = "Proxy chưa có nhật ký hoạt động." end
     print(vwrth.json_encode({status = "success", log = log}))
 
@@ -545,28 +558,73 @@ elseif action == "save_config" or action == "set_server" then
     
 
     
-    -- Lưu cấu hình Xray Fragment và UDP Noise (Tab Nâng cao) - CHUẨN LỰA CHỌN HELLOWORLD
-    if params.frag_enable then
-        local xf_sid = "@global_xray_fragment[0]"
-        -- Đảm bảo section tồn tại theo chuẩn UCI set
-        vwrth.uci_set("shadowsocksr", xf_sid, "fragment", params.frag_enable)
-        if params.frag_packets then vwrth.uci_set("shadowsocksr", xf_sid, "fragment_packets", params.frag_packets) end
-        if params.frag_length then vwrth.uci_set("shadowsocksr", xf_sid, "fragment_length", params.frag_length) end
-        if params.frag_interval then vwrth.uci_set("shadowsocksr", xf_sid, "fragment_interval", params.frag_interval) end
-        if params.frag_maxsplit then vwrth.uci_set("shadowsocksr", xf_sid, "fragment_maxSplit", params.frag_maxsplit) end
-        
-        vwrth.uci_set("shadowsocksr", xf_sid, "noise", params.noise_enable or "0")
-    end
+    -- Sniffing Control (ghi file config + patch gen_config)
+    if params.sniff_inbound then
+        local cjson = require "cjson"
+        local excluded_list = {}
+        local raw_excluded = params.sniff_excluded or ""
+        for line in raw_excluded:gmatch("[^\r\n]+") do
+            line = line:gsub("%s+", "")
+            if line ~= "" then table.insert(excluded_list, line) end
+        end
+        local sniff_cfg = {
+            inbound = params.sniff_inbound,
+            outbound = params.sniff_outbound or "0",
+            domains_excluded = excluded_list
+        }
+        local sf = io.open("/etc/vwrt_sniffing.json", "w")
+        if sf then sf:write(cjson.encode(sniff_cfg)); sf:close() end
 
-    if params.noise_enable then
-        local xn_sid = "@xray_noise_packets[0]"
-        if params.noise_type then vwrth.uci_set("shadowsocksr", xn_sid, "type", params.noise_type) end
-        if params.noise_packet then vwrth.uci_set("shadowsocksr", xn_sid, "packet", params.noise_packet) end
-        if params.noise_delay then vwrth.uci_set("shadowsocksr", xn_sid, "delay", params.noise_delay) end
-        if params.noise_apply then vwrth.uci_set("shadowsocksr", xn_sid, "domainStrategy", params.noise_apply) end
+        -- Patch gen_config trực tiếp
+        local gen_path = "/usr/share/shadowsocksr/gen_config.lua"
+        local gf = io.open(gen_path, "r")
+        if gf then
+            local content = gf:read("*all"); gf:close()
+            
+            -- Tách file thành các phần dựa trên protocol để patch chính xác
+            -- 1. Patch Inbound (Dokodemo-door)
+            local in_start, in_end = content:find('protocol%s*=%s*"dokodemo%-door"')
+            if in_start then
+                -- Tìm block sniffing gần nhất TRƯỚC hoặc SAU protocol này
+                -- Thường sniffing nằm ngay dưới protocol trong gen_config
+                local block_start = content:find('sniffing%s*=%s*{', in_end)
+                if block_start then
+                    local inbound_val = (params.sniff_inbound == "1") and "true" or "false"
+                    -- Thay enabled = ... trong block này
+                    local before = content:sub(1, block_start)
+                    local rest = content:sub(block_start + 1)
+                    rest = rest:gsub('(enabled%s*=%s*)(%w+)', '%1' .. inbound_val, 1)
+                    
+                    -- Patch luôn domainsExcluded vào block Inbound này
+                    if #excluded_list > 0 then
+                        local domains_lua = ""
+                        for _, d in ipairs(excluded_list) do
+                            domains_lua = domains_lua .. '\t\t\t\t\t"' .. d .. '",\n'
+                        end
+                        rest = rest:gsub('(domainsExcluded%s*=%s*{)[^}]*(})', '%1\n' .. domains_lua .. '\t\t\t\t%2', 1)
+                    end
+                    content = before .. rest
+                end
+            end
+            
+            -- 2. Patch Outbound (Socks)
+            local out_start, out_end = content:find('protocol%s*=%s*"socks"')
+            if out_start then
+                local block_start = content:find('sniffing%s*=%s*{', out_end)
+                if block_start then
+                    local outbound_val = (params.sniff_outbound == "1") and "true" or "false"
+                    local before = content:sub(1, block_start)
+                    local rest = content:sub(block_start + 1)
+                    rest = rest:gsub('(enable%s*=%s*)(%w+)', '%1' .. outbound_val, 1)
+                    content = before .. rest
+                end
+            end
+            
+            -- Ghi lại
+            local wf = io.open(gen_path, "w")
+            if wf then wf:write(content); wf:close() end
+        end
     end
-    
-
 
     vwrth.uci_commit("shadowsocksr")
     os.execute("/etc/init.d/shadowsocksr restart >/dev/null 2>&1 &")

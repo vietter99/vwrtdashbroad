@@ -203,7 +203,7 @@ const SSRPlusModule = {
             { id: 'settings', label: '⚙️ Cài đặt chung' },
             { id: 'sub', label: '🔄 Đăng ký' },
             { id: 'time', label: '🕒 Thời gian' },
-            // { id: 'advanced', label: '🚀 Nâng cao' },
+            { id: 'advanced', label: '🚀 Nâng cao' },
             { id: 'log', label: '📋 Nhật ký' }
         ];
 
@@ -214,7 +214,7 @@ const SSRPlusModule = {
         switch (this.currentTab) {
             case 'dashboard': html += this.renderDashboard(); break;
             case 'settings': html += this.renderSettings(); break;
-            // case 'advanced': html += this.renderAdvanced(); break;
+            case 'advanced': html += this.renderAdvanced(); break;
             case 'sub': html += this.renderSub(); break;
             case 'time': html += this.renderTimeSync(); break;
             case 'log': html += this.renderLog(); break;
@@ -407,90 +407,54 @@ const SSRPlusModule = {
     // ═══════════════════════  TAB: ADVANCED  ═══════════════════════
     renderAdvanced: function () {
         const adv = this.data.adv;
+        const sniff = this.data.sniffing || {};
+        const rawExcluded = sniff.domains_excluded;
+        let excludedDomains = '';
+        if (Array.isArray(rawExcluded) && rawExcluded.length > 0) {
+            excludedDomains = rawExcluded.join('\n');
+        } else if (typeof rawExcluded === 'string') {
+            excludedDomains = rawExcluded;
+        }
+
         return `
-            <div class="ssr-control-grid">
-                <div class="ssr-panel">
-                    <div class="ssr-panel-title"><span class="ssr-icon">✂️</span> Xray Fragment — Vượt chặn SNI</div>
-                    
-                    <!-- Giải thích công dụng -->
-                    <div class="ssr-help-text" style="color: var(--ssr-cyan); margin-bottom: 15px; background: rgba(0,243,255,0.05); padding: 10px; border-radius: 8px;">
-                        <b>💡 Công dụng:</b> Chia nhỏ gói tin khởi tạo kết nối (TLS Hello) để đánh lừa tường lửa của nhà mạng. 
-                        Cực kỳ hữu ích nếu bạn bị chặn Website hoặc bị bóp băng thông khi bắt đầu truy cập.
-                    </div>
-
-                    <div class="ssr-inline-row" style="margin-bottom: 20px;">
-                        <div>
-                            <div class="ssr-label">✂️ Kích hoạt Fragment</div>
-                            <div style="font-size:11px; color:var(--text-sub); margin-top:4px;">Kỹ thuật xé nhỏ gói tin TCP (DPI Bypass)</div>
-                        </div>
-                        <label class="ssr-switch-toggle">
-                            <input type="checkbox" id="set-frag-enable" ${adv.frag_enable === '1' ? 'checked' : ''} onchange="document.getElementById('frag-details').style.display = this.checked ? 'grid' : 'none'">
-                            <span class="ssr-slider"></span>
-                        </label>
-                    </div>
-
-                    <div id="frag-details" class="ssr-grid-2" style="display: ${adv.frag_enable === '1' ? 'grid' : 'none'}; padding-top: 15px; border-top: 1px solid var(--ssr-glass-border);">
-                        <div class="ssr-form-group">
-                            <label class="ssr-label">Packets (Số gói)</label>
-                            <input type="text" id="set-frag-packets" class="ssr-input" value="${adv.frag_packets}" placeholder="1-3">
-                        </div>
-                        <div class="ssr-form-group">
-                            <label class="ssr-label">Length (Độ dài)</label>
-                            <input type="text" id="set-frag-length" class="ssr-input" value="${adv.frag_length}" placeholder="100-200">
-                        </div>
-                        <div class="ssr-form-group">
-                            <label class="ssr-label">Interval (Độ trễ)</label>
-                            <input type="text" id="set-frag-interval" class="ssr-input" value="${adv.frag_interval}" placeholder="10-20">
-                        </div>
-                        <div class="ssr-form-group">
-                            <label class="ssr-label">Max Split</label>
-                            <input type="text" id="set-frag-maxsplit" class="ssr-input" value="${adv.frag_maxsplit}" placeholder="2">
-                        </div>
-                        <div class="ssr-help-text ssr-grid-full">Gợi ý: Nếu không biết rõ, hãy để trống để dùng thông số chuẩn.</div>
-                    </div>
+            <!-- ═══ SNIFFING CONTROL ═══ -->
+            <div class="ssr-panel" style="margin-bottom: 20px;">
+                <div class="ssr-panel-title"><span class="ssr-icon">🔍</span> Sniffing — Kiểm soát đánh hơi gói tin</div>
+                
+                <div class="ssr-help-text" style="color: var(--ssr-cyan); margin-bottom: 18px; background: rgba(0,243,255,0.05); padding: 12px 14px; border-radius: 10px; line-height: 1.7; font-size: 12px;">
+                    <b>💡 Dành cho Hack Data:</b><br>
+                    • Inbound Sniffing cần <b style="color:#48bb78;">BẬT</b> để Proxy biết tên miền mà định tuyến.<br>
+                    • Outbound Sniffing nên <b style="color:#f56565;">TẮT</b> để không ghi đè SNI giả mạo.<br>
+                    • Thêm tên miền vào <b>Loại trừ</b> nếu App bị lỗi (VD: Zalo, Apple Push).
                 </div>
 
-                <div class="ssr-panel">
-                    <div class="ssr-panel-title"><span class="ssr-icon">📡</span> UDP Noise — Chống chặn UDP</div>
-                    
-                    <!-- Giải thích công dụng -->
-                    <div class="ssr-help-text" style="color: var(--ssr-orange); margin-bottom: 15px; background: rgba(255,153,0,0.05); padding: 10px; border-radius: 8px;">
-                        <b>💡 Công dụng:</b> Chèn thêm dữ liệu nhiễu vào gói tin UDP. 
-                        Giúp ổn định Ping khi chơi Game, gọi Video Call và tăng tốc YouTube (giao thức QUIC) khi bị nhà mạng bóp băng thông UDP.
+                <div class="ssr-inline-row" style="margin-bottom: 15px;">
+                    <div>
+                        <div class="ssr-label">📥 Inbound Sniffing (Dokodemo-door)</div>
+                        <div style="font-size:11px; color:var(--text-sub); margin-top:4px;">Cửa ngõ nhận dữ liệu từ LAN — Nên BẬT</div>
                     </div>
+                    <label class="ssr-switch-toggle">
+                        <input type="checkbox" id="set-sniff-inbound" ${sniff.inbound !== '0' ? 'checked' : ''}>
+                        <span class="ssr-slider"></span>
+                    </label>
+                </div>
 
-                    <div class="ssr-inline-row" style="margin-bottom: 20px;">
-                        <div>
-                            <div class="ssr-label">📡 Kích hoạt Noise</div>
-                            <div style="font-size:11px; color:var(--text-sub); margin-top:4px;">Gửi nhiễu để ngụy trang lưu lượng UDP</div>
-                        </div>
-                        <label class="ssr-switch-toggle">
-                            <input type="checkbox" id="set-noise-enable" ${adv.noise_enable === '1' ? 'checked' : ''} onchange="document.getElementById('noise-details').style.display = this.checked ? 'grid' : 'none'">
-                            <span class="ssr-slider"></span>
-                        </label>
+                <div class="ssr-inline-row" style="margin-bottom: 15px;">
+                    <div>
+                        <div class="ssr-label">📤 Outbound Sniffing</div>
+                        <div style="font-size:11px; color:var(--text-sub); margin-top:4px;">Cửa ngõ gửi dữ liệu ra ngoài — Nên TẮT khi Hack Data</div>
                     </div>
+                    <label class="ssr-switch-toggle">
+                        <input type="checkbox" id="set-sniff-outbound" ${sniff.outbound === '1' ? 'checked' : ''} onchange="document.getElementById('sniff-excluded-box').style.display = this.checked ? 'block' : 'none'">
+                        <span class="ssr-slider"></span>
+                    </label>
+                </div>
 
-                    <div id="noise-details" class="ssr-grid-2" style="display: ${adv.noise_enable === '1' ? 'grid' : 'none'}; padding-top: 15px; border-top: 1px solid var(--ssr-glass-border);">
-                        <div class="ssr-form-group">
-                            <label class="ssr-label">Loại nhiễu (Type)</label>
-                            <input type="text" id="set-noise-type" class="ssr-input" value="${adv.noise_type}" placeholder="rand">
-                        </div>
-                        <div class="ssr-form-group">
-                            <label class="ssr-label">Số gói (Packet)</label>
-                            <input type="text" id="set-noise-packets" class="ssr-input" value="${adv.noise_packet}" placeholder="1-3">
-                        </div>
-                        <div class="ssr-form-group">
-                            <label class="ssr-label">Độ trễ (Delay)</label>
-                            <input type="text" id="set-noise-delay" class="ssr-input" value="${adv.noise_delay}" placeholder="10-20">
-                        </div>
-                        <div class="ssr-form-group">
-                            <label class="ssr-label">Áp dụng (Apply)</label>
-                            <select id="set-noise-apply" class="ssr-input">
-                                <option value="AsIs" ${adv.noise_apply === 'AsIs' ? 'selected' : ''}>AsIs (Mặc định)</option>
-                                <option value="UseIP" ${adv.noise_apply === 'UseIP' ? 'selected' : ''}>UseIP (Dùng IP)</option>
-                            </select>
-                        </div>
-                        <div class="ssr-help-text ssr-grid-full">Gợi ý: Nếu không biết rõ, hãy để trống để dùng thông số chuẩn.</div>
+                <div id="sniff-excluded-box" style="display: ${sniff.outbound === '1' ? 'block' : 'none'}; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--ssr-glass-border);">
+                    <div class="ssr-form-group">
+                        <label class="ssr-label">🚫 Tên miền Loại trừ (DomainsExcluded)</label>
+                        <div style="font-size:11px; color:var(--text-sub); margin-bottom:8px;">Mỗi dòng một tên miền. Các App trong danh sách này sẽ không bị Sniffing can thiệp.</div>
+                        <textarea id="set-sniff-excluded" class="ssr-list-editor" style="height:150px; width:100%; background: var(--icon-bg, #0d1117); color: var(--text-main, #e6edf3); border: 1px solid var(--ssr-glass-border, #30363d); border-radius: 10px; padding: 12px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; line-height: 1.6; resize: vertical;" placeholder="Ví dụ:\ncourier.push.apple.com\nzalo.me\n*.zadn.vn">${excludedDomains}</textarea>
                     </div>
                 </div>
             </div>
@@ -881,20 +845,15 @@ const SSRPlusModule = {
 
 
 
-        // Advanced tab
-        const frag = document.getElementById('set-frag-enable');
-        if (frag) {
-            p.append('frag_enable', frag.checked ? '1' : '0');
-            p.append('frag_packets', document.getElementById('set-frag-packets')?.value || '');
-            p.append('frag_length', document.getElementById('set-frag-length')?.value || '');
-            p.append('frag_interval', document.getElementById('set-frag-interval')?.value || '');
-            p.append('frag_maxsplit', document.getElementById('set-frag-maxsplit')?.value || '');
+        // Advanced tab logic removed (Fragment/Noise)
 
-            p.append('noise_enable', document.getElementById('set-noise-enable')?.checked ? '1' : '0');
-            p.append('noise_type', document.getElementById('set-noise-type')?.value || '');
-            p.append('noise_packet', document.getElementById('set-noise-packets')?.value || '');
-            p.append('noise_delay', document.getElementById('set-noise-delay')?.value || '');
-            p.append('noise_apply', document.getElementById('set-noise-apply')?.value || '');
+        // Sniffing Control
+        const sniffIn = document.getElementById('set-sniff-inbound');
+        if (sniffIn) {
+            p.append('sniff_inbound', sniffIn.checked ? '1' : '0');
+            p.append('sniff_outbound', document.getElementById('set-sniff-outbound')?.checked ? '1' : '0');
+            const excluded = document.getElementById('set-sniff-excluded')?.value || '';
+            p.append('sniff_excluded', excluded);
         }
 
         // Sub tab

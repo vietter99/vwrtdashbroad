@@ -682,32 +682,28 @@
     position: absolute;
     cursor: pointer;
     inset: 0;
-    background: #64748b;
-    border: 1px solid #475569;
-    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    background: #475569;
+    transition: .3s;
     border-radius: 26px;
 }
 
 .ssr-slider::before {
     position: absolute;
     content: '';
-    height: 18px;
-    width: 18px;
+    height: 20px;
+    width: 20px;
     left: 3px;
     bottom: 3px;
-    background: #fff;
-    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    background: white;
+    transition: .3s;
     border-radius: 50%;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
-input:checked+.ssr-slider {
+input:checked + .ssr-slider {
     background: var(--ssr-gradient);
-    border-color: transparent;
-    box-shadow: 0 0 16px rgba(6, 182, 212, 0.4);
 }
 
-input:checked+.ssr-slider::before {
+input:checked + .ssr-slider::before {
     transform: translateX(22px);
 }
 
@@ -980,51 +976,7 @@ input:checked+.ssr-slider::before {
     }
 }
 
-/* ── LOG VIEWER STYLES (v1.4.1) ── */
-.ssr-switch {
-    position: relative;
-    display: inline-block;
-    width: 34px;
-    height: 18px;
-}
-
-.ssr-switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.ssr-slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: var(--ssr-glass-border);
-    transition: .4s;
-    border-radius: 18px;
-}
-
-.ssr-slider:before {
-    position: absolute;
-    content: "";
-    height: 14px;
-    width: 14px;
-    left: 2px;
-    bottom: 2px;
-    background-color: white;
-    transition: .4s;
-    border-radius: 50%;
-}
-
-input:checked+.ssr-slider {
-    background: var(--ssr-gradient);
-}
-
-input:checked+.ssr-slider:before {
-    transform: translateX(16px);
-}
+/* ── LOG VIEWER STYLES ── */
 
 #ssr-log-area::-webkit-scrollbar {
     width: 8px;
