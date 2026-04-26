@@ -74,7 +74,7 @@ if action == "get_info" then
         threads = g.threads or "0",
         dports = g.dports or "1",
         -- Thêm thông tin thời gian vào data trả về
-        time_server = g.time_server or "m.tv360.vn",
+        time_server = g.time_server or "",
         time_startup = g.time_startup or "0",
         time_cron = g.time_cron or "0"
     }
