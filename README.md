@@ -6,7 +6,7 @@
 ![Status](https://img.shields.io/badge/status-stable-green.svg)
 ![License](https://img.shields.io/badge/license-Vietter%20Exclusive-red.svg)
 
-<img width="100%" alt="VWRT Dashboard Preview" src="https://github.com/user-attachments/assets/05a261b4-a95b-4421-b388-cefa7a8c28fa" />
+<img width="100%" alt="VWRT Dashboard Preview" src="assets/preview.png" />
 
 ---
 
