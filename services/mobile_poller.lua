@@ -526,6 +526,18 @@ local function get_interface_dns(iface)
     return nil
 end
 
+local function get_current_ttl()
+    local nft_path = "/etc/nftables.d/10-custom-filter-chains.nft"
+    local f = io.open(nft_path, "r")
+    if f then
+        local content = f:read("*all")
+        f:close()
+        local ttl = content:match("counter ip ttl set (%d+)")
+        return tonumber(ttl)
+    end
+    return nil
+end
+
 local function check_and_fix_modem_config()
     local current_dev = exec("uci -q get network.5G.device"):gsub("\n", "")
     local dev_valid = false
@@ -1029,6 +1041,9 @@ function main()
                 local net_stats = get_net_stats(data_modem.iface)
                 data_modem.rx = net_stats.rx
                 data_modem.tx = net_stats.tx
+                
+                -- 6. TTL Sync
+                data_modem.ttl = get_current_ttl() or 64
 
                 local json_str = cjson.encode(data_modem)
                 write_file(TEMP_FILE, json_str)
