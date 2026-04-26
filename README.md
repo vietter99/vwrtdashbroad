@@ -56,11 +56,11 @@ Hệ thống VWRT Dashboard mang đến trải nghiệm quản lý Router hoàn 
 - Tự động kiểm tra và thông báo khi có phiên bản mới từ Server.
 - Hỗ trợ cập nhật riêng biệt Dashboard.
 
-### 5. 🛠️ Tự Động Phục Hồi Mạng (Auto Recovery)
+### 5. 🛠️ Công Nghệ Tự Phục Hồi (VWRT Smart Guard)
 
-- **Watchdog & TimeWrt:** Tối ưu hóa cho SIM Bypass/Hack Data.
-- **ISP DNS Sync:** Tự động lấy giờ qua DNS nhà mạng ngay cả khi bị chặn DNS quốc tế.
-- **Auto Restart:** Tự động khởi động lại VPN khi phát hiện mất kết nối hoặc lệch giờ.
+- **AI Connectivity Guard:** Tối ưu hóa sâu cho hạ tầng mạng di động đặc thù.
+- **Deep DNS Tunneling:** Đảm bảo đồng bộ dữ liệu hệ thống ngay cả trong môi trường mạng bị thắt chặt.
+- **Self-Healing Technology:** Tự động phát hiện lỗi và khôi phục trạng thái hoạt động tốt nhất mà không cần can thiệp thủ công.
 
 ### 6. 📝 Nhật Ký Tập Trung (Integrated Logs)
 
