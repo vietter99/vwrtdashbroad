@@ -20,7 +20,7 @@
 
 **🆘 HỖ TRỢ & GIẢI ĐÁP (Support) [Phạm Việt](https://www.facebook.com/pham.viet.853811)**
 
-**© 2025 VWRT. All rights reserved.**
+**© 2026 VWRT. All rights reserved.**
 
 ---
 
@@ -55,5 +55,18 @@ Hệ thống VWRT Dashboard mang đến trải nghiệm quản lý Router hoàn 
 
 - Tự động kiểm tra và thông báo khi có phiên bản mới từ Server.
 - Hỗ trợ cập nhật riêng biệt Dashboard.
+
+### 5. 🛠️ Tự Động Phục Hồi Mạng (Auto Recovery)
+
+- **Watchdog & TimeWrt:** Tối ưu hóa cho SIM Bypass/Hack Data.
+- **ISP DNS Sync:** Tự động lấy giờ qua DNS nhà mạng ngay cả khi bị chặn DNS quốc tế.
+- **Auto Restart:** Tự động khởi động lại VPN khi phát hiện mất kết nối hoặc lệch giờ.
+
+### 6. 📝 Nhật Ký Tập Trung (Integrated Logs)
+
+- Theo dõi trạng thái hoạt động của Proxy và hệ thống phục hồi mạng tại cùng một Tab nhật ký.
+- Giúp dễ dàng chẩn đoán và xử lý sự cố kết nối.
+
+---
 
 ---
