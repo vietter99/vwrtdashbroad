@@ -532,29 +532,10 @@ elseif action == "save_config" or action == "set_server" then
         end
     end
 
-    -- Lưu cấu hình Thời gian và cập nhật Cron
+    -- Lưu cấu hình Thời gian
     if params.time_server then vwrth.uci_set("shadowsocksr", sid, "time_server", params.time_server) end
     if params.time_startup then vwrth.uci_set("shadowsocksr", sid, "time_startup", params.time_startup) end
-    if params.time_cron then 
-        vwrth.uci_set("shadowsocksr", sid, "time_cron", params.time_cron)
-        local server = params.time_server or ""
-        os.execute("touch /etc/crontabs/root")
-        os.execute("sed -i '/timewrt/d' /etc/crontabs/root")
-        local cmd = "/www/vwrt/cgi-bin/system/timewrt " .. server .. " cron"
-        if params.time_cron == "m5" then os.execute("echo '*/5 * * * * " .. cmd .. "' >> /etc/crontabs/root")
-        elseif params.time_cron == "m15" then os.execute("echo '*/15 * * * * " .. cmd .. "' >> /etc/crontabs/root")
-        elseif params.time_cron == "m30" then os.execute("echo '*/30 * * * * " .. cmd .. "' >> /etc/crontabs/root")
-        elseif params.time_cron == "1" then os.execute("echo '0 * * * * " .. cmd .. "' >> /etc/crontabs/root")
-        elseif params.time_cron == "6" then os.execute("echo '0 */6 * * * * " .. cmd .. "' >> /etc/crontabs/root")
-        elseif params.time_cron == "12" then os.execute("echo '0 */12 * * * * " .. cmd .. "' >> /etc/crontabs/root")
-        elseif params.time_cron == "24" then os.execute("echo '0 4 * * * " .. cmd .. "' >> /etc/crontabs/root")
-        end
-        os.execute("/etc/init.d/cron restart")
-        os.execute("sed -i '/timewrt/d' /etc/rc.local")
-        if params.time_startup == "1" then
-            os.execute("sed -i '/exit 0/i /www/vwrt/cgi-bin/system/timewrt " .. server .. " &' /etc/rc.local")
-        end
-    end
+    if params.time_cron then vwrth.uci_set("shadowsocksr", sid, "time_cron", params.time_cron) end
     
 
     
