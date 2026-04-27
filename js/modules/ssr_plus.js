@@ -466,10 +466,6 @@ const SSRPlusModule = {
                 <div id="dns-field-mosdns" class="dns-input-group" style="display: ${dnsMode === '4' ? 'block' : 'none'}; margin-top:15px;">
                     <label class="ssr-label">Máy chủ DNS chống ô nhiễm</label>
                     ${renderDnsCombo('set-mosdns-dns', mosdnsPresets, g.tunnel_forward_mosdns || 'tcp://8.8.4.4:53')}
-                    <div class="ssr-form-group" style="margin-top: 10px; display: flex; align-items: center;">
-                        <input type="checkbox" id="set-mosdns-ipv6" ${g.mosdns_ipv6 === '1' ? 'checked' : ''} style="width: 16px; height: 16px; margin-right: 10px;">
-                        <label for="set-mosdns-ipv6" class="ssr-label" style="margin: 0; cursor: pointer;">Chặn IPv6 trong chế độ MOSDNS</label>
-                    </div>
                     <div class="ssr-help-text" style="font-size:11px; color:var(--ssr-cyan); margin-top:5px;">
                         <span style="color:#3182ce;">ℹ️</span> Định dạng: <b>tcp://IP:PORT</b> hoặc <b>tls://DOMAIN:PORT</b>
                     </div>
