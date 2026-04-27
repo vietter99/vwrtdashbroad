@@ -247,7 +247,7 @@ const SSRPlusModule = {
         const dnsModeDisplay = dnsLabels[g.dns_mode] || g.dns_mode || 'N/A';
 
         const isRunning = d.running === 1;
-        const statusBadge = isRunning 
+        const statusBadge = isRunning
             ? '<span class="ssr-status-badge ssr-status-on"><span class="ssr-status-dot on"></span> ⚡ HOẠT ĐỘNG</span>'
             : '<span class="ssr-status-badge ssr-status-off"><span class="ssr-status-dot off"></span> ❌ ĐÃ DỪNG</span>';
 
@@ -395,9 +395,9 @@ const SSRPlusModule = {
                         <label class="ssr-label">Chế độ chạy</label>
                         <select id="set-run-mode" class="ssr-select" onchange="SSRPlusModule.toggleDnsFields()">
                             <option value="gfw" ${runMode === 'gfw' ? 'selected' : ''}>GFW List</option>
-                            <option value="router" ${runMode === 'router' ? 'selected' : ''}>IP Route (Bỏ qua Trung Quốc)</option>
-                            <option value="all" ${runMode === 'all' ? 'selected' : ''}>Toàn cầu (Global)</option>
-                            <option value="oversea" ${runMode === 'oversea' ? 'selected' : ''}>Hải ngoại (Oversea)</option>
+                            <option value="router" ${runMode === 'router' ? 'selected' : ''}>IP Route</option>
+                            <option value="all" ${runMode === 'all' ? 'selected' : ''}>Toàn cầu</option>
+                            <option value="oversea" ${runMode === 'oversea' ? 'selected' : ''}>Hải ngoại</option>
                         </select>
                     </div>
 
@@ -454,7 +454,7 @@ const SSRPlusModule = {
                 </div>
 
                 <!-- Máy chủ DNS chống ô nhiễm (DNS2TCP/SOCKS) -->
-                <div id="dns-field-tunnel" class="dns-input-group" style="display: ${['1','2','3'].includes(dnsMode) ? 'block' : 'none'}; margin-top:15px;">
+                <div id="dns-field-tunnel" class="dns-input-group" style="display: ${['1', '2', '3'].includes(dnsMode) ? 'block' : 'none'}; margin-top:15px;">
                     <label class="ssr-label">Máy chủ DNS chống ô nhiễm</label>
                     ${renderDnsCombo('set-tunnel-dns', tunnelPresets, g.tunnel_dns_raw || '8.8.4.4:53')}
                     <div class="ssr-help-text" style="font-size:11px; color:var(--ssr-cyan); margin-top:5px;">
@@ -489,7 +489,7 @@ const SSRPlusModule = {
                 </div>
 
                 <!-- Máy chủ DNS trong nước -->
-                <div id="dns-field-domestic" class="dns-input-group" style="display: ${(runMode === 'router' && !['4','0'].includes(dnsMode) && g.has_chinadns_ng === true) ? 'block' : 'none'}; margin-top:15px; border-top: 1px solid var(--ssr-glass-border); padding-top: 15px;">
+                <div id="dns-field-domestic" class="dns-input-group" style="display: ${(runMode === 'router' && !['4', '0'].includes(dnsMode) && g.has_chinadns_ng === true) ? 'block' : 'none'}; margin-top:15px; border-top: 1px solid var(--ssr-glass-border); padding-top: 15px;">
                     <div class="ssr-form-group">
                         <label class="ssr-label">Máy chủ DNS trong nước</label>
                         <input type="text" id="set-domestic-dns" class="ssr-input" value="${g.chinadns_forward || ''}" placeholder="Mặc định: Tự động từ WAN">
@@ -794,7 +794,7 @@ const SSRPlusModule = {
 
     quickSwitch: function (id, alias) {
         if (id === this.data.global.global_server) return;
-        
+
         // UI Feedback
         const cards = document.querySelectorAll('.ssr-node-card');
         cards.forEach(c => c.classList.remove('active'));
@@ -802,7 +802,7 @@ const SSRPlusModule = {
         if (activeCard) activeCard.classList.add('active');
 
         Toast.show('⚡ Đang chuyển đổi Node: ' + alias + '...', 'info');
-        
+
         fetch(`/cgi-bin/ssr/ssr_plus?action=set_server&id=${id}`)
             .then(r => r.json())
             .then(d => {
@@ -1094,7 +1094,7 @@ const SSRPlusModule = {
         this.autoRefreshLog = val;
         const tip = document.getElementById('log-status-tip');
         if (tip) tip.textContent = val ? '🟢 Đang theo dõi...' : '⚪ Đã tạm dừng';
-        
+
         if (val) {
             this.startLogAutoRefresh();
         } else {
