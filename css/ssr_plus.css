@@ -728,8 +728,32 @@ input:checked + .ssr-slider::before {
 .ssr-inline-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     padding: 12px 0;
+    flex-wrap: wrap;
+    gap: 15px;
+    position: relative;
+    z-index: 1;
+}
+
+.ssr-panel > .ssr-inline-row .ssr-form-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.ssr-panel .ssr-panel-title {
+    position: relative;
+    z-index: 1;
+}
+
+.ssr-panel .ssr-form-group {
+    position: relative;
+    z-index: 1;
+}
+
+.ssr-panel .dns-input-group {
+    position: relative;
+    z-index: 1;
 }
 
 .ssr-inline-row+.ssr-inline-row {

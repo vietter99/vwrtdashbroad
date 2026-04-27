@@ -308,85 +308,197 @@ const SSRPlusModule = {
 
     // ═══════════════════════  TAB: SETTINGS  ═══════════════════════
     renderSettings: function () {
-        const g = this.data.global;
-        const svrs = this.data.servers;
-        const currentDns = g.tunnel_dns;
-        const isPreset = this.DNS_PRESETS.some(p => p.value === currentDns);
+        const g = this.data.global || {};
+        const svrs = this.data.servers || [];
+
+        const renderServerOptions = (current) => {
+            return svrs.map(s => `<option value="${s.id}" ${current === s.id ? 'selected' : ''}>[${s.type.toUpperCase()}] ${s.alias}</option>`).join('');
+        };
+
+        const dnsMode = g.dns_mode || '1';
+        const dports = g.dports || '1';
+        const threads = g.threads || '0';
+        const runMode = g.run_mode || 'gfw';
+
+        // DNS Presets for different modes
+        const tunnelPresets = [
+            { v: "8.8.4.4:53", l: "Google Public DNS (8.8.4.4)" },
+            { v: "8.8.8.8:53", l: "Google Public DNS (8.8.8.8)" },
+            { v: "208.67.222.222:53", l: "OpenDNS (208.67.222.222)" },
+            { v: "208.67.220.220:53", l: "OpenDNS (208.67.220.220)" },
+            { v: "209.244.0.3:53", l: "Level 3 Public DNS (209.244.0.3)" },
+            { v: "209.244.0.4:53", l: "Level 3 Public DNS (209.244.0.4)" },
+            { v: "4.2.2.1:53", l: "Level 3 Public DNS (4.2.2.1)" },
+            { v: "4.2.2.2:53", l: "Level 3 Public DNS (4.2.2.2)" },
+            { v: "4.2.2.3:53", l: "Level 3 Public DNS (4.2.2.3)" },
+            { v: "4.2.2.4:53", l: "Level 3 Public DNS (4.2.2.4)" },
+            { v: "1.1.1.1:53", l: "Cloudflare DNS (1.1.1.1)" },
+            { v: "114.114.114.114:53", l: "Oversea Mode DNS-1 (114.114.114.114)" },
+            { v: "114.114.115.115:53", l: "Oversea Mode DNS-2 (114.114.115.115)" }
+        ];
+
+        const mosdnsPresets = [
+            { v: "tcp://8.8.4.4:53,tcp://8.8.8.8:53", l: "Google Public DNS" },
+            { v: "tcp://208.67.222.222:53,tcp://208.67.220.220:53", l: "OpenDNS" },
+            { v: "tcp://209.244.0.3:53,tcp://209.244.0.4:53", l: "Level 3 Public DNS-1" },
+            { v: "tcp://4.2.2.1:53,tcp://4.2.2.2:53", l: "Level 3 Public DNS-2" },
+            { v: "tcp://4.2.2.3:53,tcp://4.2.2.4:53", l: "Level 3 Public DNS-3" },
+            { v: "tcp://1.1.1.1:53,tcp://1.0.0.1:53", l: "Cloudflare DNS" }
+        ];
+
+        const chinadnsPresets = [
+            { v: "8.8.4.4:53", l: "Google Public DNS" },
+            { v: "114.114.114.114:53", l: "Nanjing Xinfeng 114DNS" },
+            { v: "119.29.29.29:53", l: "DNSPod Public DNS" },
+            { v: "223.5.5.5:53", l: "AliYun Public DNS" },
+            { v: "180.76.76.76:53", l: "Baidu Public DNS" }
+        ];
+
+        const renderDnsCombo = (id, presets, current) => {
+            const isMatch = presets.some(p => p.v === current);
+            return `
+                <select id="${id}-preset" class="ssr-select" style="margin-bottom: 8px;" onchange="SSRPlusModule.onDnsComboChange('${id}')">
+                    <option value="">-- Vui lòng chọn --</option>
+                    ${presets.map(p => `<option value="${p.v}" ${current === p.v ? 'selected' : ''}>${p.l}</option>`).join('')}
+                    <option value="__custom__" ${!isMatch && current ? 'selected' : ''}>-- Tùy chỉnh --</option>
+                </select>
+                <div id="${id}-custom-box" style="display: ${isMatch ? 'none' : 'block'}">
+                    <input type="text" id="${id}" class="ssr-input" value="${current}" placeholder="Nhập IP:Port hoặc tcp://IP:Port">
+                </div>
+            `;
+        };
 
         return `
-            <div class="ssr-panel">
-                <div class="ssr-panel-title"><span class="ssr-icon">⚙️</span> Cài đặt hệ thống</div>
-                
+            <!-- ═══ CÀI ĐẶT CHUNG ═══ -->
+            <div class="ssr-panel" style="margin-bottom: 20px;">
+                <div class="ssr-panel-title"><span class="ssr-icon">⚙️</span> Cài đặt chung</div>
+
                 <div class="ssr-control-grid">
                     <div class="ssr-form-group">
-                        <label class="ssr-label">🖥️ Máy chủ chính (TCP)</label>
+                        <label class="ssr-label">Máy chủ chính</label>
                         <select id="set-main-server" class="ssr-select">
-                            <option value="nil">Vô hiệu hóa</option>
-                            ${svrs.map(s => `<option value="${s.id}" ${s.id === g.main_server ? 'selected' : ''}>[${s.type.toUpperCase()}] ${s.alias}</option>`).join('')}
+                            <option value="nil" ${g.main_server === 'nil' ? 'selected' : ''}>Vô hiệu hóa</option>
+                            ${renderServerOptions(g.main_server)}
                         </select>
                     </div>
 
                     <div class="ssr-form-group">
-                        <label class="ssr-label">🎮 Máy chủ UDP (Game Mode)</label>
+                        <label class="ssr-label">Máy chủ UDP (Game)</label>
                         <select id="set-udp-server" class="ssr-select">
+                            <option value="" ${g.udp_server === '' ? 'selected' : ''}>Vô hiệu hóa</option>
                             <option value="same" ${g.udp_server === 'same' ? 'selected' : ''}>Giống máy chủ chính</option>
-                            <option value="nil"  ${g.udp_server === 'nil' ? 'selected' : ''}>Vô hiệu hóa</option>
-                            ${svrs.map(s => `<option value="${s.id}" ${s.id === g.udp_server ? 'selected' : ''}>${s.alias}</option>`).join('')}
+                            ${renderServerOptions(g.udp_server)}
                         </select>
                     </div>
 
                     <div class="ssr-form-group">
-                        <label class="ssr-label">🛣️ Chế độ chạy</label>
-                        <select id="set-run-mode" class="ssr-select">
-                            <option value="all"     ${g.run_mode === 'all' ? 'selected' : ''}>Toàn cầu (Global)</option>
-                            <option value="gfw"     ${g.run_mode === 'gfw' ? 'selected' : ''}>Danh sách GFW</option>
-                            <option value="oversea" ${g.run_mode === 'oversea' ? 'selected' : ''}>Bypass China</option>
-                            <option value="router"  ${g.run_mode === 'router' ? 'selected' : ''}>Chỉ Router</option>
+                        <label class="ssr-label">Chế độ chạy</label>
+                        <select id="set-run-mode" class="ssr-select" onchange="SSRPlusModule.toggleDnsFields()">
+                            <option value="gfw" ${runMode === 'gfw' ? 'selected' : ''}>GFW List</option>
+                            <option value="router" ${runMode === 'router' ? 'selected' : ''}>IP Route (Bỏ qua Trung Quốc)</option>
+                            <option value="all" ${runMode === 'all' ? 'selected' : ''}>Toàn cầu (Global)</option>
+                            <option value="oversea" ${runMode === 'oversea' ? 'selected' : ''}>Hải ngoại (Oversea)</option>
                         </select>
                     </div>
 
                     <div class="ssr-form-group">
-                        <label class="ssr-label">🧵 Đa luồng (Threads)</label>
+                        <label class="ssr-label">Tùy chọn đa luồng</label>
                         <select id="set-threads" class="ssr-select">
-                            <option value="0" ${g.threads === '0' ? 'selected' : ''}>Tự động</option>
-                            <option value="1" ${g.threads === '1' ? 'selected' : ''}>1 Luồng</option>
-                            <option value="2" ${g.threads === '2' ? 'selected' : ''}>2 Luồng</option>
-                            <option value="4" ${g.threads === '4' ? 'selected' : ''}>4 Luồng</option>
+                            <option value="0" ${threads === '0' ? 'selected' : ''}>Tự động</option>
+                            <option value="1" ${threads === '1' ? 'selected' : ''}>1 Luồng</option>
+                            <option value="2" ${threads === '2' ? 'selected' : ''}>2 Luồng</option>
+                            <option value="3" ${threads === '3' ? 'selected' : ''}>3 Luồng</option>
+                            <option value="4" ${threads === '4' ? 'selected' : ''}>4 Luồng</option>
+                            <option value="5" ${threads === '5' ? 'selected' : ''}>5 Luồng</option>
+                            <option value="6" ${threads === '6' ? 'selected' : ''}>6 Luồng</option>
+                            <option value="7" ${threads === '7' ? 'selected' : ''}>7 Luồng</option>
+                            <option value="8" ${threads === '8' ? 'selected' : ''}>8 Luồng</option>
+                            <option value="16" ${threads === '16' ? 'selected' : ''}>16 Luồng</option>
+                            <option value="32" ${threads === '32' ? 'selected' : ''}>32 Luồng</option>
+                            <option value="64" ${threads === '64' ? 'selected' : ''}>64 Luồng</option>
+                            <option value="128" ${threads === '128' ? 'selected' : ''}>128 Luồng</option>
                         </select>
                     </div>
+                </div>
+            </div>
 
+            <!-- ═══ CỔNG PROXY ═══ -->
+            <div class="ssr-panel" style="margin-bottom: 20px;">
+                <div class="ssr-panel-title"><span class="ssr-icon">⚓</span> Cổng Proxy</div>
+                <div class="ssr-form-group">
+                    <select id="set-dports" class="ssr-select" onchange="document.getElementById('custom-ports-box').style.display = (this.value === '3' ? 'block' : 'none')">
+                        <option value="1" ${dports === '1' ? 'selected' : ''}>Tất cả các cổng</option>
+                        <option value="2" ${dports === '2' ? 'selected' : ''}>Chỉ cổng phổ thông (80, 443...)</option>
+                        <option value="3" ${dports === '3' ? 'selected' : ''}>Tùy chỉnh cổng...</option>
+                    </select>
+                </div>
+                <div id="custom-ports-box" style="display: ${dports === '3' ? 'block' : 'none'}; margin-top: 15px;">
                     <div class="ssr-form-group">
-                        <label class="ssr-label">🛡️ Cổng được Proxy</label>
-                        <select id="set-dports" class="ssr-select">
-                            <option value="1" ${g.dports === '1' ? 'selected' : ''}>Tất cả các cổng</option>
-                            <option value="2" ${g.dports === '2' ? 'selected' : ''}>Chỉ cổng phổ thông (80, 443)</option>
-                        </select>
+                        <label class="ssr-label">Nhập cổng tùy chỉnh (cách nhau bởi dấu phẩy)</label>
+                        <input type="text" id="set-custom-ports" class="ssr-input" value="${g.custom_ports || ''}" placeholder="Ví dụ: 80,443,8080">
                     </div>
+                </div>
+            </div>
 
+            <!-- ═══ PHÂN GIẢI DNS ═══ -->
+            <div class="ssr-panel" style="margin-bottom: 20px;">
+                <div class="ssr-panel-title"><span class="ssr-icon">🔍</span> Phân giải DNS</div>
+                <div class="ssr-form-group">
+                    <label class="ssr-label">Chế độ phân giải</label>
+                    <select id="set-dns-mode" class="ssr-select" onchange="SSRPlusModule.toggleDnsFields()">
+                        <option value="1" ${dnsMode === '1' ? 'selected' : ''}>Sử dụng truy vấn DNS2TCP</option>
+                        <option value="2" ${dnsMode === '2' ? 'selected' : ''}>Sử dụng truy vấn & cache DNS2SOCKS</option>
+                        <option value="4" ${dnsMode === '4' ? 'selected' : ''}>Sử dụng truy vấn MOSDNS (Không hỗ trợ Oversea)</option>
+                        <option value="0" ${dnsMode === '0' ? 'selected' : ''}>Dùng DNS cục bộ (Cổng 5335)</option>
+                    </select>
+                </div>
+
+                <!-- Máy chủ DNS chống ô nhiễm (DNS2TCP/SOCKS) -->
+                <div id="dns-field-tunnel" class="dns-input-group" style="display: ${['1','2','3'].includes(dnsMode) ? 'block' : 'none'}; margin-top:15px;">
+                    <label class="ssr-label">Máy chủ DNS chống ô nhiễm</label>
+                    ${renderDnsCombo('set-tunnel-dns', tunnelPresets, g.tunnel_dns_raw || '8.8.4.4:53')}
+                    <div class="ssr-help-text" style="font-size:11px; color:var(--ssr-cyan); margin-top:5px;">
+                        <span style="color:#3182ce;">ℹ️</span> Định dạng: <b>IP:PORT</b> (Mặc định: 8.8.4.4:53)
+                    </div>
+                </div>
+
+                <!-- Máy chủ DNS chống ô nhiễm (MOSDNS) -->
+                <div id="dns-field-mosdns" class="dns-input-group" style="display: ${dnsMode === '4' ? 'block' : 'none'}; margin-top:15px;">
+                    <label class="ssr-label">Máy chủ DNS chống ô nhiễm</label>
+                    ${renderDnsCombo('set-mosdns-dns', mosdnsPresets, g.tunnel_forward_mosdns || 'tcp://8.8.4.4:53')}
+                    <div class="ssr-form-group" style="margin-top: 10px; display: flex; align-items: center;">
+                        <input type="checkbox" id="set-mosdns-ipv6" ${g.mosdns_ipv6 === '1' ? 'checked' : ''} style="width: 16px; height: 16px; margin-right: 10px;">
+                        <label for="set-mosdns-ipv6" class="ssr-label" style="margin: 0; cursor: pointer;">Chặn IPv6 trong chế độ MOSDNS</label>
+                    </div>
+                    <div class="ssr-help-text" style="font-size:11px; color:var(--ssr-cyan); margin-top:5px;">
+                        <span style="color:#3182ce;">ℹ️</span> Định dạng: <b>tcp://IP:PORT</b> hoặc <b>tls://DOMAIN:PORT</b>
+                    </div>
+                </div>
+
+                <!-- Máy chủ DNS chống ô nhiễm (ChinaDNS-NG) -->
+                <div id="dns-field-chinadns" class="dns-input-group" style="display: ${dnsMode === '6' ? 'block' : 'none'}; margin-top:15px;">
                     <div class="ssr-form-group">
-                        <label class="ssr-label">🔍 Chế độ phân giải DNS</label>
-                        <select id="set-dns-mode" class="ssr-select">
-                            <option value="1" ${g.dns_mode === '1' ? 'selected' : ''}>Sử dụng PDNSD</option>
-                            <option value="2" ${g.dns_mode === '2' ? 'selected' : ''}>Sử dụng DNS2SOCKS</option>
-                            <option value="3" ${g.dns_mode === '3' ? 'selected' : ''}>Sử dụng DNS-HTTPS (DoH)</option>
-                            <option value="4" ${g.dns_mode === '4' ? 'selected' : ''}>Sử dụng MOSDNS</option>
-                            <option value="6" ${g.dns_mode === '6' ? 'selected' : ''}>Sử dụng ChinaDNS-NG</option>
+                        <label class="ssr-label">Máy chủ DNS chống ô nhiễm</label>
+                        ${renderDnsCombo('set-chinadns-dns', chinadnsPresets, g.chinadns_ng_tunnel_forward || '8.8.4.4')}
+                    </div>
+                    <div class="ssr-form-group" style="margin-top:10px;">
+                        <label class="ssr-label">Giao thức truy vấn ChinaDNS-NG</label>
+                        <select id="set-chinadns-proto" class="ssr-select">
+                            <option value="none" ${g.chinadns_ng_proto === 'none' ? 'selected' : ''}>UDP/TCP</option>
+                            <option value="tcp" ${g.chinadns_ng_proto === 'tcp' ? 'selected' : ''}>Chỉ TCP</option>
+                            <option value="udp" ${g.chinadns_ng_proto === 'udp' ? 'selected' : ''}>Chỉ UDP</option>
+                            <option value="tls" ${g.chinadns_ng_proto === 'tls' ? 'selected' : ''}>DoT (Yêu cầu wolfssl)</option>
                         </select>
                     </div>
+                </div>
 
-                    <div class="ssr-form-group ssr-grid-full">
-                        <label class="ssr-label">🔒 DNS chống ô nhiễm</label>
-                        <div class="ssr-dns-container">
-                            <select id="set-dns-preset" class="ssr-select" onchange="SSRPlusModule.onDnsPresetChange()">
-                                ${this.DNS_PRESETS.map(p => {
-                                    const isMatch = (currentDns === p.value || currentDns.includes(p.value));
-                                    return `<option value="${p.value}" ${isMatch ? 'selected' : ''}>${p.label}</option>`;
-                                }).join('')}
-                            </select>
-                            <div id="dns-custom-box" style="display: ${isPreset ? 'none' : 'block'}; margin-top: 10px;">
-                                <input type="text" id="set-tunnel-dns" class="ssr-input" value="${currentDns}" placeholder="Nhập IP DNS (ví dụ: 8.8.4.4)">
-                            </div>
-                            <input type="hidden" id="set-tunnel-dns-raw" value="${g.tunnel_dns_raw || ''}">
+                <!-- Máy chủ DNS trong nước -->
+                <div id="dns-field-domestic" class="dns-input-group" style="display: ${runMode === 'router' && !['4','0'].includes(dnsMode) ? 'block' : 'none'}; margin-top:15px; border-top: 1px solid var(--ssr-glass-border); padding-top: 15px;">
+                    <div class="ssr-form-group">
+                        <label class="ssr-label">Máy chủ DNS trong nước</label>
+                        <input type="text" id="set-domestic-dns" class="ssr-input" value="${g.chinadns_forward || ''}" placeholder="Mặc định: Tự động từ WAN">
+                        <div class="ssr-help-text" style="font-size:11px; color:var(--ssr-cyan); margin-top:5px;">
+                            ℹ️ Định dạng: <b>IP:PORT</b> (Để trống để dùng DNS mặc định)
                         </div>
                     </div>
                 </div>
@@ -394,7 +506,7 @@ const SSRPlusModule = {
 
             <div class="ssr-actions">
                 <button class="ssr-btn ssr-btn-primary" onclick="SSRPlusModule.saveConfig()">
-                    💾 Lưu cài đặt & Khởi động lại
+                    💾 Lưu cài đặt &amp; Khởi động lại
                 </button>
             </div>
         `;
@@ -685,7 +797,7 @@ const SSRPlusModule = {
     },
 
     quickSwitch: function (id, alias) {
-        if (id === this.data.global.main_server) return;
+        if (id === this.data.global.global_server) return;
         
         // UI Feedback
         const cards = document.querySelectorAll('.ssr-node-card');
@@ -805,16 +917,54 @@ const SSRPlusModule = {
         });
     },
 
-    onDnsPresetChange: function () {
-        const preset = document.getElementById('set-dns-preset').value;
-        const customBox = document.getElementById('dns-custom-box');
-        const input = document.getElementById('set-tunnel-dns');
+    onDnsComboChange: function (id) {
+        const preset = document.getElementById(id + '-preset').value;
+        const customBox = document.getElementById(id + '-custom-box');
+        const input = document.getElementById(id);
 
         if (preset === "__custom__") {
             customBox.style.display = "block";
-        } else {
+            input.focus();
+        } else if (preset !== "") {
             customBox.style.display = "none";
             input.value = preset;
+        } else {
+            customBox.style.display = "block";
+        }
+    },
+
+    toggleDnsFields: function () {
+        const dnsMode = document.getElementById('set-dns-mode')?.value;
+        const runMode = document.getElementById('set-run-mode')?.value;
+        const dports = document.getElementById('set-dports')?.value;
+
+        // 1. Logic ẩn hiện Cổng tùy chỉnh
+        const boxCustomPorts = document.getElementById('dns-field-custom-ports');
+        if (boxCustomPorts) boxCustomPorts.style.display = (dports === '3' ? 'block' : 'none');
+
+        // 2. Logic ẩn hiện DNS Upstream (Anti-pollution)
+        const boxTunnel = document.getElementById('dns-field-tunnel');
+        const boxMosdns = document.getElementById('dns-field-mosdns');
+        const boxChinadns = document.getElementById('dns-field-chinadns');
+
+        if (boxTunnel) boxTunnel.style.display = 'none';
+        if (boxMosdns) boxMosdns.style.display = 'none';
+        if (boxChinadns) boxChinadns.style.display = 'none';
+
+        if (['1', '2', '3'].includes(dnsMode)) {
+            if (boxTunnel) boxTunnel.style.display = 'block';
+        } else if (dnsMode === '4') {
+            if (boxMosdns) boxMosdns.style.display = 'block';
+        } else if (dnsMode === '6') {
+            if (boxChinadns) boxChinadns.style.display = 'block';
+        }
+
+        // 3. Logic ẩn hiện DNS trong nước (Domestic DNS) - KHỚP 100% LUCI
+        // Chỉ hiện khi Running Mode là 'router' VÀ DNS Mode KHÔNG PHẢI MOSDNS (4) hay Local DNS (0)
+        const boxDomestic = document.getElementById('dns-field-domestic');
+        if (boxDomestic) {
+            const shouldShow = (runMode === 'router' && !['4', '0'].includes(dnsMode));
+            boxDomestic.style.display = (shouldShow ? 'block' : 'none');
         }
     },
 
@@ -831,16 +981,23 @@ const SSRPlusModule = {
         const fields = {
             'set-main-server': 'server',
             'set-udp-server': 'udp',
+            'set-netflix-server': 'netflix_server',
             'set-run-mode': 'mode',
             'set-threads': 'threads',
             'set-dports': 'dports',
+            'set-custom-ports': 'custom_ports',
             'set-dns-mode': 'dns_mode',
-            'set-tunnel-dns': 'tunnel'
+            'set-tunnel-dns': 'tunnel',
+            'set-mosdns-dns': 'tunnel_mosdns',
+            'set-chinadns-dns': 'tunnel_chinadns'
         };
         Object.entries(fields).forEach(([elId, param]) => {
             const el = document.getElementById(elId);
             if (el) p.append(param, el.value);
         });
+
+        p.append('monitor', document.getElementById('set-monitor')?.checked ? '1' : '0');
+        p.append('shunt_dns', document.getElementById('set-shunt-dns')?.checked ? '1' : '0');
 
 
 
@@ -959,6 +1116,27 @@ const SSRPlusModule = {
         if (this.logInterval) {
             clearInterval(this.logInterval);
             this.logInterval = null;
+        }
+    },
+
+    toggleDnsFields: function () {
+        const mode = document.getElementById('set-dns-mode').value;
+        const runMode = document.getElementById('set-run-mode').value;
+        const fieldTunnel = document.getElementById('dns-field-tunnel');
+        const fieldMosdns = document.getElementById('dns-field-mosdns');
+        const fieldChinadns = document.getElementById('dns-field-chinadns');
+        const fieldDomestic = document.getElementById('dns-field-domestic');
+
+        // 1. Logic ẩn hiện Anti-pollution
+        if (fieldTunnel) fieldTunnel.style.display = (['1', '2', '3'].includes(mode) ? 'block' : 'none');
+        if (fieldMosdns) fieldMosdns.style.display = (mode === '4' ? 'block' : 'none');
+        if (fieldChinadns) fieldChinadns.style.display = (mode === '6' ? 'block' : 'none');
+
+        // 2. Logic ẩn hiện Máy chủ DNS trong nước (Y chang LuCI)
+        // Hiện khi run_mode = "router" VÀ pdnsd_enable thuộc {1, 2, 3, 5, 6} (Trừ 4 và 0)
+        if (fieldDomestic) {
+            const shouldShowDomestic = (runMode === 'router' && !['4', '0'].includes(mode));
+            fieldDomestic.style.display = shouldShowDomestic ? 'block' : 'none';
         }
     }
 };
