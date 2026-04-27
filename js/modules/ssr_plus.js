@@ -529,12 +529,6 @@ const SSRPlusModule = {
             <div class="ssr-panel" style="margin-bottom: 20px;">
                 <div class="ssr-panel-title"><span class="ssr-icon">🔍</span> Sniffing — Kiểm soát đánh hơi gói tin</div>
                 
-                <div class="ssr-help-text" style="color: var(--ssr-cyan); margin-bottom: 18px; background: rgba(0,243,255,0.05); padding: 12px 14px; border-radius: 10px; line-height: 1.7; font-size: 12px;">
-                    <b>💡 Dành cho Hack Data:</b><br>
-                    • Inbound Sniffing cần <b style="color:#48bb78;">BẬT</b> để Proxy biết tên miền mà định tuyến.<br>
-                    • Outbound Sniffing nên <b style="color:#f56565;">TẮT</b> để không ghi đè SNI giả mạo.<br>
-                    • Thêm tên miền vào <b>Loại trừ</b> nếu App bị lỗi (VD: Zalo, Apple Push).
-                </div>
 
                 <div class="ssr-inline-row" style="margin-bottom: 15px;">
                     <div>
