@@ -67,17 +67,12 @@ if action == "get_info" then
         enable = g.enable_switch or "0",
         main_server = g.global_server or "nil",
         udp_server = g.udp_relay_server or "same",
-        netflix_server = g.netflix_server or "nil",
         run_mode = g.run_mode or "all",
-        prefer_nft = g.prefer_nft or "1",
         dns_mode = dns_mode,
         tunnel_dns = format_dns_for_display(tunnel_dns),
         tunnel_dns_raw = tunnel_dns,
-        chinadns_forward = g.chinadns_forward or "",
         threads = g.threads or "0",
         dports = g.dports or "1",
-        custom_ports = g.custom_ports or "",
-        netflix_proxy = g.netflix_proxy or "0",
         -- Thêm thông tin thời gian vào data trả về
         time_server = g.time_server or "",
         time_startup = g.time_startup or "0",
@@ -499,23 +494,21 @@ elseif action == "save_config" or action == "set_server" then
         vwrth.uci_set("shadowsocksr", sid, "udp_relay_server", target_id)
     end
     if params.enable then vwrth.uci_set("shadowsocksr", sid, "enable_switch", params.enable) end
-    if params.main_server then vwrth.uci_set("shadowsocksr", sid, "global_server", params.main_server) end
-    if params.udp_server then vwrth.uci_set("shadowsocksr", sid, "udp_relay_server", params.udp_server) end
-    if params.netflix_server then vwrth.uci_set("shadowsocksr", sid, "netflix_server", params.netflix_server) end
-    if params.run_mode then vwrth.uci_set("shadowsocksr", sid, "run_mode", params.run_mode) end
-    if params.prefer_nft then vwrth.uci_set("shadowsocksr", sid, "prefer_nft", params.prefer_nft) end
+    if params.mode then vwrth.uci_set("shadowsocksr", sid, "run_mode", params.mode) end
+    if params.udp then vwrth.uci_set("shadowsocksr", sid, "udp_relay_server", params.udp) end
+    
+    -- Các tham số Cài đặt chung 
     if params.threads then vwrth.uci_set("shadowsocksr", sid, "threads", params.threads) end
     if params.dports then vwrth.uci_set("shadowsocksr", sid, "dports", params.dports) end
-    if params.custom_ports then vwrth.uci_set("shadowsocksr", sid, "custom_ports", params.custom_ports) end
-    if params.netflix_proxy then vwrth.uci_set("shadowsocksr", sid, "netflix_proxy", params.netflix_proxy) end
-    if params.chinadns_forward then vwrth.uci_set("shadowsocksr", sid, "chinadns_forward", params.chinadns_forward) end
-
-    -- DNS Logic chuẩn LuCI
+    
+    -- DNS Logic chuẩn LuCI (bảo toàn format gốc)
     if params.dns_mode then
         vwrth.uci_set("shadowsocksr", sid, "pdnsd_enable", params.dns_mode)
-        if params.tunnel_dns and params.tunnel_dns ~= "" then
-            local dns_val = params.tunnel_dns
+        if params.tunnel and params.tunnel ~= "" then
+            -- Khôi phục format chuẩn LuCI nếu người dùng chỉ nhập IP thô
+            local dns_val = params.tunnel
             if params.dns_mode == "4" then
+                -- MOSDNS cần format: tcp://IP:53,tcp://IP:53
                 if not dns_val:find("tcp://") then
                     local parts = {}
                     for ip in dns_val:gmatch("([^,%s]+)") do
@@ -525,8 +518,11 @@ elseif action == "save_config" or action == "set_server" then
                     dns_val = table.concat(parts, ",")
                 end
                 vwrth.uci_set("shadowsocksr", sid, "tunnel_forward_mosdns", dns_val)
-            elseif params.dns_mode == "1" or params.dns_mode == "2" then
-                if not dns_val:find(":") then dns_val = dns_val .. ":53" end
+            elseif params.dns_mode == "1" or params.dns_mode == "2" or params.dns_mode == "3" then
+                -- PDNSD/DNS2SOCKS/DoH cần format: IP:53
+                if not dns_val:find(":") then
+                    dns_val = dns_val .. ":53"
+                end
                 vwrth.uci_set("shadowsocksr", sid, "tunnel_forward", dns_val)
             elseif params.dns_mode == "5" then
                 vwrth.uci_set("shadowsocksr", sid, "dnsproxy_tunnel_forward", dns_val)
