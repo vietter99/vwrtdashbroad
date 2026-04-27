@@ -11,9 +11,41 @@ const SSRPlusModule = {
     ],
 
     init: function () {
-        this.fetchData();
-        // Cập nhật giờ mỗi 2 giây
-        setInterval(() => this.fetchTime(), 2000);
+        // Nếu không có container nhúng thì coi như là chạy dạng Modal
+        const c = document.getElementById('ssr-module-content');
+        if (c) {
+            this.fetchData();
+            // Cập nhật giờ mỗi 2 giây
+            setInterval(() => this.fetchTime(), 2000);
+        }
+    },
+
+    showModal: function () {
+        Modal.show({
+            title: "🚀 SSR Plus+ Dashboard",
+            content: `<div id="ssr-module-content" class="ssr-module-container" style="min-height: 500px; max-height: 85vh; overflow-y: auto; padding: 10px;">
+                        <div style="text-align:center; padding:50px; color:var(--text-sub);">
+                            <div class="ssr-loading-spinner" style="margin-bottom:15px;"></div>
+                            Đang tải cấu hình...
+                        </div>
+                      </div>`,
+            showConfirm: false,
+            showCancel: false,
+            width: '1000px'
+        });
+        
+        // Sau khi modal hiện lên, bắt đầu lấy dữ liệu và render
+        setTimeout(() => {
+            this.fetchData();
+            // Cập nhật giờ (chỉ khi modal còn mở)
+            const timeTimer = setInterval(() => {
+                if (!document.getElementById('ssr-module-content')) {
+                    clearInterval(timeTimer);
+                    return;
+                }
+                this.fetchTime();
+            }, 2000);
+        }, 100);
     },
 
     fetchData: function () {
