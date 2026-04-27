@@ -489,7 +489,7 @@ const SSRPlusModule = {
                 </div>
 
                 <!-- Máy chủ DNS trong nước -->
-                <div id="dns-field-domestic" class="dns-input-group" style="display: ${runMode === 'router' && !['4','0'].includes(dnsMode) ? 'block' : 'none'}; margin-top:15px; border-top: 1px solid var(--ssr-glass-border); padding-top: 15px;">
+                <div id="dns-field-domestic" class="dns-input-group" style="display: ${(runMode === 'router' && !['4','0'].includes(dnsMode) && g.has_chinadns_ng === true) ? 'block' : 'none'}; margin-top:15px; border-top: 1px solid var(--ssr-glass-border); padding-top: 15px;">
                     <div class="ssr-form-group">
                         <label class="ssr-label">Máy chủ DNS trong nước</label>
                         <input type="text" id="set-domestic-dns" class="ssr-input" value="${g.chinadns_forward || ''}" placeholder="Mặc định: Tự động từ WAN">
@@ -956,10 +956,10 @@ const SSRPlusModule = {
         }
 
         // 3. Logic ẩn hiện DNS trong nước (Domestic DNS) - KHỚP 100% LUCI
-        // Chỉ hiện khi Running Mode là 'router' VÀ DNS Mode KHÔNG PHẢI MOSDNS (4) hay Local DNS (0)
         const boxDomestic = document.getElementById('dns-field-domestic');
         if (boxDomestic) {
-            const shouldShow = (runMode === 'router' && !['4', '0'].includes(dnsMode));
+            const hasChinaDNS = this.data.global.has_chinadns_ng === true;
+            const shouldShow = (runMode === 'router' && !['4', '0'].includes(dnsMode) && hasChinaDNS);
             boxDomestic.style.display = (shouldShow ? 'block' : 'none');
         }
     },
