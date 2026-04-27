@@ -77,7 +77,6 @@ if action == "get_info" then
         tunnel_dns = format_dns_for_display(tunnel_dns),
         tunnel_dns_raw = tunnel_dns,
         threads = g.threads or "0",
-        mosdns_ipv6 = g.mosdns_ipv6 or "1",
         dports = g.dports or "1",
         custom_ports = g.custom_ports or "",
         tunnel_forward_mosdns = g.tunnel_forward_mosdns or "",
@@ -523,7 +522,6 @@ elseif action == "save_config" or action == "set_server" then
     -- DNS Logic (Khớp với UI mới)
     if params.dns_mode then
         vwrth.uci_set("shadowsocksr", sid, "pdnsd_enable", params.dns_mode)
-        if params.mosdns_ipv6 then vwrth.uci_set("shadowsocksr", sid, "mosdns_ipv6", params.mosdns_ipv6) end
         if params.dns_mode == "4" and params.tunnel_mosdns then
             vwrth.uci_set("shadowsocksr", sid, "tunnel_forward_mosdns", params.tunnel_mosdns)
         elseif params.dns_mode == "6" and params.tunnel_chinadns then
