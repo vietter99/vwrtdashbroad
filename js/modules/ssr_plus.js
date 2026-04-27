@@ -544,7 +544,7 @@ const SSRPlusModule = {
                 <div class="ssr-inline-row" style="margin-bottom: 15px;">
                     <div>
                         <div class="ssr-label">📤 Outbound Sniffing</div>
-                        <div style="font-size:11px; color:var(--text-sub); margin-top:4px;">Cửa ngõ gửi dữ liệu ra ngoài — Nên TẮT khi Hack Data</div>
+                        <div style="font-size:11px; color:var(--text-sub); margin-top:4px;">Cửa ngõ gửi dữ liệu ra ngoài — Nên TẮT</div>
                     </div>
                     <label class="ssr-switch-toggle">
                         <input type="checkbox" id="set-sniff-outbound" ${sniff.outbound === '1' ? 'checked' : ''} onchange="document.getElementById('sniff-excluded-box').style.display = this.checked ? 'block' : 'none'">
